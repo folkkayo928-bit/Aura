@@ -65,7 +65,8 @@ const TelegramWebAppBridge: React.FC = () => {
         body: JSON.stringify({ initData: tg.initData }),
       }).catch(() => undefined);
     }
-  }, [setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
+  // The Telegram SDK object is stable for the lifetime of the Mini App.
+  }, []);
 
   return null;
 };
