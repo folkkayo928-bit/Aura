@@ -67,7 +67,7 @@ interface AppContextType {
   sellArtworkP2PModal: Artwork | null;
   setSellArtworkP2PModal: (artwork: Artwork | null) => void;
   userProfile: UserProfile;
-  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
   vaultAddresses: Web3VaultAddresses;
   connectedWallets: ConnectedExternalWallet[];
   connectExternalWallet: (name: ConnectedExternalWallet['name'], network: CryptoNetwork) => void;
@@ -566,23 +566,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { cancelled = true; };
   }, [user]);
 
-  const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUserProfile((prev) => ({ ...prev, ...updates }));
+  const updateUserProfile = async (updates: Partial<UserProfile>): Promise<boolean> => {
     if (user) {
-      void supabase.from('profiles').update({
-        display_name: updates.name,
-        handle: updates.telegramHandle,
-        bio: updates.bio,
-        avatar_url: updates.avatar,
-        cover_url: updates.coverImage,
-        default_currency: updates.defaultCurrency,
-        notifications_enabled: updates.notificationsEnabled,
-        telegram_bot_alerts: updates.telegramBotAlerts,
-        two_factor_enabled: updates.twoFactorEnabled,
-        biometric_auth: updates.biometricAuth,
-      }).eq('id', user.id);
+      const patch: Record<string, unknown> = {};
+      if (updates.name !== undefined) patch.display_name = updates.name.trim();
+      if (updates.telegramHandle !== undefined) patch.handle = updates.telegramHandle.trim();
+      if (updates.bio !== undefined) patch.bio = updates.bio.trim();
+      if (updates.avatar !== undefined) patch.avatar_url = updates.avatar;
+      if (updates.coverImage !== undefined) patch.cover_url = updates.coverImage;
+      if (updates.defaultCurrency !== undefined) patch.default_currency = updates.defaultCurrency;
+      if (updates.notificationsEnabled !== undefined) patch.notifications_enabled = updates.notificationsEnabled;
+      if (updates.telegramBotAlerts !== undefined) patch.telegram_bot_alerts = updates.telegramBotAlerts;
+      if (updates.twoFactorEnabled !== undefined) patch.two_factor_enabled = updates.twoFactorEnabled;
+      if (updates.biometricAuth !== undefined) patch.biometric_auth = updates.biometricAuth;
+
+      const { error } = await supabase.from('profiles').update(patch).eq('id', user.id);
+      if (error) {
+        addNotification('Profile Update Failed', error.message.includes('duplicate') ? 'That AURA handle is already taken.' : error.message, 'community');
+        return false;
+      }
     }
+
+    setUserProfile((prev) => ({ ...prev, ...updates }));
     addNotification('Settings Updated', 'Your profile and preferences were saved.', 'community');
+    return true;
   };
 
   const addNotification = (title: string, message: string, type: TelegramNotification['type']) => {
