@@ -1161,7 +1161,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     const uiOrder = backendP2POrderToUi(enriched);
     setActiveP2POrder(uiOrder);
-    addNotification('🔒 AURA Trade Hold Created', `${cryptoAmount} USDT is reserved until the trade completes or is cancelled.`, 'p2p');
+    setP2pOffers(prev => prev
+      .map(o => o.id === offer.id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - cryptoAmount) } : o)
+      .filter(o => o.availableCrypto > 0));
+    const isArtworkTrade = Boolean(orderRow.artwork_id || offer.artworkId);
+    addNotification(
+      isArtworkTrade ? '🔒 Artwork P2P Trade Opened' : '🔒 AURA Trade Hold Created',
+      isArtworkTrade
+        ? 'Payment is handled through the listed fiat method. AURA transfers the artwork only after the seller confirms payment.'
+        : `${cryptoAmount} USDT is reserved until the trade completes or is cancelled.`,
+      'p2p'
+    );
     return uiOrder;
   };
 
@@ -1186,7 +1196,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     const row = data as any;
+    const isArtworkTrade = Boolean(row.artwork_id);
     setActiveP2POrder(null);
+    setP2pOffers(prev => prev.filter(o => o.id !== row.offer_id));
+
+    if (isArtworkTrade) {
+      const becameOwner = row.buyer_id === user.id;
+      setArtworks(prev => prev.map(a => a.id === row.artwork_id ? {
+        ...a,
+        isOwned: becameOwner,
+        purchasePrice: becameOwner ? Number(row.fiat_amount || 0) : a.purchasePrice,
+        isListedOnP2P: false,
+      } : a));
+      addNotification(
+        '✅ Artwork P2P Trade Completed',
+        becameOwner
+          ? 'Artwork ownership is now in your AURA collection.'
+          : 'The artwork was transferred to the buyer after payment was confirmed.',
+        'p2p'
+      );
+      return;
+    }
+
     const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
     if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
     const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
@@ -1201,9 +1232,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification('P2P Cancel Failed', error?.message || 'Could not cancel this order.', 'p2p');
       return;
     }
+    const row = data as any;
+    const isArtworkTrade = Boolean(row.artwork_id);
     setActiveP2POrder(null);
+
+    if (isArtworkTrade) {
+      const offerRes = await supabase.from('p2p_offers')
+        .select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)')
+        .eq('id', row.offer_id)
+        .maybeSingle();
+      if (offerRes.data) {
+        const restored = backendP2POfferToUi(offerRes.data as any);
+        setP2pOffers(prev => [restored, ...prev.filter(o => o.id !== restored.id)]);
+      }
+      addNotification('P2P Artwork Order Cancelled', 'The artwork remains with the seller and is available again in the P2P desk.', 'p2p');
+      return;
+    }
+
     const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
     if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    const offerRes = await supabase.from('p2p_offers')
+      .select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)')
+      .eq('id', row.offer_id)
+      .maybeSingle();
+    if (offerRes.data) {
+      const restored = backendP2POfferToUi(offerRes.data as any);
+      setP2pOffers(prev => [restored, ...prev.filter(o => o.id !== restored.id)]);
+    }
+    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
     addNotification('P2P Order Cancelled', 'Held USDT was returned to the seller balance.', 'p2p');
   };
 
