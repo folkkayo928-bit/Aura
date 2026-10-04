@@ -261,12 +261,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
                       <div className="grid grid-cols-2 gap-2 p-2 rounded-xl bg-white/[0.02] border border-white/5 text-[11px]">
                         <div>
                           <span className="text-stone-400 block">Acquired:</span>
-                          <span className="font-mono text-stone-300">\${boughtFor} USDT</span>
+                          <span className="font-mono text-stone-300">${boughtFor} USDT</span>
                         </div>
                         <div>
                           <span className="text-stone-400 block">Current Value:</span>
                           <span className="font-mono text-amber-300 font-semibold">
-                            \${currentVal} USDT
+                            ${currentVal} USDT
                           </span>
                         </div>
                       </div>
@@ -293,7 +293,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
                         <button
                           onClick={() => setSellArtworkP2PModal(artwork)}
-                          className={`flex-1 py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 transition-colors \${
+                          className={`flex-1 py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
                             artwork.isListedOnP2P
                               ? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
                               : 'bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
