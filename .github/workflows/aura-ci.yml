@@ -1,5 +1,6 @@
 name: AURA CI
 # Main-branch verification workflow
+# Keep this workflow on main so every production change is typechecked and built.
 
 on:
   push:
