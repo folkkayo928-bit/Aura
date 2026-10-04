@@ -62,6 +62,10 @@ export default async (req) => {
       return Response.json({ ok: true, bot: '@myaura1_bot', configured: false, tokenConfigured: false, appUrlConfigured: Boolean(appUrl) });
     }
     try {
+      // A health check is also a safe, idempotent bootstrap for the real bot.
+      // This matters because Netlify environment variables may be available to
+      // Functions but not to the build scope, so build-time setup can be skipped.
+      await configureTelegram();
       const me = await telegram('getMe', {});
       const webhook = await telegram('getWebhookInfo', {});
       return Response.json({
