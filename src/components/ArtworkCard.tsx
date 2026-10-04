@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { Artwork } from '../types';
 import { ArtworkCanvas } from './ArtworkCanvas';
-import { Heart, Flame, Bookmark, Sparkles, CheckCircle2, ShoppingBag, Star } from 'lucide-react';
+import { Heart, Flame, Bookmark, Sparkles, CheckCircle2, ShoppingBag, Star, ThumbsDown } from 'lucide-react';
 
 interface ArtworkCardProps {
   artwork: Artwork;
@@ -12,6 +12,7 @@ interface ArtworkCardProps {
 export const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, onOpenDetail }) => {
   const {
     toggleLike,
+    toggleDislike,
     toggleLove,
     toggleSave,
     toggleWatchlist,
@@ -162,6 +163,18 @@ export const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, onOpenDetail 
             />
             <span className="font-mono tabular-nums text-[11px] text-stone-400">
               {artwork.likes}
+            </span>
+          </button>
+
+          {/* Dislike Button */}
+          <button
+            onClick={() => toggleDislike(artwork.id)}
+            className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-100 min-h-[44px] transition-colors group/btn"
+            aria-label="Dislike"
+          >
+            <ThumbsDown className={`w-4 h-4 transition-transform group-hover/btn:scale-110 ${artwork.isDisliked ? 'fill-stone-300 text-stone-300' : 'text-stone-400'}`} />
+            <span className="font-mono tabular-nums text-[11px] text-stone-400">
+              {artwork.dislikes}
             </span>
           </button>
 
