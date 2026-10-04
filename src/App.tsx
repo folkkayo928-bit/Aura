@@ -56,7 +56,7 @@ const TelegramWebAppBridge: React.FC = () => {
       updateUserProfile({ ...(fullName ? { name: fullName } : {}), ...(user.username ? { telegramHandle: `@${user.username}` } : {}) });
     }
     if (tg.initData) fetch('/api/telegram/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({initData:tg.initData}) }).catch(()=>undefined);
-  }, [setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
+  }, []);
   return null;
 };
 
