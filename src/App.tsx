@@ -42,6 +42,24 @@ import { CollectionHubModal } from './components/marketplace/CollectionHubModal'
 import { MakeOfferModal } from './components/marketplace/MakeOfferModal';
 import { X } from 'lucide-react';
 
+const TelegramWebAppBridge: React.FC = () => {
+  const { setIsTelegramShellMode, setTelegramViewMode, updateUserProfile } = useApp();
+  React.useEffect(() => {
+    const tg = (window as any).Telegram?.WebApp;
+    if (!tg) return;
+    tg.ready(); tg.expand(); tg.enableClosingConfirmation?.();
+    tg.setHeaderColor?.('#101017'); tg.setBackgroundColor?.('#09090d');
+    setIsTelegramShellMode(true); setTelegramViewMode('miniapp');
+    const user = tg.initDataUnsafe?.user;
+    if (user) {
+      const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+      updateUserProfile({ ...(fullName ? { name: fullName } : {}), ...(user.username ? { telegramHandle: `@${user.username}` } : {}) });
+    }
+    if (tg.initData) fetch('/api/telegram/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({initData:tg.initData}) }).catch(()=>undefined);
+  }, [setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
+  return null;
+};
+
 const AppContent: React.FC = () => {
   const {
     activeTab,
@@ -70,7 +88,9 @@ const AppContent: React.FC = () => {
   const [createP2POfferOpen, setCreateP2POfferOpen] = useState(false);
 
   return (
-    <TelegramFrame>
+    <>
+      <TelegramWebAppBridge />
+      <TelegramFrame>
       {/* Real-time simulated Telegram Bot Notification Dropdown */}
       <TelegramNotificationToast />
 
@@ -211,7 +231,8 @@ const AppContent: React.FC = () => {
           onClose={() => setSellArtworkP2PModal(null)}
         />
       )}
-    </TelegramFrame>
+      </TelegramFrame>
+    </>
   );
 };
 
