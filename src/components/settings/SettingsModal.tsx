@@ -66,9 +66,9 @@ export const SettingsModal: React.FC = () => {
 
   if (!settingsModalOpen) return null;
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUserProfile({
+    const saved = await updateUserProfile({
       name: name.trim(),
       telegramHandle: telegramHandle.trim(),
       bio: bio.trim(),
@@ -79,7 +79,7 @@ export const SettingsModal: React.FC = () => {
       twoFactorEnabled,
       biometricAuth,
     });
-    setSettingsModalOpen(false);
+    if (saved) setSettingsModalOpen(false);
   };
 
   return (
