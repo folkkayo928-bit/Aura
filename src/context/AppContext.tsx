@@ -481,60 +481,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleLike = (artworkId: string) => {
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artworkId) {
-          const isLiked = !art.isLiked;
-          const nextLikes = isLiked ? art.likes + 1 : art.likes - 1;
-          const nextInteractions = isLiked ? art.eligibleInteractions + 1 : art.eligibleInteractions;
-          return {
-            ...art,
-            isLiked,
-            likes: Math.max(0, nextLikes),
-            eligibleInteractions: nextInteractions,
-          };
-        }
-        return art;
-      })
-    );
+    const artwork = artworks.find((art) => art.id === artworkId);
+    if (!artwork) return;
+    const nextLiked = !artwork.isLiked;
+    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
+      ...art, isLiked: nextLiked,
+      likes: Math.max(0, nextLiked ? art.likes + 1 : art.likes - 1),
+      eligibleInteractions: nextLiked ? art.eligibleInteractions + 1 : art.eligibleInteractions,
+    } : art));
+    addNotification(nextLiked ? '❤️ Added to Favorites' : '↩️ Like Removed',
+      nextLiked ? `You liked "${artwork.title}".` : `Your like for "${artwork.title}" was removed.`, 'value_surge');
   };
 
   const toggleLove = (artworkId: string) => {
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artworkId) {
-          const isLoved = !art.isLoved;
-          const nextLoves = isLoved ? art.loves + 1 : art.loves - 1;
-          const nextInteractions = isLoved ? art.eligibleInteractions + 2 : art.eligibleInteractions;
-          return {
-            ...art,
-            isLoved,
-            loves: Math.max(0, nextLoves),
-            eligibleInteractions: nextInteractions,
-          };
-        }
-        return art;
-      })
-    );
+    const artwork = artworks.find((art) => art.id === artworkId);
+    if (!artwork) return;
+    const nextLoved = !artwork.isLoved;
+    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
+      ...art, isLoved: nextLoved,
+      loves: Math.max(0, nextLoved ? art.loves + 1 : art.loves - 1),
+      eligibleInteractions: nextLoved ? art.eligibleInteractions + 2 : art.eligibleInteractions,
+    } : art));
+    addNotification(nextLoved ? '💛 Added to Love List' : '↩️ Love Removed',
+      nextLoved ? `"${artwork.title}" is now in your Love List.` : `"${artwork.title}" was removed from your Love List.`, 'value_surge');
   };
 
   const toggleSave = (artworkId: string) => {
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artworkId) {
-          const isSaved = !art.isSaved;
-          const nextSaves = isSaved ? art.saves + 1 : art.saves - 1;
-          const nextInteractions = isSaved ? art.eligibleInteractions + 1 : art.eligibleInteractions;
-          return {
-            ...art,
-            isSaved,
-            saves: Math.max(0, nextSaves),
-            eligibleInteractions: nextInteractions,
-          };
-        }
-        return art;
-      })
-    );
+    const artwork = artworks.find((art) => art.id === artworkId);
+    if (!artwork) return;
+    const nextSaved = !artwork.isSaved;
+    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
+      ...art, isSaved: nextSaved,
+      saves: Math.max(0, nextSaved ? art.saves + 1 : art.saves - 1),
+      eligibleInteractions: nextSaved ? art.eligibleInteractions + 1 : art.eligibleInteractions,
+    } : art));
+    addNotification(nextSaved ? '🔖 Saved to Your Vault' : '↩️ Removed from Saved',
+      nextSaved ? `"${artwork.title}" was saved for later.` : `"${artwork.title}" was removed from your saved works.`, 'community');
   };
 
   const toggleWatchlist = (artworkId: string) => {
@@ -609,6 +591,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return art;
       })
     );
+  };
+
+    const artwork = artworks.find((art) => art.id === artworkId);
+    if (artwork) addNotification('💬 Comment Posted', `Your comment was added to "${artwork.title}".`, 'community');
   };
 
   const collectArtwork = (artwork: Artwork): boolean => {
