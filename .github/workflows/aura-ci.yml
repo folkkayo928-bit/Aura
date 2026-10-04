@@ -1,5 +1,6 @@
 name: AURA CI
 # Main-branch verification workflow
+# Validation branch: verify current production tree after backend hardening.
 # Keep this workflow on main so every production change is typechecked and built.
 
 on:
