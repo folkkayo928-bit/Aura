@@ -1,0 +1,28 @@
+name: Bootstrap Telegram bot
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Netlify deployment and bootstrap Telegram
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://aura-3idc.netlify.app/api/telegram/health"
+          for attempt in $(seq 1 24); do
+            echo "Checking Telegram health (attempt $attempt/24)..."
+            response="$(curl -sS --max-time 20 "$url" || true)"
+            echo "$response"
+            if echo "$response" | grep -q '"tokenConfigured":true' &&                echo "$response" | grep -q '"configured":true'; then
+              echo "Telegram bot configuration is active."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Telegram bootstrap did not become healthy in time."
+          exit 1
