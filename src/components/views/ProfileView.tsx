@@ -348,6 +348,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
             )}
           </div>
         )}
+      </div>
+
       {/* CERTIFICATE OF AUTHENTICITY MODAL */}
       {selectedCertArtwork && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
