@@ -95,7 +95,7 @@ interface AppContextType {
     currency: 'USD' | 'EUR' | 'GBP';
     paymentMethods: PaymentMethodType[];
     paymentInstructions?: string;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
   uploadArtworkFile: (file: File) => Promise<string | null>;
   createArtwork: (newArt: {
     title: string;
@@ -633,13 +633,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification(
       '🎉 AURA Mini App Activated',
       options?.customNotification ||
-        'Welcome! Your Telegram Web3 Vault is active with $2,450.00 USDT test balance. Certified P2P exchange and digital art ready.',
+        'Welcome to your AURA workspace. Your profile, internal wallet, digital art collection, and P2P tools are ready.',
       'community'
     );
   };
 
   const toggleLike = (artworkId: string) => {
-    if (!user) { openAuth('signin'); return; }
+    if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
     if (!artwork) return;
     const nextLiked = !artwork.isLiked;
@@ -840,7 +840,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) { openAuth('signin'); return; }
 
     const art = artworks.find((a) => a.id === artworkId);
-    if (!art) return;
+    if (!art) return false;
 
     if (!isBackendArtworkId(artworkId) || !art.isOwned) {
       addNotification(
@@ -848,7 +848,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'Only an artwork already owned in your AURA account can be listed for P2P sale.',
         'p2p'
       );
-      return;
+      return false;
     }
 
     const { data, error } = await supabase.rpc('create_p2p_offer', {
@@ -869,7 +869,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         error?.message || 'Could not publish this artwork listing.',
         'p2p'
       );
-      return;
+      return false;
     }
 
     const localOffer: P2POffer = backendP2POfferToUi({
@@ -901,6 +901,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `"${art.title}" is now available for direct fiat purchase on the AURA P2P Desk.`,
       'p2p'
     );
+    return true;
   };
 
   const uploadArtworkFile = async (file: File): Promise<string | null> => {
