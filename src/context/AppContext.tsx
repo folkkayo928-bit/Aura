@@ -837,7 +837,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     paymentMethods: PaymentMethodType[];
     paymentInstructions?: string;
   }) => {
-    if (!user) { openAuth('signin'); return; }
+    if (!user) { openAuth('signin'); return false; }
 
     const art = artworks.find((a) => a.id === artworkId);
     if (!art) return false;
