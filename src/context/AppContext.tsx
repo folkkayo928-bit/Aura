@@ -148,6 +148,10 @@ interface AppContextType {
     offer: P2POffer;
     cryptoAmount: number;
     paymentMethod: PaymentMethodType;
+    paymentDetails?: {
+      accountName?: string;
+      accountNumberOrId?: string;
+    };
   }) => Promise<P2POrder | null>;
   markP2PPaymentSent: (orderId: string) => void;
   completeP2POrder: (orderId: string) => void;
@@ -350,6 +354,8 @@ const backendP2POrderToUi = (row: any): P2POrder => {
     id: row.id,
     offerId: row.offer_id,
     type: row.type,
+    buyerId: row.buyer_id,
+    sellerId: row.seller_id,
     merchant: backendMerchantToUi(offer.merchant),
     cryptoAmount: Number(row.crypto_amount || 0),
     fiatAmount: Number(row.fiat_amount || 0),
@@ -1107,10 +1113,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     offer,
     cryptoAmount,
     paymentMethod,
+    paymentDetails,
   }: {
     offer: P2POffer;
     cryptoAmount: number;
     paymentMethod: PaymentMethodType;
+    paymentDetails?: {
+      accountName?: string;
+      accountNumberOrId?: string;
+    };
   }): Promise<P2POrder | null> => {
     if (!user) {
       openAuth('signin');
@@ -1120,6 +1131,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       p_offer_id: offer.id,
       p_crypto_amount: cryptoAmount,
       p_payment_method: paymentMethod,
+      p_payment_details: paymentDetails || {},
     });
     if (error || !data) {
       addNotification('P2P Order Failed', error?.message || 'Could not create this trade.', 'p2p');
