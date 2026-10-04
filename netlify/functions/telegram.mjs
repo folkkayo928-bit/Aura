@@ -108,30 +108,53 @@ export default async (req) => {
     try {
       if (chatId && (text === '/start' || text.startsWith('/start ') || text === '/app')) {
         const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\/$/, '');
-        const webAppUrl = appUrl ? `${appUrl}/?v=aura-2026-10-04-1` : '';
-        const replyMarkup = webAppUrl ? { inline_keyboard: [[{ text: '🚀 Open AURA Mini App', web_app: { url: webAppUrl } }]] } : undefined;
-        const previewUrl = appUrl ? `${appUrl}/aura-bot-avatar.jpg?v=aura-2026-10-04-1` : '';
-        try {
-          if (previewUrl) {
-            await telegram('sendPhoto', {
-              chat_id: chatId,
-              photo: previewUrl,
-              caption: '✨ <b>AURA Vault</b>\n\nCollect. Create. Trade.\nYour selective digital art vault and secure P2P marketplace — inside one Mini App.',
-              parse_mode: 'HTML',
-              reply_markup: replyMarkup,
-            });
-          } else {
-            throw new Error('No preview URL configured');
-          }
-        } catch {
+        const webAppUrl = appUrl ? `${appUrl}/?v=aura-2026-10-04-2` : '';
+        const startPayload = text.startsWith('/start ') ? text.slice(7).trim() : '';
+        const isContactRequest = startPayload === 'contact';
+        const firstName = message?.from?.first_name || 'there';
+        const replyMarkup = webAppUrl
+          ? {
+              inline_keyboard: [
+                [{ text: '🚀 Open AURA', web_app: { url: webAppUrl } }],
+                [{ text: '💬 Contact Us', callback_data: 'aura_contact' }],
+              ],
+            }
+          : undefined;
+        const previewUrl = appUrl ? `${appUrl}/aura-bot-avatar.jpg?v=aura-2026-10-04-2` : '';
+
+        if (isContactRequest) {
           await telegram('sendMessage', {
             chat_id: chatId,
-            text: '✨ Welcome to AURA Vault. Collect, create, trade and manage your digital art from one secure Mini App.',
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+            text: `💬 <b>AURA Support</b>\n\nHi ${firstName} — send your question here and the AURA team can help with Mini App access, artwork, wallet, or P2P issues.\n\nPlease never send passwords, recovery phrases, private keys, or bot tokens.`,
+            parse_mode: 'HTML',
           });
+        } else {
+          try {
+            if (previewUrl) {
+              await telegram('sendPhoto', {
+                chat_id: chatId,
+                photo: previewUrl,
+                caption: `✨ <b>Welcome to AURA Vault, ${firstName}</b>\n\nCollect. Create. Trade.\n\nA selective digital art community and secure P2P marketplace — built for creators and collectors.\n\nChoose an option below to begin.`,
+                parse_mode: 'HTML',
+                reply_markup: replyMarkup,
+              });
+            } else {
+              throw new Error('No preview URL configured');
+            }
+          } catch {
+            await telegram('sendMessage', {
+              chat_id: chatId,
+              text: `✨ <b>Welcome to AURA Vault, ${firstName}</b>\n\nCollect. Create. Trade.\n\nChoose an option below to begin.`,
+              parse_mode: 'HTML',
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+            });
+          }
         }
       } else if (chatId && text === '/help') {
-        await telegram('sendMessage', { chat_id: chatId, text: 'AURA Vault commands:\n/start — open AURA\n/app — launch the Mini App\n/help — show this help' });
+        await telegram('sendMessage', {
+          chat_id: chatId,
+          text: 'AURA Vault commands:\n/start — welcome screen\n/app — launch the Mini App\n/help — show this help\n\nFor support, tap Contact Us on the welcome message.',
+        });
       }
     } catch (error) { console.error('Telegram webhook error:', error); }
     return new Response('OK');
