@@ -104,9 +104,22 @@ export default async (req) => {
     try { update = await req.json(); } catch { return new Response('OK'); }
     const message = update?.message;
     const chatId = message?.chat?.id;
+    const callbackQuery = update?.callback_query;
+    const callbackChatId = callbackQuery?.message?.chat?.id;
     const text = String(message?.text || '').trim().toLowerCase();
     try {
-      if (chatId && (text === '/start' || text.startsWith('/start ') || text === '/app')) {
+      if (callbackChatId && callbackQuery?.data === 'aura_contact') {
+        await telegram('answerCallbackQuery', {
+          callback_query_id: callbackQuery.id,
+          text: 'AURA Support is ready',
+          show_alert: false,
+        });
+        await telegram('sendMessage', {
+          chat_id: callbackChatId,
+          text: '💬 <b>AURA Support</b>\n\nTell us what you need help with — Mini App access, artwork, wallet, or P2P.\n\nPlease never send passwords, recovery phrases, private keys, or bot tokens.',
+          parse_mode: 'HTML',
+        });
+      } else if (chatId && (text === '/start' || text.startsWith('/start ') || text === '/app')) {
         const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\/$/, '');
         const webAppUrl = appUrl ? `${appUrl}/?v=aura-2026-10-04-2` : '';
         const startPayload = text.startsWith('/start ') ? text.slice(7).trim() : '';
