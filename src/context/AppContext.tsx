@@ -28,6 +28,7 @@ export interface UserProfile {
   name: string;
   telegramHandle: string;
   avatar: string;
+  coverImage: string;
   bio: string;
   vaultId: string;
   joinedDate: string;
@@ -281,6 +282,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: 'Julian Vance',
             telegramHandle: '@artcollector',
             avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+            coverImage: '',
             bio: 'Curating anime PFPs, digital fashion, and generative fine art.',
             vaultId: 'aura.tg://vance.884',
             joinedDate: 'February 2026',
@@ -295,6 +297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: 'Julian Vance',
         telegramHandle: '@artcollector',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+        coverImage: '',
         bio: 'Curating anime PFPs, digital fashion, and generative fine art.',
         vaultId: 'aura.tg://vance.884',
         joinedDate: 'February 2026',
