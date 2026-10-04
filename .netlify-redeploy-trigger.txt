@@ -1,1 +1,1 @@
-Redeploy trigger: refresh Netlify runtime environment after Telegram bot token configuration.
+Redeploy trigger: publish latest AURA P2P settlement and UI correctness fixes.
