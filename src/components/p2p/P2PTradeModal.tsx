@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { P2POffer, PaymentMethodType, P2PChatMessage } from '../../types';
 import { formatPaymentMethodLabel } from './CustomPaymentMethodInput';
 import {
@@ -32,6 +34,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     cancelP2POrder,
     walletBalance,
   } = useApp();
+  const { user } = useAuth();
 
   const [cryptoAmount, setCryptoAmount] = useState<string>('50');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType>(
@@ -53,11 +56,30 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     {
       id: 'm-merch-1',
       sender: 'merchant',
-      senderName: offer?.merchant.name || 'Verified Merchant',
+      senderName: offer?.merchant.name || 'AURA Member',
       text: 'Hello! I have verified escrow collateral locked. Please send to the matching account name below. Once sent, tap "I Have Paid" and I will release USDT in under 60 seconds.',
       timestamp: 'Just now',
     },
   ]);
+
+  useEffect(() => {
+    if (!activeP2POrder?.id || !user) return;
+    void (async () => {
+      const { data } = await supabase
+        .from('p2p_messages')
+        .select('id,text,created_at,sender_id,sender_role,sender:sender_id(display_name,handle)')
+        .eq('order_id', activeP2POrder.id)
+        .order('created_at', { ascending: true });
+      if (!data) return;
+      setMessages((data as any[]).map((m) => ({
+        id: m.id,
+        sender: m.sender_id === user.id ? 'buyer' : m.sender_role === 'system' ? 'system' : 'merchant',
+        senderName: m.sender?.display_name || m.sender?.handle || 'AURA Member',
+        text: m.text,
+        timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      })));
+    })();
+  }, [activeP2POrder?.id, user]);
 
   useEffect(() => {
     if (offer && offer.paymentMethods.length > 0) {
@@ -94,11 +116,11 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const numCrypto = parseFloat(cryptoAmount) || 0;
   const fiatTotal = numCrypto * currentOffer.pricePerUnit;
 
-  const handleStartTrade = (e: React.FormEvent) => {
+  const handleStartTrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!offer || numCrypto <= 0) return;
     try {
-      startP2POrder({
+      await startP2POrder({
         offer,
         cryptoAmount: numCrypto,
         paymentMethod: selectedMethod,
@@ -120,20 +142,14 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     };
     setMessages((prev) => [...prev, newMsg]);
     setChatInput('');
-
-    // Simulate friendly merchant reply after 2 seconds
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `chat-${Date.now() + 1}`,
-          sender: 'merchant',
-          senderName: currentOffer.merchant?.name || 'Verified Merchant',
-          text: 'Received! Checking bank notification right now.',
-          timestamp: 'Just now',
-        },
-      ]);
-    }, 2000);
+    if (user && activeP2POrder) {
+      void supabase.from('p2p_messages').insert({
+        order_id: activeP2POrder.id,
+        sender_id: user.id,
+        sender_role: user.id === activeP2POrder.merchant.id ? 'seller' : 'buyer',
+        text: chatInput.trim(),
+      });
+    }
   };
 
   const minutes = Math.floor(timeLeftSeconds / 60);
@@ -185,7 +201,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 <span className="text-stone-400">Escrow Security:</span>
                 <span className="font-mono text-emerald-400 flex items-center gap-1">
                   <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Protected ({activeP2POrder.escrowTxHash.slice(0, 10)}...)
+                  AURA ledger hold · Ref {activeP2POrder.escrowTxHash}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
@@ -340,16 +356,21 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 text-center">
                   Payment confirmed! Merchant is releasing {activeP2POrder.cryptoAmount} USDT to your vault.
                 </div>
-                {/* Instant verification button for testing simulation */}
-                <button
-                  onClick={() => {
-                    completeP2POrder(activeP2POrder.id);
-                    onClose();
-                  }}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 text-stone-950 font-bold text-xs transition-all shadow-lg active:scale-[0.98]"
-                >
-                  Simulate Merchant Escrow Release (Test)
-                </button>
+                {user?.id === activeP2POrder.merchant.id ? (
+                  <button
+                    onClick={async () => {
+                      await completeP2POrder(activeP2POrder.id);
+                      onClose();
+                    }}
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 text-stone-950 font-bold text-xs transition-all shadow-lg active:scale-[0.98]"
+                  >
+                    Release Held USDT
+                  </button>
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs text-stone-400">
+                    Waiting for the selling counterparty to release the held USDT after payment verification.
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -374,7 +395,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                   {currentOffer.merchant?.legalName}
                 </span>
                 <span className="text-[10px] text-emerald-400 font-mono">
-                  {currentOffer.merchant?.ordersCompleted} trades · 100% Protected Escrow
+                  {currentOffer.merchant?.ordersCompleted} trades · AURA Ledger Hold
                 </span>
               </div>
             </div>
