@@ -1,4 +1,5 @@
 name: AURA CI
+# Main-branch verification workflow
 
 on:
   push:
