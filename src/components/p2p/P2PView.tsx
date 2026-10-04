@@ -316,14 +316,14 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
               <BadgeCheck className="w-4 h-4 shrink-0" />
-              <span>100% Verified Buyer Protection Fund</span>
+              <span>AURA P2P Protection</span>
             </div>
             <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              $250,000 Insurance Pool
+              Internal ledger protection
             </span>
           </div>
           <p className="text-[11px] text-stone-300 leading-relaxed">
-            All peer exchanges are protected by <strong>licensed smart contract escrow</strong> and individual merchant security deposit bonds. Write or choose any payment method you prefer with 100% settlement guarantee.
+            USDT trades use an AURA internal ledger hold until the trade is completed or cancelled. Fiat payments are handled directly through the selected payment rail, with dispute controls available when needed.
           </p>
         </div>
       </div>
