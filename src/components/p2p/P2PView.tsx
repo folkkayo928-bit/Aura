@@ -616,7 +616,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                     </span>
                     <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3" />
-                      <span>Smart Escrow Ready</span>
+                      <span>AURA Ledger Hold</span>
                     </span>
                   </div>
                 )}
@@ -637,7 +637,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       </div>
                       <span className="text-[10px] text-stone-400 block font-mono">
-                        {offer.merchant?.legalName || offer.merchant?.name || 'Verified Merchant'}
+                        {offer.merchant?.legalName || offer.merchant?.name || 'AURA Member'}
                       </span>
                       <div className="flex items-center gap-2 text-[10px] text-stone-400 font-mono mt-0.5">
                         <span>{offer.merchant?.ordersCompleted ?? 0} trades</span>
