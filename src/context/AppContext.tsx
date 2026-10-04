@@ -159,7 +159,6 @@ interface AppContextType {
     destinationTab?: 'home' | 'discover' | 'create' | 'wallet' | 'profile';
     customNotification?: string;
   }) => void;
-  addNotification: (title: string, message: string, type: TelegramNotification['type']) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1364,7 +1363,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         telegramViewMode,
         setTelegramViewMode,
         startBotAndOpenApp,
-        addNotification,
       }}
     >
       {children}
