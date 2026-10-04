@@ -32,6 +32,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     markP2PPaymentSent,
     completeP2POrder,
     cancelP2POrder,
+    raiseP2PDispute,
     walletBalance,
   } = useApp();
   const { user } = useAuth();
@@ -378,6 +379,13 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                     Waiting for the seller to release the held USDT after payment verification.
                   </div>
                 )}
+                <button
+                  type="button"
+                  onClick={() => raiseP2PDispute(activeP2POrder.id)}
+                  className="w-full py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-300 text-xs font-semibold"
+                >
+                  Report an issue / Open dispute
+                </button>
               </div>
             )}
           </div>
