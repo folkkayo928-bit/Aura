@@ -34,6 +34,7 @@ export const WalletView: React.FC = () => {
     setSettingsModalOpen,
     activeP2POrder,
     userProfile,
+    requestWalletWithdrawal,
   } = useApp();
 
 
@@ -44,6 +45,12 @@ export const WalletView: React.FC = () => {
   const totalNetWorth = walletBalance + digitalArtValuation;
 
   const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawChain, setWithdrawChain] = useState<'ton' | 'polygon' | 'ethereum' | 'arbitrum' | 'solana'>('polygon');
+  const [withdrawAddress, setWithdrawAddress] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
+  const [withdrawMessage, setWithdrawMessage] = useState('');
 
 
   return (
@@ -179,6 +186,25 @@ export const WalletView: React.FC = () => {
             <ArrowRightLeft className="w-4 h-4" />
           </div>
           <span className="text-xs font-semibold text-amber-200">Convert</span>
+        </button>
+      </div>
+
+      {/* SECURE WITHDRAWAL */}
+      <div className="px-1">
+        <button
+          onClick={() => { setWithdrawMessage(''); setWithdrawOpen(true); }}
+          className="w-full p-4 rounded-3xl bg-white/[0.03] border border-white/10 hover:border-amber-400/40 transition-all flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3 text-left">
+            <div className="w-10 h-10 rounded-2xl bg-amber-400/10 text-amber-300 flex items-center justify-center">
+              <Send className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-stone-100">Withdraw USDT</div>
+              <div className="text-[11px] text-stone-400">Secure request · email confirmation required</div>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-stone-500" />
         </button>
       </div>
 
@@ -436,6 +462,69 @@ export const WalletView: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {withdrawOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-3">
+          <div className="w-full max-w-md rounded-3xl bg-[#111118] border border-white/10 p-5 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-lg font-semibold text-stone-100">Withdraw USDT</h3>
+                <p className="text-[11px] text-stone-400 mt-1">Funds are reserved until email confirmation. No blockchain broadcast happens yet.</p>
+              </div>
+              <button onClick={() => setWithdrawOpen(false)} className="text-stone-400 text-sm">Close</button>
+            </div>
+            <div className="space-y-3">
+              <label className="block text-xs text-stone-400">Network
+                <select value={withdrawChain} onChange={e => setWithdrawChain(e.target.value as typeof withdrawChain)} className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100">
+                  <option value="ton">TON</option>
+                  <option value="polygon">Polygon</option>
+                  <option value="ethereum">Ethereum</option>
+                  <option value="arbitrum">Arbitrum</option>
+                  <option value="solana">Solana</option>
+                </select>
+              </label>
+              <label className="block text-xs text-stone-400">Destination address
+                <input value={withdrawAddress} onChange={e => setWithdrawAddress(e.target.value)} placeholder="Paste the destination wallet address" className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100 placeholder:text-stone-600" />
+              </label>
+              <label className="block text-xs text-stone-400">Amount (USDT)
+                <input type="number" min="0" step="0.01" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} placeholder="0.00" className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100 placeholder:text-stone-600" />
+              </label>
+              <button
+                disabled={withdrawBusy}
+                onClick={async () => {
+                  const amount = Number(withdrawAmount);
+                  if (!withdrawAddress.trim() || !Number.isFinite(amount) || amount <= 0) {
+                    setWithdrawMessage('Enter a valid destination address and amount.');
+                    return;
+                  }
+                  if (amount > walletBalance) {
+                    setWithdrawMessage('Amount exceeds your available AURA balance.');
+                    return;
+                  }
+                  setWithdrawBusy(true);
+                  const result = await requestWalletWithdrawal({
+                    chain: withdrawChain,
+                    destinationAddress: withdrawAddress.trim(),
+                    amount,
+                  });
+                  setWithdrawBusy(false);
+                  if (!result.success) {
+                    setWithdrawMessage(result.error || 'Withdrawal request failed.');
+                    return;
+                  }
+                  setWithdrawMessage('Request created. Your balance is reserved pending email confirmation.');
+                  setWithdrawAmount('');
+                  setWithdrawAddress('');
+                }}
+                className="w-full rounded-2xl bg-amber-400 text-black font-semibold py-3 disabled:opacity-50"
+              >
+                {withdrawBusy ? 'Securing request…' : 'Request withdrawal'}
+              </button>
+              {withdrawMessage && <p className="text-xs text-stone-300">{withdrawMessage}</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tether USDT Token Details Modal */}
       <UsdtAssetDetailsModal
