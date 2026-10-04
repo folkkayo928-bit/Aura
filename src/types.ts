@@ -44,7 +44,7 @@ export interface Artwork {
   originalPrice: number; // in USDT
   currentValue: number;
   valuationMode?: 'market' | 'community';
-  dislikes: number;
+  dislikes?: number;
   communityValue?: number;
   purchasePrice?: number;
   isOwned?: boolean;
