@@ -40,6 +40,9 @@ async function configureTelegram() {
   const secret = env('TELEGRAM_WEBHOOK_SECRET');
   if (!token || !appUrl) throw new Error('TELEGRAM_BOT_TOKEN and TELEGRAM_WEBAPP_URL/PUBLIC_APP_URL are required');
   await telegram('setWebhook', { url: `${appUrl}/api/telegram/webhook`, ...(secret ? { secret_token: secret } : {}), allowed_updates: ['message', 'callback_query'], drop_pending_updates: false });
+  await telegram('setMyName', { name: 'AURA Vault' });
+  await telegram('setMyShortDescription', { short_description: 'Digital art, NFTs, and secure P2P exchange.' });
+  await telegram('setMyDescription', { description: 'AURA Vault is a selective digital art community and secure P2P exchange. Collect, create, trade, and manage digital assets from one Mini App.' });
   await telegram('setMyCommands', { commands: [
     { command: 'start', description: 'Open AURA Vault' },
     { command: 'app', description: 'Launch the AURA Mini App' },
@@ -53,8 +56,30 @@ export default async (req) => {
   const path = url.pathname;
   const token = env('TELEGRAM_BOT_TOKEN');
 
-  if (path === '/api/telegram/health' && req.method === 'GET')
-    return Response.json({ ok: true, bot: '@myaura1_bot', configured: Boolean(token && (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL'))) });
+  if (path === '/api/telegram/health' && req.method === 'GET') {
+    const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\\/$/, '');
+    if (!token) {
+      return Response.json({ ok: true, bot: '@myaura1_bot', configured: false, tokenConfigured: false, appUrlConfigured: Boolean(appUrl) });
+    }
+    try {
+      const me = await telegram('getMe', {});
+      const webhook = await telegram('getWebhookInfo', {});
+      return Response.json({
+        ok: true,
+        bot: me?.username ? `@${me.username}` : '@myaura1_bot',
+        configured: Boolean(appUrl),
+        tokenConfigured: true,
+        appUrlConfigured: Boolean(appUrl),
+        webhook: {
+          url: webhook?.url || '',
+          pendingUpdateCount: webhook?.pending_update_count || 0,
+          lastErrorMessage: webhook?.last_error_message || null,
+        },
+      });
+    } catch (error) {
+      return Response.json({ ok: false, bot: '@myaura1_bot', configured: false, tokenConfigured: true, error: error instanceof Error ? error.message : 'Telegram API unavailable' }, { status: 502 });
+    }
+  }
 
   if (path === '/api/telegram/auth' && req.method === 'POST') {
     let body;
