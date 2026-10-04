@@ -1,0 +1,6 @@
+{
+  "name": "AURA — Digital Art Vault",
+  "description": "Discover high-resolution digital art, collect museum-grade creations, and watch community value evolve with seamless Telegram Mini App collecting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
