@@ -57,7 +57,7 @@ export default async (req) => {
   const token = env('TELEGRAM_BOT_TOKEN');
 
   if (path === '/api/telegram/health' && req.method === 'GET') {
-    const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\\/$/, '');
+    const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\/$/, '');
     if (!token) {
       return Response.json({ ok: true, bot: '@myaura1_bot', configured: false, tokenConfigured: false, appUrlConfigured: Boolean(appUrl) });
     }
