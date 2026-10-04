@@ -197,6 +197,8 @@ export interface P2POrder {
   id: string;
   offerId: string;
   type: 'buy' | 'sell';
+  buyerId?: string;
+  sellerId?: string;
   merchant: P2PMerchant;
   cryptoAmount: number;
   fiatAmount: number;
