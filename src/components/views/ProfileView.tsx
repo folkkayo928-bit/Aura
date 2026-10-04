@@ -17,6 +17,11 @@ import {
   Key,
   Link as LinkIcon,
   ArrowUpDown,
+  Share2,
+  Globe2,
+  LockKeyhole,
+  Users,
+  Trophy,
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -36,6 +41,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
   } = useApp();
   const [selectedCertArtwork, setSelectedCertArtwork] = useState<Artwork | null>(null);
   const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [profileMode, setProfileMode] = useState<'private' | 'public'>('private');
+  const [profileSection, setProfileSection] = useState<'collection' | 'created' | 'activity'>('collection');
 
   const ownedArtworks = artworks.filter((a) => a.isOwned);
 
@@ -117,6 +125,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         </div>
       </div>
 
+      {/* PROFILE ACTIONS */}
+      <div className="flex items-center gap-2 px-1">
+        <div className="flex flex-1 rounded-2xl bg-white/[0.03] border border-white/10 p-1">
+          <button onClick={() => setProfileMode('private')} className={profileMode === 'private' ? 'flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-white/10 py-2.5 text-[10px] font-semibold text-stone-100' : 'flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[10px] text-stone-500'}><LockKeyhole className="w-3.5 h-3.5" /> My profile</button>
+          <button onClick={() => setProfileMode('public')} className={profileMode === 'public' ? 'flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-white/10 py-2.5 text-[10px] font-semibold text-stone-100' : 'flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[10px] text-stone-500'}><Globe2 className="w-3.5 h-3.5" /> Public preview</button>
+        </div>
+        <button onClick={async () => {
+          const shareUrl = window.location.origin + '/#profile/' + encodeURIComponent(userProfile.telegramHandle.replace('@', ''));
+          try {
+            if (navigator.share) await navigator.share({ title: userProfile.name + ' · AURA', text: userProfile.bio, url: shareUrl });
+            else { await navigator.clipboard?.writeText(shareUrl); setShareCopied(true); setTimeout(() => setShareCopied(false), 1800); }
+          } catch {}
+        }} className="shrink-0 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-3 py-2.5 text-[10px] font-semibold text-amber-300">
+          {shareCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+        </button>
+      </div>
+
       {/* PROFILE SNAPSHOT */}
       <div className="grid grid-cols-2 gap-3 px-1 mt-4">
         <div className="rounded-2xl bg-amber-400/[0.05] border border-amber-400/15 p-4">
@@ -132,6 +157,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
           <div className="text-[10px] text-stone-500">Web3 wallets linked</div>
         </button>
       </div>
+
+      {/* PROFILE REPUTATION */}
+      <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300"><Trophy className="w-3.5 h-3.5" /> AURA reputation</div>
+            <p className="mt-1 text-xs text-stone-500">A transparent signal built from your AURA activity.</p>
+          </div>
+          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-mono text-emerald-300">Verified</span>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Award className="mx-auto h-4 w-4 text-amber-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{ownedArtworks.length + connectedWallets.length}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Signals</div></div>
+          <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Users className="mx-auto h-4 w-4 text-cyan-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{ownedArtworks.reduce((sum, a) => sum + a.collectorsCount, 0)}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Collector reach</div></div>
+          <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Sparkles className="mx-auto h-4 w-4 text-violet-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).length}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Creations</div></div>
+        </div>
+      </div>
+
+      {/* PROFILE CONTENT TABS */}
+      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.02] p-1">
+        {[['collection', 'Collection'], ['created', 'Created'], ['activity', 'Activity']].map(([id, label]) => (
+          <button key={id} onClick={() => setProfileSection(id as typeof profileSection)} className={profileSection === id ? 'flex-1 rounded-xl bg-white/10 py-2.5 text-[10px] font-semibold text-stone-100' : 'flex-1 rounded-xl py-2.5 text-[10px] text-stone-500'}>{label}</button>
+        ))}
+      </div>
+      {profileMode === 'public' && <div className="rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.04] px-4 py-3 text-xs text-stone-400"><span className="font-semibold text-cyan-300">Public preview.</span> Private vault performance, connected wallets and security controls are hidden.</div>}
 
       {/* OWNED COLLECTION GALLERY */}
       <div className="space-y-4 px-1">
