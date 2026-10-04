@@ -38,6 +38,7 @@ async function configureTelegram() {
   const token = env('TELEGRAM_BOT_TOKEN');
   const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\/$/, '');
   const secret = crypto.createHash('sha256').update(`${token}::aura-webhook`).digest('hex');
+  const webAppUrl = appUrl ? `${appUrl}/?v=aura-2026-10-04-1` : '';
   if (!token || !appUrl) throw new Error('TELEGRAM_BOT_TOKEN and TELEGRAM_WEBAPP_URL/PUBLIC_APP_URL are required');
   await telegram('setWebhook', { url: `${appUrl}/api/telegram/webhook`, ...(secret ? { secret_token: secret } : {}), allowed_updates: ['message', 'callback_query'], drop_pending_updates: false });
   await telegram('setMyName', { name: 'AURA Vault' });
@@ -48,7 +49,7 @@ async function configureTelegram() {
     { command: 'app', description: 'Launch the AURA Mini App' },
     { command: 'help', description: 'Show AURA help' },
   ]});
-  await telegram('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Open AURA', web_app: { url: appUrl } } });
+  await telegram('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Open AURA', web_app: { url: webAppUrl } } });
 }
 
 export default async (req) => {
@@ -107,11 +108,28 @@ export default async (req) => {
     try {
       if (chatId && (text === '/start' || text.startsWith('/start ') || text === '/app')) {
         const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\/$/, '');
-        await telegram('sendMessage', {
-          chat_id: chatId,
-          text: '✨ Welcome to AURA Vault. Collect, create, trade and manage your digital art from one secure Mini App.',
-          ...(appUrl ? { reply_markup: { inline_keyboard: [[{ text: '🚀 Open AURA Mini App', web_app: { url: appUrl } }]] } } : {}),
-        });
+        const webAppUrl = appUrl ? `${appUrl}/?v=aura-2026-10-04-1` : '';
+        const replyMarkup = webAppUrl ? { inline_keyboard: [[{ text: '🚀 Open AURA Mini App', web_app: { url: webAppUrl } }]] } : undefined;
+        const previewUrl = appUrl ? `${appUrl}/aura-bot-avatar.jpg?v=aura-2026-10-04-1` : '';
+        try {
+          if (previewUrl) {
+            await telegram('sendPhoto', {
+              chat_id: chatId,
+              photo: previewUrl,
+              caption: '✨ <b>AURA Vault</b>\n\nCollect. Create. Trade.\nYour selective digital art vault and secure P2P marketplace — inside one Mini App.',
+              parse_mode: 'HTML',
+              reply_markup: replyMarkup,
+            });
+          } else {
+            throw new Error('No preview URL configured');
+          }
+        } catch {
+          await telegram('sendMessage', {
+            chat_id: chatId,
+            text: '✨ Welcome to AURA Vault. Collect, create, trade and manage your digital art from one secure Mini App.',
+            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+          });
+        }
       } else if (chatId && text === '/help') {
         await telegram('sendMessage', { chat_id: chatId, text: 'AURA Vault commands:\n/start — open AURA\n/app — launch the Mini App\n/help — show this help' });
       }
