@@ -9,6 +9,7 @@ import {
   ArtworkCategory,
   CryptoNetwork,
   P2POffer,
+  P2PMerchant,
   P2POrder,
   PaymentMethodType,
   ConnectedExternalWallet,
