@@ -235,3 +235,49 @@ $$;
 
 revoke execute on function public.complete_p2p_order(uuid) from anon;
 grant execute on function public.complete_p2p_order(uuid) to authenticated;
+
+-- Settle artwork ownership atomically with P2P release.
+create or replace function public.complete_p2p_order(p_order_id uuid)
+returns public.p2p_orders
+language plpgsql security definer set search_path=public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_order public.p2p_orders;
+  v_wallet_id uuid;
+begin
+  if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
+  select * into v_order from public.p2p_orders where id=p_order_id for update;
+  if not found then raise exception 'ORDER_NOT_FOUND'; end if;
+  if v_user <> v_order.seller_id then raise exception 'ONLY_SELLER_CAN_RELEASE'; end if;
+  if v_order.status <> 'payment_marked' then raise exception 'PAYMENT_NOT_CONFIRMED'; end if;
+
+  if v_order.artwork_id is not null then
+    update public.artwork_ownership
+       set owner_id=v_order.buyer_id, purchase_price_usdt=v_order.fiat_amount,
+           acquired_at=now(), updated_at=now()
+     where artwork_id=v_order.artwork_id and owner_id=v_order.seller_id;
+    if not found then raise exception 'ARTWORK_OWNERSHIP_NOT_FOUND'; end if;
+  end if;
+
+  update public.wallet_accounts
+     set balance_usdt=balance_usdt+v_order.crypto_amount
+   where user_id=v_order.buyer_id and status='active'
+   returning id into v_wallet_id;
+  if v_wallet_id is null then raise exception 'BUYER_WALLET_NOT_FOUND'; end if;
+
+  update public.p2p_orders set status='completed' where id=p_order_id returning * into v_order;
+
+  insert into public.wallet_ledger(wallet_id,user_id,direction,amount_usdt,kind,reference_id,memo)
+  values (v_wallet_id,v_order.buyer_id,'credit',v_order.crypto_amount,'p2p_release',v_order.id::text,'P2P escrow released');
+
+  insert into public.activity_events(user_id,kind,entity_type,entity_id,metadata)
+  values
+    (v_order.seller_id,'p2p_trade_completed','p2p_order',v_order.id::text,jsonb_build_object('reference_code',v_order.reference_code,'role','seller')),
+    (v_order.buyer_id,'p2p_trade_completed','p2p_order',v_order.id::text,jsonb_build_object('reference_code',v_order.reference_code,'role','buyer'));
+  return v_order;
+end;
+$$;
+
+revoke execute on function public.complete_p2p_order(uuid) from anon;
+grant execute on function public.complete_p2p_order(uuid) to authenticated;
