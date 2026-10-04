@@ -37,7 +37,7 @@ function validateInitData(initData, token) {
 async function configureTelegram() {
   const token = env('TELEGRAM_BOT_TOKEN');
   const appUrl = (env('TELEGRAM_WEBAPP_URL') || env('PUBLIC_APP_URL') || '').replace(/\/$/, '');
-  const secret = env('TELEGRAM_WEBHOOK_SECRET');
+  const secret = crypto.createHash('sha256').update(`${token}::aura-webhook`).digest('hex');
   if (!token || !appUrl) throw new Error('TELEGRAM_BOT_TOKEN and TELEGRAM_WEBAPP_URL/PUBLIC_APP_URL are required');
   await telegram('setWebhook', { url: `${appUrl}/api/telegram/webhook`, ...(secret ? { secret_token: secret } : {}), allowed_updates: ['message', 'callback_query'], drop_pending_updates: false });
   await telegram('setMyName', { name: 'AURA Vault' });
@@ -97,7 +97,7 @@ export default async (req) => {
   }
 
   if (path === '/api/telegram/webhook' && req.method === 'POST') {
-    const secret = env('TELEGRAM_WEBHOOK_SECRET');
+    const secret = crypto.createHash('sha256').update(`${token}::aura-webhook`).digest('hex');
     if (secret && req.headers.get('x-telegram-bot-api-secret-token') !== secret) return new Response('Forbidden', { status: 403 });
     let update;
     try { update = await req.json(); } catch { return new Response('OK'); }
