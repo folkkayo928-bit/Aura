@@ -143,6 +143,12 @@ interface AppContextType {
     gasFee: number;
   }) => { success: boolean; txHash: string };
   simulateInboundDeposit: (network: CryptoNetwork, amount: number) => void;
+  requestWalletWithdrawal: (params: {
+    chain: CryptoNetwork;
+    destinationAddress: string;
+    amount: number;
+    networkFee?: number;
+  }) => Promise<{ success: boolean; withdrawal?: any; error?: string }>;
   // P2P Trustless Escrow Market
   p2pOffers: P2POffer[];
   activeP2POrder: P2POrder | null;
@@ -1088,6 +1094,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('Deposit Waiting', 'AURA does not simulate real deposits. A supported on-chain wallet/provider will credit the account after confirmation.', 'external_tx');
   };
 
+  const requestWalletWithdrawal = async (params: {
+    chain: CryptoNetwork;
+    destinationAddress: string;
+    amount: number;
+    networkFee?: number;
+  }) => {
+    if (!user) {
+      openAuth('signin');
+      return { success: false, error: 'AUTH_REQUIRED' };
+    }
+    const { data, error } = await supabase.rpc('request_wallet_withdrawal', {
+      p_chain: params.chain,
+      p_token_symbol: 'USDT',
+      p_destination_address: params.destinationAddress,
+      p_amount: params.amount,
+      p_network_fee: params.networkFee || 0,
+      p_idempotency_key: crypto.randomUUID(),
+    });
+    if (error || !data) {
+      return { success: false, error: error?.message || 'Withdrawal request failed.' };
+    }
+    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
+    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    addNotification('Withdrawal request created', 'Your USDT is reserved pending email confirmation. No blockchain transaction has been broadcast.', 'wallet');
+    return { success: true, withdrawal: data };
+  };
+
   const connectExternalWallet = (name: ConnectedExternalWallet['name'], network: CryptoNetwork) => {
     if (!user) { openAuth('signin'); return; }
 
@@ -1405,6 +1440,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendInternalFunds,
         sendExternalCrypto,
         simulateInboundDeposit,
+        requestWalletWithdrawal,
         p2pOffers,
         activeP2POrder,
         setActiveP2POrder,
