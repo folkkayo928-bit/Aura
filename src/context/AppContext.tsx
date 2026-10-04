@@ -94,7 +94,7 @@ interface AppContextType {
     fiatPrice: number;
     currency: 'USD' | 'EUR' | 'GBP';
     paymentMethods: PaymentMethodType[];
-  }) => void;
+  }) => Promise<void>;
   uploadArtworkFile: (file: File) => Promise<string | null>;
   createArtwork: (newArt: {
     title: string;
@@ -820,8 +820,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, netPayout: Math.max(0, artwork.currentValue - fee) };
   };
 
-  // Direct Art-to-Money Selling on P2P
-  const listArtworkOnP2P = ({
+  // Artwork-to-Fiat P2P listing. The backend keeps ownership authoritative
+  // and the order flow transfers artwork ownership only after the seller releases it.
+  const listArtworkOnP2P = async ({
     artworkId,
     fiatPrice,
     currency,
@@ -832,62 +833,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currency: 'USD' | 'EUR' | 'GBP';
     paymentMethods: PaymentMethodType[];
   }) => {
+    if (!user) { openAuth('signin'); return; }
+
     const art = artworks.find((a) => a.id === artworkId);
     if (!art) return;
 
-    // Update artwork
-    setArtworks((prev) =>
-      prev.map((a) => {
-        if (a.id === artworkId) {
-          return {
-            ...a,
-            isListedOnP2P: true,
-            p2pPriceFiat: fiatPrice,
-            p2pCurrency: currency,
-            p2pPaymentMethods: paymentMethods,
-          };
-        }
-        return a;
-      })
-    );
+    if (!isBackendArtworkId(artworkId) || !art.isOwned) {
+      addNotification(
+        'Artwork Must Be Owned',
+        'Only an artwork already owned in your AURA account can be listed for P2P sale.',
+        'p2p'
+      );
+      return;
+    }
 
-    // Create P2P offer for art
-    const newOffer: P2POffer = {
-      id: `p2p-art-${Date.now()}`,
-      type: 'sell',
+    const { data, error } = await supabase.rpc('create_p2p_offer', {
+      p_type: 'sell',
+      p_price_per_unit: fiatPrice,
+      p_fiat_currency: currency,
+      p_available_crypto: 1,
+      p_min_limit_fiat: fiatPrice,
+      p_max_limit_fiat: fiatPrice,
+      p_payment_methods: paymentMethods || [],
+      p_payment_instructions: 'Send the fiat payment using the method selected for this order. AURA records the order and transfers artwork ownership only after the seller confirms receipt.',
+      p_artwork_id: artworkId,
+    });
+
+    if (error || !data) {
+      addNotification(
+        'Artwork Listing Failed',
+        error?.message || 'Could not publish this artwork listing.',
+        'p2p'
+      );
+      return;
+    }
+
+    const localOffer: P2POffer = backendP2POfferToUi({
+      ...(data as any),
       merchant: {
-        id: 'me',
-        name: userProfile.name,
-        legalName: `${userProfile.name} (Verified Patron)`,
-        avatar: userProfile.avatar,
-        ordersCompleted: 2,
-        completionRate: 100,
-        avgReleaseTimeMinutes: 1,
-        verifiedMerchant: true,
-        kycVerified: true,
-        depositBondUSDT: 5000,
-        positiveFeedbackPercent: 100,
-        telegramHandle: userProfile.telegramHandle,
+        id: user.id,
+        handle: userProfile.telegramHandle,
+        display_name: userProfile.name,
+        avatar_url: userProfile.avatar,
       },
-      pricePerUnit: fiatPrice,
-      fiatCurrency: currency,
-      availableCrypto: 1,
-      minLimitFiat: fiatPrice,
-      maxLimitFiat: fiatPrice,
-      paymentMethods,
-      paymentInstructions: `P2P Sale of Verified NFT Artwork: "${art.title}". Smart escrow transfers digital ownership upon payment confirmation.`,
-      isSmartEscrowLocked: true,
-      isBuyerProtected: true,
-      artworkId: art.id,
-      artworkTitle: art.title,
-      artworkImage: art.customMediaUrl || '',
-    };
+      artwork: {
+        id: artworkId,
+        title: art.title,
+        media_url: art.customMediaUrl || '',
+      },
+    });
 
-    setP2pOffers((prev) => [newOffer, ...prev]);
+    setP2pOffers(prev => [localOffer, ...prev.filter(o => o.id !== localOffer.id)]);
+    setArtworks(prev => prev.map(a => a.id === artworkId ? {
+      ...a,
+      isListedOnP2P: true,
+      p2pPriceFiat: fiatPrice,
+      p2pCurrency: currency,
+      p2pPaymentMethods: paymentMethods,
+    } : a));
 
     addNotification(
-      '🏷️ Listed for Sale on P2P',
-      `"${art.title}" is now available for direct cash purchase on the P2P Desk for $${fiatPrice} ${currency}!`,
+      '🏷️ Artwork Listed on P2P',
+      `"${art.title}" is now available for direct fiat purchase on the AURA P2P Desk.`,
       'p2p'
     );
   };
@@ -955,10 +962,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       p_media_url: newArt.customMediaUrl || null,
       p_collection_name: newArt.collectionName?.trim() || null,
       p_traits: newArt.traits || [],
-      p_list_on_p2p: Boolean(newArt.listOnP2P),
-      p_p2p_price_fiat: newArt.listOnP2P ? (newArt.p2pPriceFiat || newArt.price) : null,
+      p_list_on_p2p: false,
+      p_p2p_price_fiat: null,
       p_p2p_currency: 'USD',
-      p_p2p_payment_methods: newArt.p2pPaymentMethods || [],
+      p_p2p_payment_methods: [],
     });
 
     if (error || !data) {
@@ -973,21 +980,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setArtworks(prev => [created, ...prev.filter(a => a.id !== created.id)]);
 
     if (newArt.listOnP2P && newArt.p2pPriceFiat) {
-      const { error: offerError } = await supabase.from('p2p_offers').insert({
-        merchant_id: user.id,
-        type: 'sell',
-        artwork_id: created.id,
-        price_per_unit: newArt.p2pPriceFiat,
-        fiat_currency: 'USD',
-        available_crypto: 1,
-        min_limit_fiat: newArt.p2pPriceFiat,
-        max_limit_fiat: newArt.p2pPriceFiat,
-        payment_methods: newArt.p2pPaymentMethods || [],
-        payment_instructions: 'Artwork P2P listing. Payment verification and ownership release are handled through the AURA order flow.',
-        is_active: true,
+      const { error: offerError } = await supabase.rpc('create_p2p_offer', {
+        p_type: 'sell',
+        p_price_per_unit: newArt.p2pPriceFiat,
+        p_fiat_currency: 'USD',
+        p_available_crypto: 1,
+        p_min_limit_fiat: newArt.p2pPriceFiat,
+        p_max_limit_fiat: newArt.p2pPriceFiat,
+        p_payment_methods: newArt.p2pPaymentMethods || [],
+        p_payment_instructions: 'Send the fiat payment using the method selected for this order. AURA records the order and transfers artwork ownership only after the seller confirms receipt.',
+        p_artwork_id: created.id,
       });
+
       if (offerError) {
         addNotification('Artwork Minted', 'The artwork is live, but the P2P listing could not be created yet.', 'p2p');
+      } else {
+        setArtworks(prev => prev.map(a => a.id === created.id ? {
+          ...a,
+          isListedOnP2P: true,
+          p2pPriceFiat: newArt.p2pPriceFiat,
+          p2pCurrency: 'USD',
+          p2pPaymentMethods: newArt.p2pPaymentMethods || [],
+        } : a));
       }
     }
 
