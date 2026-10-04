@@ -383,7 +383,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                   </button>
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs text-stone-400">
-                    Waiting for the seller to release the held USDT after payment verification.
+                    {activeP2POrder.artwork ? 'Waiting for the seller to release the artwork after payment verification.' : 'Waiting for the seller to release the held USDT after payment verification.'}
                   </div>
                 )}
                 <button
