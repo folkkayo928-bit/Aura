@@ -147,7 +147,7 @@ interface AppContextType {
     offer: P2POffer;
     cryptoAmount: number;
     paymentMethod: PaymentMethodType;
-  }) => P2POrder;
+  }) => Promise<P2POrder | null>;
   markP2PPaymentSent: (orderId: string) => void;
   completeP2POrder: (orderId: string) => void;
   cancelP2POrder: (orderId: string) => void;
@@ -310,6 +310,68 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   comments: [],
 });
 
+const backendMerchantToUi = (row: any): P2PMerchant => ({
+  id: row?.id || '',
+  name: row?.display_name || 'AURA Member',
+  legalName: row?.display_name || 'AURA Member',
+  avatar: row?.avatar_url || '',
+  ordersCompleted: 0,
+  completionRate: 0,
+  avgReleaseTimeMinutes: 0,
+  verifiedMerchant: false,
+  kycVerified: false,
+  depositBondUSDT: 0,
+  telegramHandle: row?.handle || '',
+  positiveFeedbackPercent: 0,
+});
+
+const backendP2POfferToUi = (row: any): P2POffer => ({
+  id: row.id,
+  type: row.type,
+  merchant: backendMerchantToUi(row.merchant),
+  pricePerUnit: Number(row.price_per_unit || 0),
+  fiatCurrency: row.fiat_currency || 'USD',
+  availableCrypto: Number(row.available_crypto || 0),
+  minLimitFiat: Number(row.min_limit_fiat || 0),
+  maxLimitFiat: Number(row.max_limit_fiat || 0),
+  paymentMethods: Array.isArray(row.payment_methods) ? row.payment_methods : [],
+  paymentInstructions: row.payment_instructions || '',
+  isSmartEscrowLocked: true,
+  isBuyerProtected: true,
+  artworkId: row.artwork_id || undefined,
+  artworkTitle: row.artwork?.title || undefined,
+  artworkImage: row.artwork?.media_url || undefined,
+});
+
+const backendP2POrderToUi = (row: any): P2POrder => {
+  const offer = row.offer || {};
+  return {
+    id: row.id,
+    offerId: row.offer_id,
+    type: row.type,
+    merchant: backendMerchantToUi(offer.merchant),
+    cryptoAmount: Number(row.crypto_amount || 0),
+    fiatAmount: Number(row.fiat_amount || 0),
+    fiatCurrency: row.fiat_currency || 'USD',
+    paymentMethod: row.payment_method,
+    status: row.status,
+    escrowTxHash: row.escrow_reference || row.reference_code || '',
+    createdAt: row.created_at ? new Date(row.created_at).toLocaleString() : 'Just now',
+    protectionFundActive: row.status === 'escrow_locked' || row.status === 'payment_marked',
+    artwork: row.artwork_id ? {
+      id: row.artwork_id,
+      title: offer.artwork?.title || 'AURA Artwork',
+      image: offer.artwork?.media_url || '',
+    } : undefined,
+    paymentDetails: {
+      accountName: row.payment_details?.accountName || offer.merchant?.display_name || 'AURA Counterparty',
+      accountNumberOrId: row.payment_details?.accountNumberOrId || 'Use the payment method instructions.',
+      referenceCode: row.payment_details?.referenceCode || row.reference_code || '',
+    },
+    chatMessages: [],
+  };
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, openAuth } = useAuth();
   const [artworks, setArtworks] = useState<Artwork[]>(() => {
@@ -435,10 +497,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setWalletBalance(0);
         setTransactions([]);
         setConnectedWallets([]);
+        setP2pOffers([]);
+        setActiveP2POrder(null);
         return;
       }
 
-      const [profileRes, walletRes, ledgerRes, ownedRes, interactionsRes, artworkRes, extWalletsRes] = await Promise.all([
+      const [profileRes, walletRes, ledgerRes, ownedRes, interactionsRes, artworkRes, extWalletsRes, p2pOffersRes, activeOrderRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
         supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
@@ -446,6 +510,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('artwork_interactions').select('artwork_id,liked,loved,saved,watched').eq('user_id', user.id),
         supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
+        supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('p2p_orders').select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
 
       if (cancelled) return;
@@ -470,16 +536,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (walletRes.data) setWalletBalance(Number((walletRes.data as any).balance_usdt || 0));
       if (ledgerRes.data) setTransactions((ledgerRes.data as any[]).map(mapLedgerToTransaction));
-      if (extWalletsRes.data) {
-        setConnectedWallets((extWalletsRes.data as any[]).map(w => ({
-          id: w.id,
-          name: w.provider,
-          network: w.network,
-          address: w.address,
-          connectedAt: new Date(w.connected_at).toLocaleDateString(),
-          balance: 0,
-        })));
-      }
+      setConnectedWallets(((extWalletsRes.data || []) as any[]).map(w => ({
+        id: w.id,
+        name: w.provider,
+        network: w.network,
+        address: w.address,
+        connectedAt: new Date(w.connected_at).toLocaleDateString(),
+        balance: 0,
+      })));
+      if (p2pOffersRes.data) setP2pOffers((p2pOffersRes.data as any[]).map(backendP2POfferToUi));
+      if (activeOrderRes.data) setActiveP2POrder(backendP2POrderToUi(activeOrderRes.data));
+      else setActiveP2POrder(null);
 
       const owned = new Map<string, number>();
       for (const row of (ownedRes.data || []) as any[]) owned.set(row.artwork_id, Number(row.purchase_price_usdt || 0));
@@ -1028,7 +1095,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('Wallet Disconnected', 'External wallet session closed.', 'community');
   };
 
-  const startP2POrder = ({
+  const startP2POrder = async ({
     offer,
     cryptoAmount,
     paymentMethod,
@@ -1036,196 +1103,103 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     offer: P2POffer;
     cryptoAmount: number;
     paymentMethod: PaymentMethodType;
-  }): P2POrder => {
+  }): Promise<P2POrder | null> => {
     if (!user) {
       openAuth('signin');
-      return {
-        id: '',
-        offerId: offer.id,
-        type: offer.type,
-        merchant: offer.merchant,
-        cryptoAmount: 0,
-        fiatAmount: 0,
-        fiatCurrency: offer.fiatCurrency,
-        paymentMethod,
-        status: 'cancelled',
-        escrowTxHash: '',
-        createdAt: 'Not signed in',
-        protectionFundActive: false,
-        paymentDetails: { accountName: '', accountNumberOrId: '', referenceCode: '' },
-        chatMessages: [],
-      };
+      return null;
     }
-    const fiatAmount = cryptoAmount * offer.pricePerUnit;
-    const randomHash = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-
-    const newOrder: P2POrder = {
-      id: `p2p-ord-${Date.now()}`,
-      offerId: offer.id,
-      type: offer.type,
-      merchant: offer.merchant,
-      cryptoAmount,
-      fiatAmount,
-      fiatCurrency: offer.fiatCurrency,
-      paymentMethod,
-      status: 'escrow_locked',
-      escrowTxHash: randomHash,
-      createdAt: 'Just now',
-      protectionFundActive: true,
-      artwork: offer.artworkId ? {
-        id: offer.artworkId,
-        title: offer.artworkTitle || 'NFT Masterpiece',
-        image: offer.artworkImage || '',
-      } : undefined,
-      paymentDetails: {
-        accountName: offer.merchant.name,
-        accountNumberOrId:
-          paymentMethod === 'telegram_pay'
-            ? offer.merchant.telegramHandle
-            : paymentMethod === 'revolut'
-            ? `rev.me/${offer.merchant.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`
-            : paymentMethod.toLowerCase().includes('paypal')
-            ? `paypal.me/${offer.merchant.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`
-            : paymentMethod.toLowerCase().includes('zelle')
-            ? `${offer.merchant.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@pay.net`
-            : paymentMethod.toLowerCase().includes('bank')
-            ? 'GB29 REVO 0099 8812 3456 78'
-            : `${offer.merchant.name} · ${paymentMethod}`,
-        referenceCode: `AURA-${Math.floor(100000 + Math.random() * 900000)}`,
+    const { data, error } = await supabase.rpc('create_p2p_order', {
+      p_offer_id: offer.id,
+      p_crypto_amount: cryptoAmount,
+      p_payment_method: paymentMethod,
+    });
+    if (error || !data) {
+      addNotification('P2P Order Failed', error?.message || 'Could not create this trade.', 'p2p');
+      return null;
+    }
+    const orderRow = data as any;
+    const enriched = {
+      ...orderRow,
+      offer: {
+        ...offer,
+        merchant: { id: offer.merchant.id, handle: offer.merchant.telegramHandle, display_name: offer.merchant.name, avatar_url: offer.merchant.avatar },
+        artwork: offer.artworkId ? { id: offer.artworkId, title: offer.artworkTitle, media_url: offer.artworkImage } : null,
       },
-      chatMessages: [
-        {
-          id: `sys-${Date.now()}`,
-          sender: 'system',
-          senderName: 'AURA Security Escrow',
-          text: `Escrow initialized. ${offer.artworkTitle ? `Artwork "${offer.artworkTitle}"` : `${cryptoAmount} USDT`} locked in smart contract. Please send payment with reference code.`,
-          timestamp: 'Just now',
-        },
-      ],
     };
-
-    if (offer.type === 'sell' && !offer.artworkId) {
-      if (walletBalance < cryptoAmount) {
-        throw new Error('Insufficient wallet balance to lock in P2P escrow.');
-      }
-      setWalletBalance((prev) => prev - cryptoAmount);
-    }
-
-    setActiveP2POrder(newOrder);
-
-    addNotification(
-      '🔒 Trustless Escrow Locked',
-      `Smart contract escrow initialized for ${offer.artworkTitle ? offer.artworkTitle : `${cryptoAmount} USDT`}. Escrow Hash: ${randomHash.slice(0, 10)}...`,
-      'p2p'
-    );
-
-    return newOrder;
+    const uiOrder = backendP2POrderToUi(enriched);
+    setActiveP2POrder(uiOrder);
+    addNotification('🔒 AURA Trade Hold Created', `${cryptoAmount} USDT is reserved until the trade completes or is cancelled.`, 'p2p');
+    return uiOrder;
   };
 
-  const markP2PPaymentSent = (orderId: string) => {
-    if (!activeP2POrder || activeP2POrder.id !== orderId) return;
-
-    setActiveP2POrder((prev) => (prev ? { ...prev, status: 'payment_marked' } : null));
-
-    addNotification(
-      '⏳ Payment Marked as Sent',
-      'The merchant has been notified to verify fiat arrival and release escrow.',
-      'p2p'
-    );
+  const markP2PPaymentSent = async (orderId: string) => {
+    if (!user) { openAuth('signin'); return; }
+    const { data, error } = await supabase.rpc('mark_p2p_payment', { p_order_id: orderId });
+    if (error || !data) {
+      addNotification('P2P Update Failed', error?.message || 'Could not update the trade.', 'p2p');
+      return;
+    }
+    const row = data as any;
+    const current = activeP2POrder;
+    setActiveP2POrder(current ? { ...current, status: 'payment_marked' } : backendP2POrderToUi(row));
+    addNotification('⏳ Payment Status Recorded', 'The counterparty can now review the payment and release the held USDT.', 'p2p');
   };
 
-  const completeP2POrder = (orderId: string) => {
-    if (!activeP2POrder || activeP2POrder.id !== orderId) return;
-
-    const order = activeP2POrder;
-
-    // If it's an artwork P2P order
-    if (order.artwork) {
-      // Transfer artwork to buyer
-      setArtworks((prev) =>
-        prev.map((art) => {
-          if (art.id === order.artwork?.id) {
-            return {
-              ...art,
-              isOwned: order.type === 'buy',
-              isListedOnP2P: false,
-              collectorsCount: art.collectorsCount + 1,
-            };
-          }
-          return art;
-        })
-      );
-      // If seller, credit fiat/USDT
-      if (order.type === 'sell') {
-        setWalletBalance((prev) => prev + order.fiatAmount);
-      }
-    } else {
-      // Currency P2P
-      if (order.type === 'buy') {
-        setWalletBalance((prev) => prev + order.cryptoAmount);
-      }
+  const completeP2POrder = async (orderId: string) => {
+    if (!user) { openAuth('signin'); return; }
+    const { data, error } = await supabase.rpc('complete_p2p_order', { p_order_id: orderId });
+    if (error || !data) {
+      addNotification('P2P Release Failed', error?.message === 'ONLY_SELLER_CAN_RELEASE' ? 'Only the seller can release the held USDT after payment is confirmed.' : (error?.message || 'Could not release this trade.'), 'p2p');
+      return;
     }
-
-    const newTx: Transaction = {
-      id: `tx-p2p-${Date.now()}`,
-      type: order.artwork ? 'p2p_art_sale' : order.type === 'buy' ? 'p2p_buy' : 'p2p_sell',
-      artworkTitle: order.artwork?.title,
-      amount: order.cryptoAmount || order.fiatAmount,
-      currency: 'USDT',
-      date: 'Just now',
-      recipientOrSender: `P2P with ${order.merchant.name}`,
-      status: 'confirmed',
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-
+    const row = data as any;
     setActiveP2POrder(null);
-
-    addNotification(
-      '✅ P2P Escrow Released',
-      order.artwork
-        ? `"${order.artwork.title}" has been transferred to your vault!`
-        : order.type === 'buy'
-        ? `+${order.cryptoAmount} USDT released from escrow to your wallet!`
-        : `Payment received! ${order.cryptoAmount} USDT released to buyer.`,
-      'p2p'
-    );
+    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
+    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    addNotification('✅ P2P Trade Completed', `${row.crypto_amount} USDT was released to the buyer.`, 'p2p');
   };
 
-  const cancelP2POrder = (orderId: string) => {
-    if (!activeP2POrder || activeP2POrder.id !== orderId) return;
-
-    if (activeP2POrder.type === 'sell' && !activeP2POrder.artwork) {
-      setWalletBalance((prev) => prev + activeP2POrder.cryptoAmount);
+  const cancelP2POrder = async (orderId: string) => {
+    if (!user) { openAuth('signin'); return; }
+    const { data, error } = await supabase.rpc('cancel_p2p_order', { p_order_id: orderId });
+    if (error || !data) {
+      addNotification('P2P Cancel Failed', error?.message || 'Could not cancel this order.', 'p2p');
+      return;
     }
-
     setActiveP2POrder(null);
-    addNotification('P2P Order Cancelled', 'Escrow returned to original vault.', 'p2p');
+    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
+    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    addNotification('P2P Order Cancelled', 'Held USDT was returned to the seller balance.', 'p2p');
   };
 
-  const createP2POffer = (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => {
-    const newOffer: P2POffer = {
-      ...offerData,
-      id: `p2p-usr-${Date.now()}`,
-      merchant: {
-        id: 'me',
-        name: userProfile.name,
-        legalName: `${userProfile.name} (Verified Patron)`,
-        avatar: userProfile.avatar,
-        ordersCompleted: 1,
-        completionRate: 100,
-        avgReleaseTimeMinutes: 1,
-        verifiedMerchant: true,
-        kycVerified: true,
-        depositBondUSDT: 5000,
-        positiveFeedbackPercent: 100,
-        telegramHandle: userProfile.telegramHandle,
-      },
-      isSmartEscrowLocked: true,
-      isBuyerProtected: true,
+  const createP2POffer = async (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => {
+    if (!user) { openAuth('signin'); return; }
+    const { data, error } = await supabase.rpc('create_p2p_offer', {
+      p_type: offerData.type,
+      p_price_per_unit: offerData.pricePerUnit,
+      p_fiat_currency: offerData.fiatCurrency,
+      p_available_crypto: offerData.availableCrypto,
+      p_min_limit_fiat: offerData.minLimitFiat,
+      p_max_limit_fiat: offerData.maxLimitFiat,
+      p_payment_methods: offerData.paymentMethods || [],
+      p_payment_instructions: offerData.paymentInstructions || null,
+      p_artwork_id: offerData.artworkId || null,
+    });
+    if (error || !data) {
+      addNotification('P2P Ad Failed', error?.message || 'Could not publish the offer.', 'p2p');
+      return;
+    }
+    const localOffer: P2POffer = {
+      ...backendP2POfferToUi({
+        ...data,
+        merchant: { id: user.id, handle: userProfile.telegramHandle, display_name: userProfile.name, avatar_url: userProfile.avatar },
+        artwork: null,
+      }),
     };
-
-    setP2pOffers((prev) => [newOffer, ...prev]);
-    addNotification('📣 P2P Offer Published', `Your ad is live in the verified P2P book.`, 'p2p');
+    setP2pOffers(prev => [localOffer, ...prev]);
+    addNotification('📣 P2P Offer Published', 'Your live offer was saved to the AURA order book.', 'p2p');
   };
 
   return (
