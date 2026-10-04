@@ -245,196 +245,94 @@ export const SendModal: React.FC = () => {
 };
 
 export const ReceiveModal: React.FC = () => {
-  const { receiveModalOpen, setReceiveModalOpen, vaultAddresses, userProfile, simulateInboundDeposit } = useApp();
-  const [network, setNetwork] = useState<CryptoNetwork>('polygon');
+  const { receiveModalOpen, setReceiveModalOpen, userProfile } = useApp();
   const [copied, setCopied] = useState(false);
 
   if (!receiveModalOpen) return null;
 
-  const currentAddress =
-    network === 'ton'
-      ? vaultAddresses.ton
-      : network === 'solana'
-      ? vaultAddresses.solana
-      : vaultAddresses.polygon;
-
   const handleCopy = () => {
-    navigator.clipboard?.writeText(currentAddress);
+    navigator.clipboard?.writeText(userProfile.vaultId);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1800);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
-      <div
-        className="w-full max-w-md bg-[#12121a] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-6 max-h-[92vh] overflow-y-auto no-scrollbar"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full max-w-md bg-[#12121a] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <QrCode className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs uppercase tracking-widest font-mono text-stone-300">
-              Receive Crypto & Art
-            </span>
+            <span className="text-xs uppercase tracking-widest font-mono text-stone-300">Receive into AURA</span>
           </div>
-          <button
-            onClick={() => setReceiveModalOpen(false)}
-            className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"
-          >
+          <button onClick={() => setReceiveModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Network Picker */}
-        <div className="mb-4">
-          <span className="text-[11px] text-stone-400 block mb-1.5 font-medium">Select Deposit Network</span>
-          <div className="grid grid-cols-3 gap-1.5">
-            {(['ton', 'polygon', 'arbitrum', 'ethereum', 'solana'] as const).map((net) => (
-              <button
-                key={net}
-                onClick={() => setNetwork(net)}
-                className={`py-1.5 px-2 rounded-xl text-xs font-mono uppercase border transition-all text-center ${
-                  network === net
-                    ? 'border-cyan-400 bg-cyan-950/40 text-cyan-300 font-bold'
-                    : 'border-white/5 bg-white/[0.02] text-stone-400'
-                }`}
-              >
-                {net}
+        <div className="rounded-3xl bg-cyan-950/20 border border-cyan-500/20 p-5 space-y-4">
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">AURA Vault ID</span>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex-1 rounded-2xl bg-black/30 border border-white/10 p-3 font-mono text-xs text-cyan-200 break-all">{userProfile.vaultId}</div>
+              <button onClick={handleCopy} className="p-3 rounded-2xl bg-white/5 text-stone-300">
+                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
-            ))}
+            </div>
           </div>
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500">AURA handle</span>
+            <div className="mt-1 text-lg font-serif text-stone-100">{userProfile.telegramHandle}</div>
+          </div>
+          <p className="text-[11px] text-stone-400 leading-relaxed">
+            Share your Vault ID or handle with another AURA account to receive internal USDT. AURA does not display a fake blockchain deposit address. External on-chain receiving will be available after a supported custody/provider connection is enabled.
+          </p>
         </div>
 
-        {/* Real QR Code container */}
-        <div className="p-4 bg-white rounded-2xl w-44 h-44 mx-auto flex flex-col items-center justify-center mb-4 shadow-inner">
-          <div className="grid grid-cols-6 gap-1.5 w-36 h-36">
-            {Array.from({ length: 36 }).map((_, i) => (
-              <div
-                key={i}
-                className={`rounded-xs ${
-                  i % 2 === 0 || i % 5 === 0 || i === 14 || i === 22 ? 'bg-stone-950' : 'bg-stone-200'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Deposit Address Box */}
-        <div className="space-y-2 mb-4">
-          <div className="flex items-center justify-between text-xs text-stone-400 px-1">
-            <span>Your {network.toUpperCase()} Vault Address</span>
-            <span className="text-emerald-400 font-mono text-[10px]">Active</span>
-          </div>
-          <div className="flex items-center justify-between gap-2 bg-white/5 p-3 rounded-2xl border border-white/10 font-mono text-xs text-stone-200">
-            <span className="truncate">{currentAddress}</span>
-            <button
-              onClick={handleCopy}
-              className="p-1 text-stone-400 hover:text-amber-300 transition-colors shrink-0"
-              title="Copy Address"
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
-
-        {/* External Web3 Deposit Notice */}
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-stone-400 leading-relaxed mb-4">
-          <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-          <span>
-            Send USDT or digital art directly from MetaMask, Tonkeeper, Binance, or any Web3 platform. Deposits are detected in real-time.
-          </span>
-        </div>
-
-        {/* Inbound Simulator for testing */}
-        <button
-          onClick={() => {
-            simulateInboundDeposit(network, 50);
-            setReceiveModalOpen(false);
-          }}
-          className="w-full py-3.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
-        >
-          <Zap className="w-3.5 h-3.5" />
-          <span>Simulate Inbound Web3 Deposit (+50 USDT)</span>
-        </button>
+        <button onClick={() => setReceiveModalOpen(false)} className="mt-5 w-full py-3 rounded-xl bg-white/5 text-stone-300 text-xs font-semibold">Done</button>
       </div>
     </div>
   );
 };
 
 export const BuyModal: React.FC = () => {
-  const { buyModalOpen, setBuyModalOpen, topUpBalance, setP2pModalOpen } = useApp();
-
+  const { buyModalOpen, setBuyModalOpen, setP2pModalOpen } = useApp();
   if (!buyModalOpen) return null;
-
-  const packages = [25, 50, 100, 250];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
-      <div
-        className="w-full max-w-md bg-[#12121a] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-6 max-h-[92vh] overflow-y-auto no-scrollbar"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full max-w-md bg-[#12121a] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <PlusCircle className="w-4 h-4 text-amber-400" />
-            <span className="text-xs uppercase tracking-widest font-mono text-stone-300">
-              Buy USDT Balance
-            </span>
+            <span className="text-xs uppercase tracking-widest font-mono text-stone-300">Fund AURA Wallet</span>
           </div>
-          <button
-            onClick={() => setBuyModalOpen(false)}
-            className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"
-          >
+          <button onClick={() => setBuyModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Binance P2P Banner */}
-        <div
-          onClick={() => {
-            setBuyModalOpen(false);
-            setP2pModalOpen(true);
-          }}
-          className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-400/20 via-stone-800 to-amber-500/10 border border-amber-400/30 cursor-pointer hover:border-amber-400/60 transition-all mb-4 flex items-center justify-between"
-        >
-          <div>
-            <div className="flex items-center gap-1.5 text-amber-300 font-semibold text-xs">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Recommended: Binance-Style P2P Desk</span>
-            </div>
-            <p className="text-[11px] text-stone-300 mt-0.5">
-              Buy with Revolut, Bank Wire, Wise, or Telegram Pay with 0% fee.
-            </p>
+        <div className="rounded-3xl bg-amber-400/10 border border-amber-400/20 p-5 space-y-3">
+          <div className="flex items-center gap-2 text-amber-300 font-semibold text-sm">
+            <ShieldCheck className="w-4 h-4" />
+            Buy through the AURA P2P Desk
           </div>
-          <ArrowRight className="w-4 h-4 text-amber-300 shrink-0 ml-2" />
+          <p className="text-xs text-stone-300 leading-relaxed">
+            Choose a live offer, review the payment instructions, and open a trade. AURA reserves the seller's internal USDT during the order.
+          </p>
+          <button
+            onClick={() => {
+              setBuyModalOpen(false);
+              setP2pModalOpen(true);
+            }}
+            className="w-full py-3.5 rounded-xl bg-amber-400 text-stone-950 font-bold text-xs"
+          >
+            Open P2P Market
+          </button>
         </div>
 
-        <div className="text-xs text-stone-400 mb-3 font-medium">Or Quick Simulated Top-Up:</div>
-
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          {packages.map((amt) => (
-            <button
-              key={amt}
-              onClick={() => {
-                topUpBalance(amt);
-                setBuyModalOpen(false);
-              }}
-              className="p-4 rounded-2xl bg-white/5 hover:bg-amber-400 hover:text-stone-950 border border-white/5 transition-all text-center group"
-            >
-              <span className="text-xs text-stone-400 group-hover:text-stone-800 block">Add</span>
-              <span className="font-serif text-2xl font-semibold text-stone-100 group-hover:text-stone-950">
-                ${amt}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={() => setBuyModalOpen(false)}
-          className="w-full py-3 rounded-xl bg-white/5 text-stone-400 hover:text-stone-200 text-xs font-medium"
-        >
-          Close
-        </button>
+        <p className="mt-4 text-[10px] leading-relaxed text-stone-500">
+          AURA does not create or simulate USDT deposits. External blockchain funding requires a real wallet/provider integration.
+        </p>
       </div>
     </div>
   );
