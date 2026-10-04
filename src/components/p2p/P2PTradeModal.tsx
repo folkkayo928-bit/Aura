@@ -108,7 +108,8 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     isBuyerProtected: true,
   };
 
-  const isArtworkOffer = Boolean(currentOffer.artworkId);
+  const typedOffer = currentOffer as P2POffer;
+  const isArtworkOffer = Boolean(typedOffer.artworkId);
   const numCrypto = isArtworkOffer ? 1 : (parseFloat(cryptoAmount) || 0);
   const fiatTotal = numCrypto * currentOffer.pricePerUnit;
 
