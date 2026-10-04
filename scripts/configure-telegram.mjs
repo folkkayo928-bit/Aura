@@ -18,6 +18,13 @@ async function telegram(method, body) {
     body: JSON.stringify(body),
   });
   const data = await response.json();
+
+  if (response.status === 429) {
+    const retryAfter = data.parameters?.retry_after;
+    console.warn(`Telegram API rate limited during ${method}.${retryAfter ? ` Retry after ${retryAfter} seconds.` : ''} Skipping this setup call so the Netlify build can continue.`);
+    return null;
+  }
+
   if (!response.ok || !data.ok) throw new Error(data.description || 'Telegram API request failed');
   return data.result;
 }
@@ -35,6 +42,11 @@ async function setProfilePhoto() {
 
   const response = await fetch(`https://api.telegram.org/bot${token}/setMyProfilePhoto`, { method: 'POST', body: form });
   const data = await response.json();
+  if (response.status === 429) {
+    const retryAfter = data.parameters?.retry_after;
+    console.warn(`Telegram profile photo update rate limited.${retryAfter ? ` Retry after ${retryAfter} seconds.` : ''} Skipping.`);
+    return;
+  }
   if (!response.ok || !data.ok) throw new Error(data.description || 'Telegram profile photo update failed');
   console.log('Telegram bot profile photo updated.');
 }
@@ -43,6 +55,11 @@ try {
   await setProfilePhoto();
 } catch (error) {
   console.warn('Telegram profile photo update skipped:', error instanceof Error ? error.message : error);
+}
+
+if (process.env.RUN_TELEGRAM_SETUP !== 'true') {
+  console.log('Telegram API setup skipped for this build. Set RUN_TELEGRAM_SETUP=true only when bot configuration changes are needed.');
+  process.exit(0);
 }
 
 await telegram('setWebhook', {
