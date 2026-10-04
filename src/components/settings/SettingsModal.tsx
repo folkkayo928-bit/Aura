@@ -13,6 +13,8 @@ import {
   ExternalLink,
   Trash2,
   Plus,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 export const SettingsModal: React.FC = () => {
@@ -34,12 +36,20 @@ export const SettingsModal: React.FC = () => {
   const [telegramHandle, setTelegramHandle] = useState(userProfile.telegramHandle);
   const [bio, setBio] = useState(userProfile.bio);
   const [avatar, setAvatar] = useState(userProfile.avatar);
+  const [coverImage, setCoverImage] = useState(userProfile.coverImage || '');
   const [defaultCurrency, setDefaultCurrency] = useState(userProfile.defaultCurrency);
   const [telegramBotAlerts, setTelegramBotAlerts] = useState(userProfile.telegramBotAlerts);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(userProfile.twoFactorEnabled);
   const [biometricAuth, setBiometricAuth] = useState(userProfile.biometricAuth);
 
   const [connectWalletPickerOpen, setConnectWalletPickerOpen] = useState(false);
+
+  const handleImageUpload = (file: File, setter: (value: string) => void) => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => setter(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  };
 
   if (!settingsModalOpen) return null;
 
@@ -50,6 +60,7 @@ export const SettingsModal: React.FC = () => {
       telegramHandle: telegramHandle.trim(),
       bio: bio.trim(),
       avatar: avatar.trim(),
+      coverImage: coverImage.trim(),
       defaultCurrency,
       telegramBotAlerts,
       twoFactorEnabled,
@@ -110,21 +121,38 @@ export const SettingsModal: React.FC = () => {
         {/* TAB 1: PROFILE MANAGEMENT */}
         {activeTab === 'profile' && (
           <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div className="flex items-center gap-4 p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-              <img
-                src={avatar || userProfile.avatar}
-                alt={name}
-                className="w-14 h-14 rounded-full object-cover border-2 border-amber-400/40 shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <label className="text-[11px] text-stone-400 block mb-1">Avatar Image URL</label>
-                <input
-                  type="text"
-                  value={avatar}
-                  onChange={(e) => setAvatar(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-stone-200 font-mono truncate focus:outline-none focus:border-amber-400/60"
-                />
+            <div className="space-y-3">
+              <div className="relative h-24 overflow-hidden rounded-2xl border border-white/10 bg-[#191923]">
+                {coverImage ? (
+                  <img src={coverImage} alt="Profile cover" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-[radial-gradient(circle_at_20%_20%,rgba(245,158,11,.25),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(34,211,238,.2),transparent_30%),linear-gradient(135deg,#181620,#09090d)]" />
+                )}
+                <label className="absolute right-2 bottom-2 cursor-pointer rounded-xl border border-white/15 bg-black/50 px-3 py-2 text-[10px] font-semibold text-white backdrop-blur-md">
+                  <span className="flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" /> Change cover</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], setCoverImage)} />
+                </label>
+              </div>
+
+              <div className="flex items-center gap-4 p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                <div className="relative shrink-0">
+                  <img src={avatar || userProfile.avatar} alt={name} className="w-16 h-16 rounded-full object-cover border-2 border-amber-400/40" />
+                  <label className="absolute -bottom-1 -right-1 cursor-pointer rounded-full bg-amber-400 p-2 text-stone-950 border-2 border-[#12121a]">
+                    <Camera className="w-3.5 h-3.5" />
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], setAvatar)} />
+                  </label>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="text-[11px] text-stone-400 block mb-1">Profile picture URL or upload</label>
+                  <input
+                    type="text"
+                    value={avatar}
+                    onChange={(e) => setAvatar(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-stone-200 font-mono truncate focus:outline-none focus:border-amber-400/60"
+                  />
+                  <p className="mt-1 text-[9px] text-stone-600">Images stay in this device until a backend profile system is connected.</p>
+                </div>
               </div>
             </div>
 
