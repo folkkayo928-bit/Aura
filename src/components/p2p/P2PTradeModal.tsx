@@ -47,6 +47,10 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [receiveAccount, setReceiveAccount] = useState('');
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
+  const [proofUploading, setProofUploading] = useState(false);
+  const [proofs, setProofs] = useState<Array<{ id: string; file_name: string; note?: string | null; created_at: string; url?: string }>>([]);
   const [messages, setMessages] = useState<P2PChatMessage[]>([
     {
       id: 'm-sys-1',
@@ -75,6 +79,26 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       })));
     })();
   }, [activeP2POrder?.id, user]);
+
+  useEffect(() => {
+    if (!activeP2POrder?.id) {
+      setProofs([]);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from('p2p_payment_proofs')
+        .select('id,storage_path,file_name,note,created_at')
+        .eq('order_id', activeP2POrder.id)
+        .order('created_at', { ascending: true });
+      const rows = (data || []) as any[];
+      const enriched = await Promise.all(rows.map(async (p) => {
+        const signed = await supabase.storage.from('aura-p2p-proofs').createSignedUrl(p.storage_path, 600);
+        return { ...p, url: signed.data?.signedUrl || undefined };
+      }));
+      setProofs(enriched);
+    })();
+  }, [activeP2POrder?.id, activeP2POrder?.status]);
 
   useEffect(() => {
     if (offer && offer.paymentMethods.length > 0) {
@@ -345,12 +369,50 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             {activeP2POrder.status === 'escrow_locked' && (
               <div className="space-y-2 pt-1">
                 {activeP2POrder.buyerId === user?.id ? (
-                  <button
-                    onClick={() => markP2PPaymentSent(activeP2POrder.id)}
-                    className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
-                  >
-                    I Have Transferred ${activeP2POrder.fiatAmount.toFixed(2)} {activeP2POrder.fiatCurrency}
-                  </button>
+                  <div className="space-y-2">
+                    <label className="block rounded-xl border border-white/10 bg-white/[0.03] p-3 cursor-pointer">
+                      <span className="block text-xs font-semibold text-stone-200">Payment proof</span>
+                      <span className="block text-[10px] text-stone-400 mt-1">Upload a receipt or screenshot so the seller can verify the payment.</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                        className="mt-2 block w-full text-[11px] text-stone-400"
+                        onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                    <button
+                      disabled={!paymentProof || proofUploading}
+                      onClick={async () => {
+                        if (!paymentProof || !user) return;
+                        setProofUploading(true);
+                        try {
+                          const safeName = paymentProof.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                          const path = `${user.id}/${activeP2POrder.id}/${crypto.randomUUID()}-${safeName}`;
+                          const upload = await supabase.storage.from('aura-p2p-proofs').upload(path, paymentProof, { contentType: paymentProof.type, upsert: false });
+                          if (upload.error) throw upload.error;
+                          const inserted = await supabase.from('p2p_payment_proofs').insert({
+                            order_id: activeP2POrder.id,
+                            uploader_id: user.id,
+                            storage_path: path,
+                            file_name: paymentProof.name,
+                            mime_type: paymentProof.type,
+                          }).select('id,storage_path,file_name,note,created_at').single();
+                          if (inserted.error) throw inserted.error;
+                          const signed = await supabase.storage.from('aura-p2p-proofs').createSignedUrl(path, 600);
+                          setProofs((prev) => [...prev, { ...(inserted.data as any), url: signed.data?.signedUrl || undefined }]);
+                          await markP2PPaymentSent(activeP2POrder.id);
+                          setPaymentProof(null);
+                        } catch (err: any) {
+                          alert(err.message || 'Could not upload payment proof.');
+                        } finally {
+                          setProofUploading(false);
+                        }
+                      }}
+                      className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98] disabled:opacity-40"
+                    >
+                      {proofUploading ? 'Uploading proof…' : 'I Have Paid — Send Proof'}
+                    </button>
+                  </div>
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs text-stone-400">
                     Waiting for the buyer to transfer ${activeP2POrder.fiatAmount.toFixed(2)} {activeP2POrder.fiatCurrency}.
@@ -372,6 +434,27 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                     ? (activeP2POrder.artwork ? 'Release the artwork when you confirm receipt.' : 'Release the held USDT when you confirm receipt.')
                     : (activeP2POrder.artwork ? 'Waiting for the seller to release the artwork.' : 'Waiting for the seller to release the held USDT.')}
                 </div>
+                {proofs.length > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-2">
+                    <div className="text-[10px] uppercase tracking-wider text-stone-400">Payment evidence</div>
+                    {proofs.map((proof) => (
+                      <div key={proof.id} className="flex items-center gap-2">
+                        {proof.url && proof.mime_type?.startsWith('image/') ? (
+                          <a href={proof.url} target="_blank" rel="noreferrer">
+                            <img src={proof.url} alt="Payment proof" className="w-14 h-14 rounded-lg object-cover border border-white/10" />
+                          </a>
+                        ) : (
+                          <a href={proof.url} target="_blank" rel="noreferrer" className="text-xs text-cyan-300 underline">{proof.file_name}</a>
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-xs text-stone-200 truncate">{proof.file_name}</div>
+                          <div className="text-[10px] text-stone-500">{new Date(proof.created_at).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {activeP2POrder.sellerId === user?.id ? (
                   <button
                     onClick={async () => {
