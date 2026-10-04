@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS public.linked_web3_wallets (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
               </div>
               <span className="text-[10px] text-stone-400 font-mono block">
-                bot @auravault_bot
+                bot @myaura1_bot
               </span>
             </div>
 
