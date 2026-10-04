@@ -146,7 +146,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       void supabase.from('p2p_messages').insert({
         order_id: activeP2POrder.id,
         sender_id: user.id,
-        sender_role: user.id === activeP2POrder.merchant.id ? 'seller' : 'buyer',
+        sender_role: activeP2POrder.type === 'sell' ? 'seller' : 'buyer',
         text: chatInput.trim(),
       });
     }
@@ -356,7 +356,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 text-center">
                   Payment confirmed! Merchant is releasing {activeP2POrder.cryptoAmount} USDT to your vault.
                 </div>
-                {user?.id === activeP2POrder.merchant.id ? (
+                {activeP2POrder.type === 'sell' && user ? (
                   <button
                     onClick={async () => {
                       await completeP2POrder(activeP2POrder.id);
