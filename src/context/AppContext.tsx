@@ -94,6 +94,7 @@ interface AppContextType {
     currency: 'USD' | 'EUR' | 'GBP';
     paymentMethods: PaymentMethodType[];
   }) => void;
+  uploadArtworkFile: (file: File) => Promise<string | null>;
   createArtwork: (newArt: {
     title: string;
     description: string;
@@ -107,7 +108,7 @@ interface AppContextType {
     listOnP2P?: boolean;
     p2pPriceFiat?: number;
     p2pPaymentMethods?: PaymentMethodType[];
-  }) => void;
+  }) => Promise<void>;
   isTelegramShellMode: boolean;
   setIsTelegramShellMode: (enabled: boolean) => void;
   // Modals state
@@ -867,7 +868,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const createArtwork = (newArt: {
+  const uploadArtworkFile = async (file: File): Promise<string | null> => {
+    if (!user) {
+      openAuth('signin');
+      return null;
+    }
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      addNotification('Unsupported File', 'Please choose an image or video asset.', 'community');
+      return null;
+    }
+    const maxBytes = 50 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      addNotification('File Too Large', 'Artwork uploads are limited to 50 MB.', 'community');
+      return null;
+    }
+
+    const extension = file.name.includes('.') ? file.name.split('.').pop() : 'bin';
+    const safeName = file.name
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'artwork';
+    const path = `${user.id}/${crypto.randomUUID()}-${safeName || `asset.${extension}`}`;
+    const { error } = await supabase.storage.from('aura-artworks').upload(path, file, {
+      cacheControl: '31536000',
+      upsert: false,
+      contentType: file.type || undefined,
+    });
+    if (error) {
+      addNotification('Upload Failed', error.message, 'community');
+      return null;
+    }
+    const { data } = supabase.storage.from('aura-artworks').getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const createArtwork = async (newArt: {
     title: string;
     description: string;
     price: number;
@@ -881,81 +916,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     p2pPriceFiat?: number;
     p2pPaymentMethods?: PaymentMethodType[];
   }) => {
-    const created: Artwork = {
-      id: `art-created-${Date.now()}`,
-      title: newArt.title,
-      edition: '1 of 1 · Genesis',
-      creator: {
-        id: 'me',
-        name: userProfile.name,
-        handle: userProfile.telegramHandle,
-        avatar: userProfile.avatar,
-        verified: true,
-        bio: userProfile.bio,
-        totalPieces: 1,
-        totalCollectors: 0,
-      },
-      visualTheme: newArt.visualTheme,
-      accentColor: '#e0c070',
-      description: newArt.description,
-      medium: newArt.mediaType === 'gif' ? 'Animated GIF 60FPS' : newArt.mediaType === 'brand_streetwear' ? 'Brand Wearable' : newArt.mediaType === 'ui_design' ? 'Figma UI Design' : 'Digital Fine Art',
-      dimensions: '4096 × 4096 px · Master File',
-      originalPrice: newArt.price,
-      currentValue: newArt.price,
-      purchasePrice: newArt.price,
-      isOwned: true,
-      eligibleInteractions: 1,
-      interestLevel: 'Rising',
-      interestScore: 70,
-      likes: 1,
-      loves: 1,
-      saves: 0,
-      collectorsCount: 1,
-      collectors: [{ id: 'me', name: userProfile.name, avatar: userProfile.avatar }],
-      createdDate: 'Today',
-      category: newArt.category,
-      mediaType: newArt.mediaType || 'image',
-      customMediaUrl: newArt.customMediaUrl,
-      collectionName: newArt.collectionName || 'Creator Vault Series',
-      traits: newArt.traits || [],
-      conversionEligible: true,
-      conversionLiquidity: 'Ample',
-      isListedOnP2P: newArt.listOnP2P,
-      p2pPriceFiat: newArt.p2pPriceFiat,
-      p2pPaymentMethods: newArt.p2pPaymentMethods,
-      comments: [],
-    };
-
-    setArtworks((prev) => [created, ...prev]);
-
-    // If also listed on P2P
-    if (newArt.listOnP2P && newArt.p2pPriceFiat && newArt.p2pPaymentMethods) {
-      listArtworkOnP2P({
-        artworkId: created.id,
-        fiatPrice: newArt.p2pPriceFiat,
-        currency: 'USD',
-        paymentMethods: newArt.p2pPaymentMethods,
-      });
+    if (!user) {
+      openAuth('signin');
+      return;
     }
 
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'create',
-      artworkTitle: created.title,
-      amount: created.originalPrice,
-      currency: 'ART',
-      date: 'Just now',
-      recipientOrSender: 'Creator Vault',
-      status: 'confirmed',
-    };
-    setTransactions((prev) => [newTx, ...prev]);
+    const { data, error } = await supabase.rpc('create_my_artwork', {
+      p_title: newArt.title.trim(),
+      p_description: newArt.description.trim(),
+      p_price_usdt: newArt.price,
+      p_visual_theme: newArt.visualTheme,
+      p_category: newArt.category,
+      p_media_type: newArt.mediaType || 'image',
+      p_media_url: newArt.customMediaUrl || null,
+      p_collection_name: newArt.collectionName?.trim() || null,
+      p_traits: newArt.traits || [],
+      p_list_on_p2p: Boolean(newArt.listOnP2P),
+      p_p2p_price_fiat: newArt.listOnP2P ? (newArt.p2pPriceFiat || newArt.price) : null,
+      p_p2p_currency: 'USD',
+      p_p2p_payment_methods: newArt.p2pPaymentMethods || [],
+    });
+
+    if (error || !data) {
+      addNotification('Mint Failed', error?.message || 'Could not create the artwork.', 'community');
+      return;
+    }
+
+    const createdRow: any = data;
+    const created = backendArtworkToUi(createdRow, true, newArt.price, {
+      profile: userProfile,
+    });
+    setArtworks(prev => [created, ...prev.filter(a => a.id !== created.id)]);
+
+    if (newArt.listOnP2P && newArt.p2pPriceFiat) {
+      const { error: offerError } = await supabase.from('p2p_offers').insert({
+        merchant_id: user.id,
+        type: 'sell',
+        artwork_id: created.id,
+        price_per_unit: newArt.p2pPriceFiat,
+        fiat_currency: 'USD',
+        available_crypto: 1,
+        min_limit_fiat: newArt.p2pPriceFiat,
+        max_limit_fiat: newArt.p2pPriceFiat,
+        payment_methods: newArt.p2pPaymentMethods || [],
+        payment_instructions: 'Artwork P2P listing. Payment verification and ownership release are handled through the AURA order flow.',
+        is_active: true,
+      });
+      if (offerError) {
+        addNotification('Artwork Minted', 'The artwork is live, but the P2P listing could not be created yet.', 'p2p');
+      }
+    }
 
     addNotification(
-      '✨ Masterpiece Minted & Listed',
-      `"${created.title}" is now inscribed in your vault and live on the marketplace!`,
+      '✨ Artwork Published',
+      `"${newArt.title}" is now in your AURA collection.`,
       'community'
     );
-
+    setTransactions(prev => [{
+      id: `local-${Date.now()}`,
+      type: 'create',
+      artworkTitle: newArt.title,
+      amount: newArt.price,
+      currency: 'ART',
+      date: 'Just now',
+      recipientOrSender: 'AURA Creator Vault',
+      status: 'confirmed',
+    }, ...prev]);
     setActiveTab('home');
   };
 
@@ -1301,6 +1327,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         makeOfferOnArtwork,
         convertArtwork,
         listArtworkOnP2P,
+        uploadArtworkFile,
         createArtwork,
         isTelegramShellMode,
         setIsTelegramShellMode,
