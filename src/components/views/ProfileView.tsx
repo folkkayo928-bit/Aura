@@ -199,7 +199,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         </div>
 
         {profileSection === 'collection' && (
-        {ownedArtworks.length === 0 ? (
+        ownedArtworks.length === 0 ? (
           <div className="py-12 text-center p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
             <Award className="w-10 h-10 text-stone-600 mx-auto" />
             <h4 className="font-serif text-lg text-stone-300">Your Vault is Empty</h4>
