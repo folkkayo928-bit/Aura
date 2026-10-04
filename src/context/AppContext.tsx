@@ -1367,6 +1367,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dismissNotification,
         addNotification,
         toggleLike,
+        toggleDislike,
         toggleLove,
         toggleSave,
         toggleWatchlist,
