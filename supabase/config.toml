@@ -1,0 +1,13 @@
+project_id = "rtqcistkoomzmzxzasxc"
+
+[functions.withdrawal-request]
+verify_jwt = true
+
+[functions.withdrawal-confirm]
+verify_jwt = false
+
+[functions.withdrawal-broadcaster]
+verify_jwt = false
+
+[functions.withdrawal-indexer]
+verify_jwt = false
