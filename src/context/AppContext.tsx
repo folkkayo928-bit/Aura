@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 import {
   Artwork,
   FeedSection,
@@ -236,7 +238,80 @@ const sanitizeP2POffer = (offer: any): P2POffer => ({
   isBuyerProtected: true,
 });
 
+const isBackendArtworkId = (id: string) => /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id);
+
+const mapLedgerToTransaction = (row: any): Transaction => {
+  const amount = Number(row.amount_usdt || 0);
+  let type: Transaction['type'] = 'receive';
+  if (String(row.kind).includes('collect')) type = 'collect';
+  else if (String(row.kind).includes('convert')) type = 'convert';
+  else if (String(row.kind).includes('send') || String(row.kind).includes('transfer')) type = 'send';
+  else if (String(row.kind).includes('create')) type = 'create';
+  else if (String(row.kind).includes('p2p_buy')) type = 'p2p_buy';
+  else if (String(row.kind).includes('p2p_sell')) type = 'p2p_sell';
+  return {
+    id: row.id,
+    type,
+    amount,
+    currency: 'USDT',
+    date: new Date(row.created_at).toLocaleString(),
+    recipientOrSender: row.memo || undefined,
+    status: 'confirmed',
+  };
+};
+
+const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, interaction?: any): Artwork => ({
+  id: row.id,
+  title: row.title,
+  edition: row.edition || '1 of 1 · Genesis',
+  creator: {
+    id: row.creator_id,
+    name: row.profiles?.display_name || 'AURA Creator',
+    handle: row.profiles?.handle || '@creator',
+    avatar: row.profiles?.avatar_url || '',
+    verified: true,
+    bio: row.profiles?.bio || '',
+    totalPieces: 0,
+    totalCollectors: Number(row.collectors_count || 0),
+  },
+  visualTheme: row.visual_theme || 'custom_upload',
+  accentColor: '#e0c070',
+  description: row.description || '',
+  medium: row.media_type || 'Digital Art',
+  dimensions: 'Master file',
+  originalPrice: Number(row.original_price_usdt || 0),
+  currentValue: Number(row.current_value_usdt || 0),
+  purchasePrice: purchasePrice,
+  isOwned: owned,
+  eligibleInteractions: Number(row.eligible_interactions || 0),
+  interestLevel: row.interest_level || 'Rising',
+  interestScore: Number(row.interest_score || 0),
+  likes: Number(row.likes || 0),
+  loves: Number(row.loves || 0),
+  saves: Number(row.saves || 0),
+  collectorsCount: Number(row.collectors_count || 0),
+  collectors: [],
+  isLiked: Boolean(interaction?.liked),
+  isLoved: Boolean(interaction?.loved),
+  isSaved: Boolean(interaction?.saved),
+  isWatched: Boolean(interaction?.watched),
+  createdDate: new Date(row.created_at).toLocaleDateString(),
+  category: row.category || 'generative',
+  mediaType: row.media_type || 'image',
+  customMediaUrl: row.media_url || undefined,
+  collectionName: row.collection_name || undefined,
+  traits: Array.isArray(row.traits) ? row.traits : [],
+  conversionEligible: Boolean(row.conversion_eligible),
+  conversionLiquidity: row.conversion_liquidity || 'Ample',
+  isListedOnP2P: Boolean(row.is_listed_on_p2p),
+  p2pPriceFiat: row.p2p_price_fiat ? Number(row.p2p_price_fiat) : undefined,
+  p2pCurrency: row.p2p_currency || undefined,
+  p2pPaymentMethods: Array.isArray(row.p2p_payment_methods) ? row.p2p_payment_methods : [],
+  comments: [],
+});
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, openAuth } = useAuth();
   const [artworks, setArtworks] = useState<Artwork[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_ARTWORKS);
@@ -264,59 +339,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  const [walletBalance, setWalletBalance] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_WALLET);
-      return saved ? Number(saved) : 2450.0;
-    } catch {
-      return 2450.0;
-    }
-  });
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_PROFILE);
-      return saved
-        ? JSON.parse(saved)
-        : {
-            name: 'Julian Vance',
-            telegramHandle: '@artcollector',
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-            coverImage: '',
-            bio: 'Curating anime PFPs, digital fashion, and generative fine art.',
-            vaultId: 'aura.tg://vance.884',
-            joinedDate: 'February 2026',
-            defaultCurrency: 'USD',
-            notificationsEnabled: true,
-            telegramBotAlerts: true,
-            twoFactorEnabled: true,
-            biometricAuth: false,
-          };
-    } catch {
-      return {
-        name: 'Julian Vance',
-        telegramHandle: '@artcollector',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-        coverImage: '',
-        bio: 'Curating anime PFPs, digital fashion, and generative fine art.',
-        vaultId: 'aura.tg://vance.884',
-        joinedDate: 'February 2026',
-        defaultCurrency: 'USD',
-        notificationsEnabled: true,
-        telegramBotAlerts: true,
-        twoFactorEnabled: true,
-        biometricAuth: false,
-      };
-    }
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: 'AURA Collector',
+    telegramHandle: '@collector',
+    avatar: '',
+    coverImage: '',
+    bio: 'Collecting digital art on AURA.',
+    vaultId: 'Sign in to create your vault',
+    joinedDate: 'New member',
+    defaultCurrency: 'USD',
+    notificationsEnabled: true,
+    telegramBotAlerts: true,
+    twoFactorEnabled: false,
+    biometricAuth: false,
   });
 
   const vaultAddresses: Web3VaultAddresses = {
-    ton: 'EQB3r_k7J8QYlX7w1mU6H0zJqfD8E9xV3yG5tK2nB1aP9x',
-    polygon: '0x71C5681E999E6a9a9972828b86866Fe49411a49B',
-    ethereum: '0x71C5681E999E6a9a9972828b86866Fe49411a49B',
-    arbitrum: '0x71C5681E999E6a9a9972828b86866Fe49411a49B',
-    solana: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    seedPhrase: 'velvet museum obsidian crystal beacon vault echo lunar prism kinetic harmony apex',
+    ton: '',
+    polygon: '',
+    ethereum: '',
+    arbitrum: '',
+    solana: '',
+    seedPhrase: '',
   };
 
   const [connectedWallets, setConnectedWallets] = useState<ConnectedExternalWallet[]>(() => {
@@ -439,8 +485,93 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEY_WALLETS, JSON.stringify(connectedWallets));
   }, [connectedWallets]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadBackendState = async () => {
+      if (!user) {
+        setWalletBalance(0);
+        setTransactions([]);
+        setConnectedWallets([]);
+        return;
+      }
+
+      const [profileRes, walletRes, ledgerRes, ownedRes, interactionsRes, artworkRes, extWalletsRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
+        supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+        supabase.from('artwork_ownership').select('artwork_id,purchase_price_usdt').eq('owner_id', user.id),
+        supabase.from('artwork_interactions').select('artwork_id,liked,loved,saved,watched').eq('user_id', user.id),
+        supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
+      ]);
+
+      if (cancelled) return;
+
+      if (profileRes.data) {
+        const p = profileRes.data as any;
+        setUserProfile(prev => ({
+          ...prev,
+          name: p.display_name || prev.name,
+          telegramHandle: p.handle || prev.telegramHandle,
+          avatar: p.avatar_url || '',
+          coverImage: p.cover_url || '',
+          bio: p.bio || '',
+          vaultId: p.vault_id || prev.vaultId,
+          joinedDate: p.created_at ? new Date(p.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : prev.joinedDate,
+          defaultCurrency: p.default_currency || 'USD',
+          notificationsEnabled: p.notifications_enabled !== false,
+          telegramBotAlerts: p.telegram_bot_alerts !== false,
+          twoFactorEnabled: Boolean(p.two_factor_enabled),
+          biometricAuth: Boolean(p.biometric_auth),
+        }));
+      }
+      if (walletRes.data) setWalletBalance(Number((walletRes.data as any).balance_usdt || 0));
+      if (ledgerRes.data) setTransactions((ledgerRes.data as any[]).map(mapLedgerToTransaction));
+      if (extWalletsRes.data) {
+        setConnectedWallets((extWalletsRes.data as any[]).map(w => ({
+          id: w.id,
+          name: w.provider,
+          network: w.network,
+          address: w.address,
+          connectedAt: new Date(w.connected_at).toLocaleDateString(),
+          balance: 0,
+        })));
+      }
+
+      const owned = new Map<string, number>();
+      for (const row of (ownedRes.data || []) as any[]) owned.set(row.artwork_id, Number(row.purchase_price_usdt || 0));
+      const interactions = new Map<string, any>();
+      for (const row of (interactionsRes.data || []) as any[]) interactions.set(row.artwork_id, row);
+
+      if (artworkRes.data) {
+        const mapped = (artworkRes.data as any[]).map(row => backendArtworkToUi(row, owned.has(row.id), owned.get(row.id), interactions.get(row.id)));
+        setArtworks(prev => {
+          const byId = new Map(prev.map(a => [a.id, a]));
+          for (const art of mapped) byId.set(art.id, { ...(byId.get(art.id) || {}), ...art });
+          return Array.from(byId.values());
+        });
+      }
+    };
+    void loadBackendState();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const updateUserProfile = (updates: Partial<UserProfile>) => {
     setUserProfile((prev) => ({ ...prev, ...updates }));
+    if (user) {
+      void supabase.from('profiles').update({
+        display_name: updates.name,
+        handle: updates.telegramHandle,
+        bio: updates.bio,
+        avatar_url: updates.avatar,
+        cover_url: updates.coverImage,
+        default_currency: updates.defaultCurrency,
+        notifications_enabled: updates.notificationsEnabled,
+        telegram_bot_alerts: updates.telegramBotAlerts,
+        two_factor_enabled: updates.twoFactorEnabled,
+        biometric_auth: updates.biometricAuth,
+      }).eq('id', user.id);
+    }
     addNotification('Settings Updated', 'Your profile and preferences were saved.', 'community');
   };
 
@@ -481,59 +612,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleLike = (artworkId: string) => {
+    if (!user) { openAuth('signin'); return; }
     const artwork = artworks.find((art) => art.id === artworkId);
     if (!artwork) return;
     const nextLiked = !artwork.isLiked;
     setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
-      ...art, isLiked: nextLiked,
-      likes: Math.max(0, nextLiked ? art.likes + 1 : art.likes - 1),
+      ...art, isLiked: nextLiked, likes: Math.max(0, nextLiked ? art.likes + 1 : art.likes - 1),
       eligibleInteractions: nextLiked ? art.eligibleInteractions + 1 : art.eligibleInteractions,
     } : art));
+    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'liked' });
     addNotification(nextLiked ? '❤️ Added to Favorites' : '↩️ Like Removed',
       nextLiked ? `You liked "${artwork.title}".` : `Your like for "${artwork.title}" was removed.`, 'value_surge');
   };
 
   const toggleLove = (artworkId: string) => {
+    if (!user) { openAuth('signin'); return; }
     const artwork = artworks.find((art) => art.id === artworkId);
     if (!artwork) return;
     const nextLoved = !artwork.isLoved;
     setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
-      ...art, isLoved: nextLoved,
-      loves: Math.max(0, nextLoved ? art.loves + 1 : art.loves - 1),
+      ...art, isLoved: nextLoved, loves: Math.max(0, nextLoved ? art.loves + 1 : art.loves - 1),
       eligibleInteractions: nextLoved ? art.eligibleInteractions + 2 : art.eligibleInteractions,
     } : art));
+    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'loved' });
     addNotification(nextLoved ? '💛 Added to Love List' : '↩️ Love Removed',
       nextLoved ? `"${artwork.title}" is now in your Love List.` : `"${artwork.title}" was removed from your Love List.`, 'value_surge');
   };
 
   const toggleSave = (artworkId: string) => {
+    if (!user) { openAuth('signin'); return; }
     const artwork = artworks.find((art) => art.id === artworkId);
     if (!artwork) return;
     const nextSaved = !artwork.isSaved;
     setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
-      ...art, isSaved: nextSaved,
-      saves: Math.max(0, nextSaved ? art.saves + 1 : art.saves - 1),
+      ...art, isSaved: nextSaved, saves: Math.max(0, nextSaved ? art.saves + 1 : art.saves - 1),
       eligibleInteractions: nextSaved ? art.eligibleInteractions + 1 : art.eligibleInteractions,
     } : art));
+    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'saved' });
     addNotification(nextSaved ? '🔖 Saved to Your Vault' : '↩️ Removed from Saved',
       nextSaved ? `"${artwork.title}" was saved for later.` : `"${artwork.title}" was removed from your saved works.`, 'community');
   };
 
   const toggleWatchlist = (artworkId: string) => {
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artworkId) {
-          const isWatched = !art.isWatched;
-          addNotification(
-            isWatched ? '⭐ Added to Watchlist' : 'Removed from Watchlist',
-            `"${art.title}" is ${isWatched ? 'now tracked in your Watchlist' : 'removed'}.`,
-            'community'
-          );
-          return { ...art, isWatched };
-        }
-        return art;
-      })
-    );
+    if (!user) { openAuth('signin'); return; }
+    const artwork = artworks.find((art) => art.id === artworkId);
+    if (!artwork) return;
+    const isWatched = !artwork.isWatched;
+    setArtworks(prev => prev.map(a => a.id === artworkId ? { ...a, isWatched } : a));
+    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'watched' });
+    addNotification(isWatched ? '⭐ Added to Watchlist' : 'Removed from Watchlist',
+      `"${artwork.title}" is ${isWatched ? 'now tracked in your Watchlist' : 'removed'}.`, 'community');
   };
 
   const toggleCollectionWatchlist = (collectionId: string) => {
@@ -571,82 +699,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addComment = (artworkId: string, text: string) => {
+    if (!user) { openAuth('signin'); return; }
     if (!text.trim()) return;
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artworkId) {
-          const newComment = {
-            id: `cmt-${Date.now()}`,
-            userName: userProfile.name,
-            userAvatar: userProfile.avatar,
-            text: text.trim(),
-            timestamp: 'Just now',
-          };
-          return {
-            ...art,
-            comments: [newComment, ...art.comments],
-            eligibleInteractions: art.eligibleInteractions + 3,
-          };
-        }
-        return art;
-      })
-    );
-  };
-
+    setArtworks(prev => prev.map(art => art.id === artworkId ? {
+      ...art,
+      comments: [{
+        id: `cmt-${Date.now()}`,
+        userName: userProfile.name,
+        userAvatar: userProfile.avatar,
+        text: text.trim(),
+        timestamp: 'Just now',
+      }, ...art.comments],
+      eligibleInteractions: art.eligibleInteractions + 3,
+    } : art));
+    if (isBackendArtworkId(artworkId)) {
+      void supabase.rpc('add_artwork_comment', { p_artwork_id: artworkId, p_text: text.trim() });
+    }
     const artwork = artworks.find((art) => art.id === artworkId);
     if (artwork) addNotification('💬 Comment Posted', `Your comment was added to "${artwork.title}".`, 'community');
   };
 
   const collectArtwork = (artwork: Artwork): boolean => {
-    if (walletBalance < artwork.currentValue) {
-      addNotification(
-        'Insufficient Balance',
-        `You need $${(artwork.currentValue - walletBalance).toFixed(2)} more USDT to collect "${artwork.title}".`,
-        'community'
-      );
+    if (!user) { openAuth('signin'); return false; }
+    if (!isBackendArtworkId(artwork.id)) {
+      addNotification('Live Listing Required', 'This catalog item is a preview. Live collecting is available for verified AURA listings.', 'community');
       return false;
     }
-
-    const cost = artwork.currentValue;
-    setWalletBalance((prev) => prev - cost);
-
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artwork.id) {
-          return {
-            ...art,
-            isOwned: true,
-            purchasePrice: cost,
-            collectorsCount: art.collectorsCount + 1,
-            eligibleInteractions: art.eligibleInteractions + 15,
-            collectors: [
-              { id: 'me', name: userProfile.name, avatar: userProfile.avatar },
-              ...art.collectors,
-            ],
-          };
-        }
-        return art;
-      })
-    );
-
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'collect',
-      artworkTitle: artwork.title,
-      amount: cost,
-      currency: 'USDT',
-      date: 'Just now',
-      recipientOrSender: artwork.creator.handle,
-      status: 'confirmed',
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-
-    addNotification(
-      '🎨 Masterpiece Collected',
-      `You acquired "${artwork.title}" for $${cost} USDT. Vault certificate minted!`,
-      'collect'
-    );
-
+    void (async () => {
+      const { error } = await supabase.rpc('collect_artwork', { p_artwork_id: artwork.id });
+      if (error) {
+        addNotification('Collect Failed', error.message.includes('INSUFFICIENT_FUNDS') ? 'Your AURA wallet needs more USDT.' : 'This artwork could not be collected right now.', 'community');
+        return;
+      }
+      setArtworks(prev => prev.map(a => a.id === artwork.id ? { ...a, isOwned: true, purchasePrice: artwork.currentValue, collectorsCount: a.collectorsCount + 1 } : a));
+      const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
+      if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+      setTransactions(prev => [{
+        id: `tx-${Date.now()}`,
+        type: 'collect',
+        artworkTitle: artwork.title,
+        amount: artwork.currentValue,
+        currency: 'USDT',
+        date: 'Just now',
+        recipientOrSender: artwork.creator.handle,
+        status: 'confirmed',
+      }, ...prev]);
+      addNotification('🎨 Masterpiece Collected', `You acquired "${artwork.title}" for $${artwork.currentValue.toFixed(2)} USDT.`, 'collect');
+    })();
     return true;
   };
 
@@ -676,46 +775,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const convertArtwork = (artwork: Artwork, fee: number) => {
-    if (!artwork.isOwned) {
+    if (!user) { openAuth('signin'); return { success: false, netPayout: 0 }; }
+    if (!isBackendArtworkId(artwork.id) || !artwork.isOwned) {
+      addNotification('Not Available', 'Only verified AURA-owned listings can be converted to wallet USDT.', 'community');
       return { success: false, netPayout: 0 };
     }
-
-    const netPayout = Math.max(0, artwork.currentValue - fee);
-    setWalletBalance((prev) => prev + netPayout);
-
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artwork.id) {
-          return {
-            ...art,
-            isOwned: false,
-            purchasePrice: undefined,
-            collectorsCount: Math.max(0, art.collectorsCount - 1),
-          };
-        }
-        return art;
-      })
-    );
-
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'convert',
-      artworkTitle: artwork.title,
-      amount: netPayout,
-      currency: 'USDT',
-      date: 'Just now',
-      recipientOrSender: 'AURA Liquidity Treasury',
-      status: 'confirmed',
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-
-    addNotification(
-      '💸 Converted to Crypto',
-      `"${artwork.title}" converted to $${netPayout.toFixed(2)} USDT. Funds credited to wallet!`,
-      'convert'
-    );
-
-    return { success: true, netPayout };
+    void (async () => {
+      const { data, error } = await supabase.rpc('convert_owned_artwork', { p_artwork_id: artwork.id, p_fee_usdt: fee });
+      if (error) {
+        addNotification('Conversion Failed', error.message, 'community');
+        return;
+      }
+      const payout = Number((data as any)?.payout_usdt || 0);
+      setWalletBalance(prev => prev + payout);
+      setArtworks(prev => prev.map(a => a.id === artwork.id ? { ...a, isOwned: false, purchasePrice: undefined, isListedOnP2P: false } : a));
+      setTransactions(prev => [{ id: `tx-${Date.now()}`, type: 'convert', artworkTitle: artwork.title, amount: payout, currency: 'USDT', date: 'Just now', recipientOrSender: 'AURA Liquidity', status: 'confirmed' }, ...prev]);
+      addNotification('💸 Converted to AURA Wallet', `$${payout.toFixed(2)} USDT credited after the $${fee.toFixed(2)} service fee.`, 'convert');
+    })();
+    return { success: true, netPayout: Math.max(0, artwork.currentValue - fee) };
   };
 
   // Direct Art-to-Money Selling on P2P
@@ -882,38 +959,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('home');
   };
 
-  const topUpBalance = (amount: number) => {
-    setWalletBalance((prev) => prev + amount);
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'receive',
-      amount: amount,
-      currency: 'USDT',
-      date: 'Just now',
-      recipientOrSender: 'Top Up Deposit',
-      status: 'confirmed',
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-    addNotification('💳 Balance Credited', `+$${amount} USDT added to your wallet.`, 'convert');
+  const topUpBalance = (_amount: number) => {
+    addNotification('Wallet Funding', 'AURA does not create money. Use Receive for a supported on-chain deposit or a verified P2P purchase.', 'community');
+    return;
   };
 
   const sendInternalFunds = (recipient: string, amount: number): boolean => {
+    if (!user) { openAuth('signin'); return false; }
     if (walletBalance < amount) {
-      addNotification('Transfer Error', 'Insufficient balance for transfer.', 'community');
+      addNotification('Transfer Error', 'Insufficient AURA wallet balance.', 'community');
       return false;
     }
-    setWalletBalance((prev) => prev - amount);
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      type: 'send',
-      amount: amount,
-      currency: 'USDT',
-      date: 'Just now',
-      recipientOrSender: recipient,
-      status: 'confirmed',
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-    addNotification('Sent Successfully', `Transferred $${amount} USDT to ${recipient}.`, 'convert');
+    void (async () => {
+      const { error } = await supabase.rpc('internal_transfer', { p_recipient: recipient.trim(), p_amount_usdt: amount });
+      if (error) {
+        addNotification('Transfer Failed', error.message.includes('RECIPIENT_NOT_FOUND') ? 'Recipient not found. Use an @handle or AURA Vault ID.' : error.message, 'community');
+        return;
+      }
+      setWalletBalance(prev => prev - amount);
+      setTransactions(prev => [{ id: `tx-${Date.now()}`, type: 'send', amount, currency: 'USDT', date: 'Just now', recipientOrSender: recipient, status: 'confirmed' }, ...prev]);
+      addNotification('Sent Successfully', `Transferred $${amount.toFixed(2)} USDT to ${recipient}.`, 'convert');
+    })();
     return true;
   };
 
@@ -921,96 +987,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     network,
     destinationAddress,
     amount,
-    gasFee,
+    gasFee: _gasFee,
   }: {
     network: CryptoNetwork;
     destinationAddress: string;
     amount: number;
     gasFee: number;
   }): { success: boolean; txHash: string } => {
-    const totalDeduction = amount + gasFee;
-    if (walletBalance < totalDeduction) {
-      addNotification('External Send Failed', 'Insufficient funds for amount + network gas fee.', 'external_tx');
-      return { success: false, txHash: '' };
-    }
-
-    const randomHex = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    const txHash = network === 'ton' ? `ton://tx/${randomHex.slice(0, 32)}` : `0x${randomHex}`;
-
-    setWalletBalance((prev) => prev - totalDeduction);
-
-    const newTx: Transaction = {
-      id: `tx-ext-${Date.now()}`,
-      type: 'send',
-      amount,
-      currency: 'USDT',
-      date: 'Just now',
-      recipientOrSender: `${destinationAddress.slice(0, 6)}...${destinationAddress.slice(-4)}`,
-      status: 'confirmed',
-      network,
-      txHash,
-      isExternal: true,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-
-    addNotification(
-      '🚀 External Web3 Broadcast',
-      `Sent ${amount} USDT to external address on ${network.toUpperCase()}. Gas: $${gasFee}. TxHash: ${txHash.slice(0, 10)}...`,
-      'external_tx'
-    );
-
-    return { success: true, txHash };
+    if (!user) { openAuth('signin'); return { success: false, txHash: '' }; }
+    addNotification('External Send Not Connected', `AURA will not fake a blockchain broadcast. Connect a real ${network.toUpperCase()} wallet/provider before sending on-chain.`, 'external_tx');
+    return { success: false, txHash: '' };
   };
 
-  const simulateInboundDeposit = (network: CryptoNetwork, amount: number) => {
-    const randomHex = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    const txHash = network === 'ton' ? `ton://tx/${randomHex.slice(0, 32)}` : `0x${randomHex}`;
-
-    setWalletBalance((prev) => prev + amount);
-
-    const newTx: Transaction = {
-      id: `tx-dep-${Date.now()}`,
-      type: 'receive',
-      amount,
-      currency: 'USDT',
-      date: 'Just now',
-      recipientOrSender: `External Deposit (${network.toUpperCase()})`,
-      status: 'confirmed',
-      network,
-      txHash,
-      isExternal: true,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-
-    addNotification(
-      '📥 External Web3 Deposit Received',
-      `+$${amount} USDT confirmed from external wallet on ${network.toUpperCase()}!`,
-      'external_tx'
-    );
+  const simulateInboundDeposit = (_network: CryptoNetwork, _amount: number) => {
+    addNotification('Deposit Waiting', 'AURA does not simulate real deposits. A supported on-chain wallet/provider will credit the account after confirmation.', 'external_tx');
   };
 
   const connectExternalWallet = (name: ConnectedExternalWallet['name'], network: CryptoNetwork) => {
-    const id = `wallet-${Date.now()}`;
-    const generatedAddr =
-      network === 'ton'
-        ? 'EQC' + Math.random().toString(36).substring(2, 15) + '...tg'
-        : '0x' + Math.random().toString(16).substring(2, 10) + '...' + Math.random().toString(16).substring(2, 6);
+    if (!user) { openAuth('signin'); return; }
 
-    const newWallet: ConnectedExternalWallet = {
-      id,
-      name,
-      network,
-      address: generatedAddr,
-      connectedAt: 'Today',
-      balance: Math.floor(Math.random() * 80) + 10,
-    };
+    void (async () => {
+      let address = '';
+      const win = window as any;
+      try {
+        if (name === 'MetaMask' && win.ethereum?.request) {
+          const accounts = await win.ethereum.request({ method: 'eth_requestAccounts' });
+          address = accounts?.[0] || '';
+        } else if (name === 'Phantom' && win.solana?.connect) {
+          const result = await win.solana.connect();
+          address = result?.publicKey?.toString?.() || '';
+        } else {
+          addNotification('Wallet Provider Needed', `${name} connection needs its wallet provider extension/app bridge. AURA will never fabricate an address.`, 'community');
+          return;
+        }
+      } catch (e: any) {
+        addNotification('Wallet Connection Cancelled', e?.message || 'The wallet connection was cancelled.', 'community');
+        return;
+      }
 
-    setConnectedWallets((prev) => [newWallet, ...prev]);
-    addNotification('🔗 External Wallet Connected', `${name} (${network.toUpperCase()}) linked successfully.`, 'community');
+      if (!address) {
+        addNotification('Wallet Address Missing', 'The connected provider did not return an address.', 'community');
+        return;
+      }
+
+      const { data, error } = await supabase.from('external_wallets').upsert(
+        { user_id: user.id, provider: name, network, address },
+        { onConflict: 'user_id,provider,address' }
+      ).select().maybeSingle();
+
+      if (error) {
+        addNotification('Wallet Save Failed', error.message, 'community');
+        return;
+      }
+
+      const walletRow = data as any;
+      const connected: ConnectedExternalWallet = {
+        id: walletRow?.id || `wallet-${Date.now()}`,
+        name,
+        network,
+        address,
+        connectedAt: new Date().toLocaleDateString(),
+        balance: 0,
+      };
+      setConnectedWallets(prev => [connected, ...prev.filter(w => w.address !== address)]);
+      addNotification('🔗 External Wallet Connected', `${name} is linked to AURA. Balance data will appear when a provider indexer is connected.`, 'community');
+    })();
   };
 
   const disconnectExternalWallet = (id: string) => {
-    setConnectedWallets((prev) => prev.filter((w) => w.id !== id));
+    if (user) void supabase.from('external_wallets').delete().eq('id', id).eq('user_id', user.id);
+    setConnectedWallets(prev => prev.filter(w => w.id !== id));
     addNotification('Wallet Disconnected', 'External wallet session closed.', 'community');
   };
 
@@ -1023,6 +1069,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     cryptoAmount: number;
     paymentMethod: PaymentMethodType;
   }): P2POrder => {
+    if (!user) {
+      openAuth('signin');
+      return {
+        id: '',
+        offerId: offer.id,
+        type: offer.type,
+        merchant: offer.merchant,
+        cryptoAmount: 0,
+        fiatAmount: 0,
+        fiatCurrency: offer.fiatCurrency,
+        paymentMethod,
+        status: 'cancelled',
+        escrowTxHash: '',
+        createdAt: 'Not signed in',
+        protectionFundActive: false,
+        paymentDetails: { accountName: '', accountNumberOrId: '', referenceCode: '' },
+        chatMessages: [],
+      };
+    }
     const fiatAmount = cryptoAmount * offer.pricePerUnit;
     const randomHash = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 
