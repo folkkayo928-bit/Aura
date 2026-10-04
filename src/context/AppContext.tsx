@@ -1104,23 +1104,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       openAuth('signin');
       return { success: false, error: 'AUTH_REQUIRED' };
     }
-    const { data, error } = await supabase.rpc('request_wallet_withdrawal', {
-      p_chain: params.chain,
-      p_token_symbol: 'USDT',
-      p_destination_address: params.destinationAddress,
-      p_amount: params.amount,
-      p_network_fee: params.networkFee || 0,
-      p_idempotency_key: crypto.randomUUID(),
+
+    const { data, error } = await supabase.functions.invoke('withdrawal-request', {
+      body: {
+        chain: params.chain,
+        destinationAddress: params.destinationAddress,
+        amount: params.amount,
+        networkFee: params.networkFee || 0,
+      },
     });
-    if (error || !data) {
-      return { success: false, error: error?.message || 'Withdrawal request failed.' };
+
+    if (error || !data?.success) {
+      return { success: false, error: data?.error || error?.message || 'Withdrawal request failed.' };
     }
+
     const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
     if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
     const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
     if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
-    addNotification('Withdrawal request created', 'Your USDT is reserved pending email confirmation. No blockchain transaction has been broadcast.', 'wallet');
-    return { success: true, withdrawal: data };
+
+    addNotification(
+      'Confirm your withdrawal',
+      'A confirmation email was sent. The reserved USDT will not be broadcast until you confirm it.',
+      'wallet',
+    );
+
+    return { success: true, withdrawal: data.withdrawal };
   };
 
   const connectExternalWallet = (name: ConnectedExternalWallet['name'], network: CryptoNetwork) => {
