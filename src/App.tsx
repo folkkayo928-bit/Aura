@@ -69,7 +69,7 @@ const TelegramWebAppBridge: React.FC = () => {
         body: JSON.stringify({ initData: tg.initData }),
       }).catch(() => undefined);
     }
-  }, [setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
+  }, []);
 
   return null;
 };
