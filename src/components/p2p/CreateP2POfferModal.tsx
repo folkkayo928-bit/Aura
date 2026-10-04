@@ -20,7 +20,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     'revolut',
   ]);
   const [instructions, setInstructions] = useState(
-    'Tell the counterparty where and how to pay. AURA reserves the seller's USDT in its internal ledger until the trade is completed or cancelled.'
+    'Tell the counterparty where and how to pay. AURA reserves the seller’s USDT in its internal ledger until the trade is completed or cancelled.'
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
