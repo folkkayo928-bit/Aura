@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 export const CreateView: React.FC = () => {
-  const { createArtwork, collections } = useApp();
+  const { createArtwork, uploadArtworkFile } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
@@ -51,11 +51,15 @@ export const CreateView: React.FC = () => {
     'telegram_pay',
   ]);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [publishError, setPublishError] = useState('');
 
   // File upload handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedFile(file);
+    setPublishError('');
 
     // Detect format
     if (file.type === 'image/gif') {
@@ -160,28 +164,42 @@ export const CreateView: React.FC = () => {
     setTraits(traits.filter((_, i) => i !== index));
   };
 
-  const handlePublish = (e: React.FormEvent) => {
+  const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPublishError('');
     if (!title.trim() || !price || parseFloat(price) <= 0) return;
 
     setIsPublishing(true);
-    setTimeout(() => {
-      createArtwork({
+    try {
+      let mediaUrl = customMediaUrl;
+      if (selectedFile) {
+        const uploaded = await uploadArtworkFile(selectedFile);
+        if (!uploaded) {
+          setPublishError('The artwork file could not be uploaded.');
+          return;
+        }
+        mediaUrl = uploaded;
+      }
+
+      await createArtwork({
         title: title.trim(),
         description: description.trim() || 'A verifiable digital creation inscribed on the AURA protocol.',
         price: parseFloat(price),
         visualTheme: 'custom_upload',
         category,
         mediaType,
-        customMediaUrl,
+        customMediaUrl: mediaUrl,
         collectionName,
         traits,
         listOnP2P,
         p2pPriceFiat: listOnP2P ? parseFloat(p2pPrice) || parseFloat(price) : undefined,
         p2pPaymentMethods: listOnP2P ? p2pPaymentMethods : undefined,
       });
+    } catch (error: any) {
+      setPublishError(error?.message || 'Something went wrong while publishing the artwork.');
+    } finally {
       setIsPublishing(false);
-    }, 800);
+    }
   };
 
   return (
@@ -491,6 +509,12 @@ export const CreateView: React.FC = () => {
         </div>
 
         {/* SUBMIT BUTTON */}
+        {publishError && (
+          <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
+            {publishError}
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={isPublishing || !title.trim()}
