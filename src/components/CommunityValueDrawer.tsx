@@ -9,7 +9,6 @@ interface CommunityValueDrawerProps {
 }
 
 export const CommunityValueDrawer: React.FC<CommunityValueDrawerProps> = ({ artwork, onClose }) => {
-  const interactions = artwork.eligibleInteractions ?? 0;
   const likes = artwork.likes ?? 0;
   const dislikes = artwork.dislikes ?? 0;
   const nextMilestone = likes < 500 ? 500 : Math.ceil(likes / 500) * 500;
@@ -87,7 +86,7 @@ export const CommunityValueDrawer: React.FC<CommunityValueDrawerProps> = ({ artw
               <p className="text-stone-400">
                 Community value evolves purely from genuine community appreciation. 
                 Singular trades or solitary votes never alter price. A minimum of{' '}
-                <span className="text-amber-300 font-medium">500 eligible interactions</span>{' '}
+                <span className="text-amber-300 font-medium">500 likes</span>{' '}
                 is required before any periodic evaluation.
               </p>
             </div>
@@ -100,7 +99,7 @@ export const CommunityValueDrawer: React.FC<CommunityValueDrawerProps> = ({ artw
             <div className="flex items-center justify-between text-xs mb-2">
               <span className="text-stone-300 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-cyan-400" />
-                Eligible Interactions
+                Likes
               </span>
               <span className="font-mono text-stone-200 font-medium tabular-nums">
                 {likes.toLocaleString()} / {(nextMilestone ?? 500).toLocaleString()} likes
