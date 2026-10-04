@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Award,
   Sparkles,
+  Camera,
   ArrowRightLeft,
   FileCheck,
   CheckCircle2,
@@ -52,114 +53,84 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
   return (
     <div className="space-y-6 pb-24">
-      {/* PROFILE HEADER CARD */}
-      <div className="pt-2 px-1">
-        <div className="p-5 rounded-3xl bg-[#12121b] border border-white/10 relative overflow-hidden shadow-xl">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="relative shrink-0">
-                <img
-                  src={userProfile.avatar}
-                  alt={userProfile.name}
-                  referrerPolicy="no-referrer"
-                  className="w-16 h-16 rounded-full object-cover border-2 border-amber-400/40"
-                />
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="font-serif text-xl text-stone-100 font-normal truncate">
-                    {userProfile.name}
-                  </h2>
-                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-1.5 py-0.2 rounded-full shrink-0">
-                    TG Patron
-                  </span>
-                </div>
-                <span className="text-xs text-stone-400 font-mono block">
-                  {userProfile.telegramHandle}
-                </span>
-                <p className="text-xs text-stone-400 mt-1 line-clamp-1">
-                  {userProfile.bio}
-                </p>
-              </div>
-            </div>
-
-            {/* Settings Trigger */}
+      {/* PROFILE HERO */}
+      <div className="px-1">
+        <div className="overflow-hidden rounded-[30px] bg-[#111118] border border-white/10 shadow-2xl">
+          <div
+            className="relative h-32 overflow-hidden"
+            style={{
+              backgroundImage: userProfile.coverImage
+                ? "linear-gradient(180deg, rgba(8,8,12,.08), rgba(8,8,12,.94)), url(" + userProfile.coverImage + ")"
+                : "radial-gradient(circle at 18% 20%, rgba(245,158,11,.24), transparent 35%), radial-gradient(circle at 82% 10%, rgba(34,211,238,.18), transparent 30%), linear-gradient(135deg, #181620, #09090d 70%)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          >
+            <div className="absolute inset-0 bg-[linear-gradient(110deg,transparent,rgba(255,255,255,.06),transparent)]" />
             <button
               onClick={() => setSettingsModalOpen(true)}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-stone-300 hover:text-white transition-colors shrink-0"
-              title="Manage Account Settings"
+              className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-3 py-2 text-[10px] font-semibold text-white backdrop-blur-md"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5" />
+              Edit profile
             </button>
           </div>
 
-          {/* Telegram Vault Bar */}
-          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-white/[0.03] border border-white/5 text-xs text-stone-400 mb-4">
-            <span className="font-mono text-[11px] truncate max-w-[220px]">
-              {userProfile.vaultId}
-            </span>
-            <button
-              onClick={handleCopyVault}
-              className="flex items-center gap-1 text-[11px] text-amber-300 hover:text-amber-200 transition-colors"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied' : 'Copy'}</span>
-            </button>
-          </div>
-
-          {/* Quick Security & Wallet Links */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <button
-              onClick={() => setSeedPhraseModalOpen(true)}
-              className="p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 flex items-center gap-2 text-left transition-colors"
-            >
-              <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <div className="min-w-0">
-                <span className="text-[11px] font-semibold text-stone-200 block truncate">Recovery Phrase</span>
-                <span className="text-[9px] text-stone-500 block truncate">12-Word Backup</span>
+          <div className="relative px-5 pb-5">
+            <div className="-mt-11 flex items-end justify-between">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#111118] bg-[#1b1b25] shadow-xl">
+                  <img src={userProfile.avatar} alt={userProfile.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                </div>
+                <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full border-2 border-[#111118] bg-amber-400 text-stone-950 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
               </div>
-            </button>
+              <button onClick={() => setSettingsModalOpen(true)} className="mb-1 p-2.5 rounded-xl bg-white/5 border border-white/10 text-stone-300" title="Edit profile">
+                <Camera className="w-4 h-4" />
+              </button>
+            </div>
 
-            <button
-              onClick={() => setSettingsModalOpen(true)}
-              className="p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 flex items-center gap-2 text-left transition-colors"
-            >
-              <LinkIcon className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-              <div className="min-w-0">
-                <span className="text-[11px] font-semibold text-stone-200 block truncate">Web3 Wallets</span>
-                <span className="text-[9px] text-stone-500 block truncate">
-                  {connectedWallets.length > 0 ? `${connectedWallets.length} Linked` : 'Tonkeeper / EVM'}
-                </span>
+            <div className="mt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-serif text-3xl text-stone-50 leading-none">{userProfile.name}</h2>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-1 rounded-full">Curator</span>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-300 bg-cyan-400/10 border border-cyan-400/20 px-2 py-1 rounded-full">Verified</span>
               </div>
-            </button>
-          </div>
+              <span className="text-xs text-stone-500 font-mono block mt-1">{userProfile.telegramHandle}</span>
+              <p className="text-sm text-stone-300 mt-3 leading-6 max-w-xl">{userProfile.bio}</p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-[10px] text-stone-500 font-mono">
+                <span>Member since {userProfile.joinedDate}</span>
+                <span className="text-white/15">•</span>
+                <span>{userProfile.vaultId}</span>
+                <button onClick={handleCopyVault} className="text-amber-300 hover:text-amber-200">{copied ? "Copied" : "Copy ID"}</button>
+              </div>
+            </div>
 
-          {/* Collection Metrics */}
-          <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/5 text-center">
-            <div>
-              <span className="text-[10px] text-stone-400 font-mono block">Owned Works</span>
-              <span className="font-serif text-xl font-medium text-stone-100 tabular-nums">
-                {ownedArtworks.length}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-stone-400 font-mono block">Vault Value</span>
-              <span className="font-serif text-xl font-medium text-stone-100 tabular-nums">
-                ${totalCurrentValue}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-stone-400 font-mono block">Appreciation</span>
-              <span className="font-serif text-xl font-semibold text-emerald-400 tabular-nums">
-                +{gainPercentage}%
-              </span>
+            <div className="grid grid-cols-4 divide-x divide-white/5 mt-5 rounded-2xl bg-white/[0.025] border border-white/5">
+              <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{ownedArtworks.length}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Works</span></div>
+              <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).length}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Created</span></div>
+              <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{artworks.filter((a) => a.isLiked || a.isLoved).length}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Favorites</span></div>
+              <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{"$" + Math.round(totalCurrentValue).toLocaleString()}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Value</span></div>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* PROFILE SNAPSHOT */}
+      <div className="grid grid-cols-2 gap-3 px-1 mt-4">
+        <div className="rounded-2xl bg-amber-400/[0.05] border border-amber-400/15 p-4">
+          <div className="flex items-center gap-2 text-[10px] text-amber-300 font-mono uppercase tracking-widest"><Sparkles className="w-3.5 h-3.5" /> Vault performance</div>
+          <div className="flex items-end justify-between mt-2">
+            <span className="font-serif text-2xl text-stone-100">{"$" + Math.round(totalCurrentValue).toLocaleString()}</span>
+            <span className={gainPercentage >= 0 ? "text-xs font-mono text-emerald-400" : "text-xs font-mono text-rose-400"}>{gainPercentage >= 0 ? "+" : ""}{gainPercentage}%</span>
+          </div>
+        </div>
+        <button onClick={() => setSettingsModalOpen(true)} className="rounded-2xl bg-white/[0.03] border border-white/10 p-4 text-left hover:bg-white/[0.06]">
+          <div className="flex items-center gap-2 text-[10px] text-cyan-300 font-mono uppercase tracking-widest"><LinkIcon className="w-3.5 h-3.5" /> Connected</div>
+          <div className="font-serif text-2xl text-stone-100 mt-2">{connectedWallets.length}</div>
+          <div className="text-[10px] text-stone-500">Web3 wallets linked</div>
+        </button>
       </div>
 
       {/* OWNED COLLECTION GALLERY */}
