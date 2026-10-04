@@ -19,6 +19,7 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
     'bank_transfer',
     'telegram_pay',
   ]);
+  const [paymentInstructions, setPaymentInstructions] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleList = (e: React.FormEvent) => {
@@ -31,6 +32,7 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
       fiatPrice: num,
       currency,
       paymentMethods: selectedMethods,
+      paymentInstructions: paymentInstructions.trim(),
     });
 
     setIsSuccess(true);
@@ -50,7 +52,7 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
           <div className="flex items-center gap-2">
             <ArrowUpDown className="w-4 h-4 text-emerald-400" />
             <span className="text-xs uppercase tracking-widest font-mono text-stone-300">
-              Sell NFT on P2P Desk for Cash
+              Sell Artwork on AURA P2P Desk for Cash
             </span>
           </div>
           <button
@@ -66,7 +68,7 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
             <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/30">
               <Check className="w-7 h-7" />
             </div>
-            <h4 className="font-serif text-xl text-stone-100">Live on P2P Escrow</h4>
+            <h4 className="font-serif text-xl text-stone-100">Live on AURA P2P</h4>
             <p className="text-xs text-stone-400">
               "{artwork.title}" is now listed for direct cash purchase on the P2P Desk!
             </p>
@@ -118,6 +120,24 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
               </div>
             </div>
 
+            {/* Seller payment account / instructions */}
+            <div>
+              <label className="text-xs text-stone-300 block mb-1.5 font-medium">
+                Your Payment Account / Instructions
+              </label>
+              <textarea
+                rows={2}
+                value={paymentInstructions}
+                onChange={(e) => setPaymentInstructions(e.target.value)}
+                placeholder="Example: Revolut @yourhandle, bank IBAN, or Telegram Pay username"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-emerald-400/60 resize-none"
+                required
+              />
+              <p className="text-[10px] text-stone-500 mt-1">
+                Buyers see this inside the matched order.
+              </p>
+            </div>
+
             {/* Custom Payment Methods for Art Sale (Alex or any artist can write any payment method they want) */}
             <CustomPaymentMethodInput
               selectedMethods={selectedMethods}
@@ -130,10 +150,10 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
             <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-stone-300 leading-relaxed space-y-1">
               <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
                 <ShieldCheck className="w-4 h-4" />
-                <span>P2P Smart Escrow Security</span>
+                <span>AURA P2P Ownership Protection</span>
               </div>
               <p className="text-stone-400">
-                Your artwork certificate is placed into escrow. When the peer buyer pays you via Revolut or Bank Wire, you verify the payment and the escrow automatically delivers the artwork to their vault.
+                AURA records the order and holds the artwork listing while payment is pending. You confirm the fiat payment, then AURA transfers the artwork ownership to the buyer. Fiat is settled directly between the two parties.
               </p>
             </div>
 
