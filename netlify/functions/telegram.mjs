@@ -1,7 +1,7 @@
 const crypto = await import('node:crypto');
 
 function env(name) {
-  return globalThis.Netlify?.env?.get(name) || '';
+  return globalThis.Netlify?.env?.get(name) || process.env[name] || '';
 }
 
 async function telegram(method, body) {
