@@ -79,6 +79,7 @@ interface AppContextType {
   dismissNotification: (id: string) => void;
   addNotification: (title: string, message: string, type: TelegramNotification['type']) => void;
   toggleLike: (artworkId: string) => void;
+  toggleDislike: (artworkId: string) => void;
   toggleLove: (artworkId: string) => void;
   toggleSave: (artworkId: string) => void;
   toggleWatchlist: (artworkId: string) => void;
@@ -191,6 +192,7 @@ const sanitizeArtwork = (art: any): Artwork => ({
   currentValue: typeof art.currentValue === 'number' ? art.currentValue : 25,
   originalPrice: typeof art.originalPrice === 'number' ? art.originalPrice : 25,
   likes: typeof art.likes === 'number' ? art.likes : 0,
+  dislikes: typeof art.dislikes === 'number' ? art.dislikes : 0,
   loves: typeof art.loves === 'number' ? art.loves : 0,
   saves: typeof art.saves === 'number' ? art.saves : 0,
   collectorsCount: typeof art.collectorsCount === 'number' ? art.collectorsCount : 0,
@@ -289,6 +291,9 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   dimensions: 'Master file',
   originalPrice: Number(row.original_price_usdt || 0),
   currentValue: Number(row.current_value_usdt || 0),
+  valuationMode: row.valuation_mode === 'community' ? 'community' : 'market',
+  dislikes: Number(row.dislikes || 0),
+  communityValue: Number(row.community_value_usdt || row.current_value_usdt || 0),
   purchasePrice: purchasePrice,
   isOwned: owned,
   eligibleInteractions: Number(row.eligible_interactions || 0),
@@ -300,6 +305,7 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   collectorsCount: Number(row.collectors_count || 0),
   collectors: [],
   isLiked: Boolean(interaction?.liked),
+  isDisliked: Boolean(interaction?.disliked),
   isLoved: Boolean(interaction?.loved),
   isSaved: Boolean(interaction?.saved),
   isWatched: Boolean(interaction?.watched),
@@ -517,7 +523,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
         supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
         supabase.from('artwork_ownership').select('artwork_id,purchase_price_usdt').eq('owner_id', user.id),
-        supabase.from('artwork_interactions').select('artwork_id,liked,loved,saved,watched').eq('user_id', user.id),
+        supabase.from('artwork_interactions').select('artwork_id,liked,disliked,loved,saved,watched').eq('user_id', user.id),
         supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
         supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
@@ -650,6 +656,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'liked' });
     addNotification(nextLiked ? '❤️ Added to Favorites' : '↩️ Like Removed',
       nextLiked ? `You liked "${artwork.title}".` : `Your like for "${artwork.title}" was removed.`, 'value_surge');
+  };
+
+  const toggleDislike = (artworkId: string) => {
+    if (!user) { openAuth('signin'); return; }
+    const artwork = artworks.find((art) => art.id === artworkId);
+    if (!artwork) return;
+    const nextDisliked = !artwork.isDisliked;
+    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
+      ...art,
+      isDisliked: nextDisliked,
+      dislikes: Math.max(0, nextDisliked ? art.dislikes + 1 : art.dislikes - 1),
+      isLiked: nextDisliked ? false : art.isLiked,
+      likes: nextDisliked && art.isLiked ? Math.max(0, art.likes - 1) : art.likes,
+    } : art));
+    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'disliked' });
+    addNotification(nextDisliked ? '👎 Feedback Recorded' : '↩️ Dislike Removed',
+      nextDisliked ? `Your feedback on "${artwork.title}" was recorded.` : `Your negative feedback for "${artwork.title}" was removed.`, 'community');
   };
 
   const toggleLove = (artworkId: string) => {
