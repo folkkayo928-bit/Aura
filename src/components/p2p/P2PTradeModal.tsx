@@ -50,7 +50,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
   const [proofUploading, setProofUploading] = useState(false);
-  const [proofs, setProofs] = useState<Array<{ id: string; file_name: string; note?: string | null; created_at: string; url?: string }>>([]);
+  const [proofs, setProofs] = useState<Array<{ id: string; file_name: string; mime_type: string; note?: string | null; created_at: string; url?: string }>>([]);
   const [messages, setMessages] = useState<P2PChatMessage[]>([
     {
       id: 'm-sys-1',
