@@ -57,46 +57,40 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail }) => {
 
   return (
     <div className="space-y-6 pb-24">
-      {/* 5-SECOND IDENTITY HERO STATEMENT */}
-      <div className="pt-2 px-1">
-        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-[#151522] via-[#0f0f18] to-[#09090d] border border-white/10 shadow-2xl relative overflow-hidden">
-          {/* Subtle gold ambient glow */}
-          <div className="absolute top-0 right-0 w-44 h-44 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-300 block mb-2">
-            Curatorial Protocol & NFT Hub
-          </span>
-          <h2 className="font-serif text-2xl sm:text-3xl text-stone-100 font-light leading-snug tracking-tight">
-            Discover art. Collect what you love. Own it.
-          </h2>
-          <p className="text-xs text-stone-400 mt-2 max-w-sm leading-relaxed">
-            From Nike virtual wearables to Azuki anime avatars, GIFs, and UI kits. Convert to USDT liquidity or sell directly on P2P for real cash.
-          </p>
-
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-white/5 text-[11px] overflow-x-auto no-scrollbar">
+      {/* TRENDING ENTRY — keep the homepage focused on what collectors want */}
+      <div className="px-1 pt-2">
+        <div className="flex items-end justify-between gap-3 rounded-3xl border border-white/10 bg-gradient-to-r from-[#151522] via-[#101019] to-[#0b0b10] px-4 py-4 shadow-xl">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.24em] text-amber-300">
+              <TrendingUp className="w-3.5 h-3.5" />
+              Trending now
+            </div>
+            <h2 className="mt-1 font-serif text-2xl font-light tracking-tight text-stone-100">
+              What collectors are watching
+            </h2>
+            <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
+              Rising pieces, active collections, and new drops — all in one feed.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={() => setFeedFilter('watchlist')}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-stone-300 transition-colors shrink-0"
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-semibold text-stone-300 hover:bg-white/10"
             >
-              <Star className="w-3 h-3 text-amber-400" />
-              <span>Watchlist</span>
-              {watchedCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-stone-950 font-bold text-[9px]">
-                  {watchedCount}
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1.5">
+                <Star className="h-3 w-3 text-amber-400" />
+                Watchlist {watchedCount > 0 ? `· ${watchedCount}` : ''}
+              </span>
             </button>
-
             <button
               onClick={() => setFeedFilter('drops')}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-stone-300 transition-colors shrink-0"
+              className="hidden sm:inline-flex rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-semibold text-cyan-300"
             >
-              <Calendar className="w-3 h-3 text-cyan-400" />
-              <span>What Is Coming</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-3 w-3" />
+                Drops
+              </span>
             </button>
-
-            <span className="text-stone-600">·</span>
-            <span className="text-stone-400 shrink-0">Trustless P2P Escrow</span>
           </div>
         </div>
       </div>
