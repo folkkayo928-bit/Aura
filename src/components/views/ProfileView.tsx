@@ -159,9 +159,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
           <div className="text-[10px] text-stone-500">Web3 wallets linked</div>
         </button>
       </div>
-      </> )}
+      </>)}
 
-      {/* PROFILE REPUTATION */
+      {/* PROFILE REPUTATION */}
       <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -348,6 +348,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
             )}
           </div>
         )}
+      </div>
+
       {/* CERTIFICATE OF AUTHENTICITY MODAL */}
       {selectedCertArtwork && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
