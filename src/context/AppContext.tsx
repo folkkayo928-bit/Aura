@@ -993,7 +993,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         p_min_limit_fiat: newArt.p2pPriceFiat,
         p_max_limit_fiat: newArt.p2pPriceFiat,
         p_payment_methods: newArt.p2pPaymentMethods || [],
-        p_payment_instructions: newArt.p2pPaymentInstructions?.trim() || 'Use the selected payment method and the order reference shown after matching. AURA transfers artwork ownership only after the seller confirms receipt.',
+        p_payment_instructions: (newArt as any).p2pPaymentInstructions?.trim() || 'Use the selected payment method and the order reference shown after matching. AURA transfers artwork ownership only after the seller confirms receipt.',
         p_artwork_id: created.id,
       });
 
