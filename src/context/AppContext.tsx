@@ -156,6 +156,7 @@ interface AppContextType {
   markP2PPaymentSent: (orderId: string) => void;
   completeP2POrder: (orderId: string) => void;
   cancelP2POrder: (orderId: string) => void;
+  raiseP2PDispute: (orderId: string) => void;
   createP2POffer: (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => void;
   // Telegram Bot Homepage & Chat integration
   telegramViewMode: TelegramViewMode;
@@ -1194,6 +1195,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('P2P Order Cancelled', 'Held USDT was returned to the seller balance.', 'p2p');
   };
 
+  const raiseP2PDispute = async (orderId: string) => {
+    if (!user) { openAuth('signin'); return; }
+    const { data, error } = await supabase.rpc('raise_p2p_dispute', { p_order_id: orderId });
+    if (error || !data) {
+      addNotification('Dispute Could Not Open', error?.message || 'Could not open a dispute for this order.', 'p2p');
+      return;
+    }
+    setActiveP2POrder((current) => current ? { ...current, status: 'in_dispute', protectionFundActive: false } : null);
+    addNotification('⚠️ P2P Dispute Opened', 'The trade is locked in dispute. Keep all payment evidence inside the trade record.', 'p2p');
+  };
+
   const createP2POffer = async (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => {
     if (!user) { openAuth('signin'); return; }
     const { data, error } = await supabase.rpc('create_p2p_offer', {
@@ -1296,6 +1308,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markP2PPaymentSent,
         completeP2POrder,
         cancelP2POrder,
+        raiseP2PDispute,
         createP2POffer,
         telegramViewMode,
         setTelegramViewMode,
