@@ -43,6 +43,9 @@ export interface Artwork {
   dimensions: string;
   originalPrice: number; // in USDT
   currentValue: number;
+  valuationMode?: 'market' | 'community';
+  dislikes: number;
+  communityValue?: number;
   purchasePrice?: number;
   isOwned?: boolean;
   eligibleInteractions: number;
@@ -54,6 +57,7 @@ export interface Artwork {
   collectorsCount: number;
   collectors: { id: string; name: string; avatar: string }[];
   isLiked?: boolean;
+  isDisliked?: boolean;
   isLoved?: boolean;
   isSaved?: boolean;
   isWatched?: boolean; // Watchlist star
