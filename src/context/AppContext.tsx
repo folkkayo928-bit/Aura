@@ -94,6 +94,7 @@ interface AppContextType {
     fiatPrice: number;
     currency: 'USD' | 'EUR' | 'GBP';
     paymentMethods: PaymentMethodType[];
+    paymentInstructions?: string;
   }) => Promise<void>;
   uploadArtworkFile: (file: File) => Promise<string | null>;
   createArtwork: (newArt: {
@@ -109,6 +110,7 @@ interface AppContextType {
     listOnP2P?: boolean;
     p2pPriceFiat?: number;
     p2pPaymentMethods?: PaymentMethodType[];
+    p2pPaymentInstructions?: string;
   }) => Promise<void>;
   isTelegramShellMode: boolean;
   setIsTelegramShellMode: (enabled: boolean) => void;
@@ -827,11 +829,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fiatPrice,
     currency,
     paymentMethods,
+    paymentInstructions,
   }: {
     artworkId: string;
     fiatPrice: number;
     currency: 'USD' | 'EUR' | 'GBP';
     paymentMethods: PaymentMethodType[];
+    paymentInstructions?: string;
   }) => {
     if (!user) { openAuth('signin'); return; }
 
@@ -855,7 +859,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       p_min_limit_fiat: fiatPrice,
       p_max_limit_fiat: fiatPrice,
       p_payment_methods: paymentMethods || [],
-      p_payment_instructions: 'Send the fiat payment using the method selected for this order. AURA records the order and transfers artwork ownership only after the seller confirms receipt.',
+      p_payment_instructions: paymentInstructions?.trim() || 'Use the selected payment method and the order reference shown after matching. AURA transfers artwork ownership only after the seller confirms receipt.',
       p_artwork_id: artworkId,
     });
 
