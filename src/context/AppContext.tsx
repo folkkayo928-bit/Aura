@@ -1036,8 +1036,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addNotification('Transfer Failed', error.message.includes('RECIPIENT_NOT_FOUND') ? 'Recipient not found. Use an @handle or AURA Vault ID.' : error.message, 'community');
         return;
       }
-      setWalletBalance(prev => prev - amount);
-      setTransactions(prev => [{ id: `tx-${Date.now()}`, type: 'send', amount, currency: 'USDT', date: 'Just now', recipientOrSender: recipient, status: 'confirmed' }, ...prev]);
+      const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
+      if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+      const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+      if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
       addNotification('Sent Successfully', `Transferred $${amount.toFixed(2)} USDT to ${recipient}.`, 'convert');
     })();
     return true;
