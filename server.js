@@ -1,0 +1,148 @@
+import express from 'express';
+import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+app.use(express.json({ limit: '64kb' }));
+
+const PORT = Number(process.env.PORT || 8080);
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/$/, '');
+const WEBAPP_URL = (process.env.TELEGRAM_WEBAPP_URL || PUBLIC_APP_URL).replace(/\/$/, '');
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+
+async function telegram(method, body) {
+  if (!BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is not configured');
+  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok || !data.ok) throw new Error(data.description || 'Telegram API request failed');
+  return data.result;
+}
+
+function validateInitData(initData) {
+  if (!BOT_TOKEN || !initData) return null;
+  const params = new URLSearchParams(initData);
+  const receivedHash = params.get('hash');
+  if (!receivedHash) return null;
+  params.delete('hash');
+
+  const pairs = [...params.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const dataCheckString = pairs.map(([key, value]) => `${key}=${value}`).join('\n');
+  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+  const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+  if (receivedHash.length !== calculatedHash.length ||
+      !crypto.timingSafeEqual(Buffer.from(receivedHash), Buffer.from(calculatedHash))) return null;
+
+  const authDate = Number(params.get('auth_date') || 0);
+  if (!authDate || Math.floor(Date.now() / 1000) - authDate > 86400) return null;
+
+  try {
+    return {
+      queryId: params.get('query_id') || null,
+      user: JSON.parse(params.get('user') || 'null'),
+      authDate,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function configureTelegram() {
+  if (!BOT_TOKEN || !PUBLIC_APP_URL) {
+    console.log('Telegram setup skipped: configure TELEGRAM_BOT_TOKEN and PUBLIC_APP_URL.');
+    return;
+  }
+
+  const webhook = `${PUBLIC_APP_URL}/api/telegram/webhook`;
+  await telegram('setWebhook', {
+    url: webhook,
+    ...(WEBHOOK_SECRET ? { secret_token: WEBHOOK_SECRET } : {}),
+    allowed_updates: ['message', 'callback_query'],
+    drop_pending_updates: false,
+  });
+
+  await telegram('setMyCommands', {
+    commands: [
+      { command: 'start', description: 'Open AURA Vault' },
+      { command: 'app', description: 'Launch the AURA Mini App' },
+      { command: 'help', description: 'Show AURA help' },
+    ],
+  });
+
+  if (WEBAPP_URL) {
+    await telegram('setChatMenuButton', {
+      menu_button: { type: 'web_app', text: 'Open AURA', web_app: { url: WEBAPP_URL } },
+    });
+  }
+
+  console.log(`Telegram @myaura1_bot configured. Webhook: ${webhook}`);
+}
+
+app.get('/api/telegram/health', (_req, res) => {
+  res.json({ ok: true, bot: '@myaura1_bot', configured: Boolean(BOT_TOKEN && WEBAPP_URL) });
+});
+
+app.post('/api/telegram/auth', (req, res) => {
+  const session = validateInitData(req.body?.initData);
+  if (!session?.user) return res.status(401).json({ ok: false, error: 'Invalid Telegram initData' });
+  return res.json({
+    ok: true,
+    user: {
+      id: session.user.id,
+      first_name: session.user.first_name || '',
+      last_name: session.user.last_name || '',
+      username: session.user.username || '',
+      language_code: session.user.language_code || '',
+    },
+  });
+});
+
+app.post('/api/telegram/webhook', async (req, res) => {
+  if (WEBHOOK_SECRET && req.get('x-telegram-bot-api-secret-token') !== WEBHOOK_SECRET) {
+    return res.sendStatus(403);
+  }
+
+  // Acknowledge Telegram immediately; process the small command set asynchronously.
+  res.sendStatus(200);
+
+  const message = req.body?.message;
+  const chatId = message?.chat?.id;
+  const text = String(message?.text || '').trim().toLowerCase();
+  if (!chatId) return;
+
+  try {
+    if (text === '/start' || text.startsWith('/start ' ) || text === '/app') {
+      await telegram('sendMessage', {
+        chat_id: chatId,
+        text: '✨ Welcome to AURA Vault. Collect, create, trade and manage your digital art from one secure Mini App.',
+        reply_markup: WEBAPP_URL
+          ? { inline_keyboard: [[{ text: '🚀 Open AURA Mini App', web_app: { url: WEBAPP_URL } }]] }
+          : undefined,
+      });
+    } else if (text === '/help') {
+      await telegram('sendMessage', {
+        chat_id: chatId,
+        text: 'AURA Vault commands:\n/start — open AURA\n/app — launch the Mini App\n/help — show this help',
+      });
+    }
+  } catch (error) {
+    console.error('Telegram webhook error:', error);
+  }
+});
+
+const distDir = path.join(__dirname, 'dist');
+app.use(express.static(distDir));
+app.get('*', (_req, res) => res.sendFile(path.join(distDir, 'index.html')));
+
+app.listen(PORT, async () => {
+  console.log(`AURA server listening on port ${PORT}`);
+  try { await configureTelegram(); }
+  catch (error) { console.error('Telegram configuration failed:', error); }
+});
