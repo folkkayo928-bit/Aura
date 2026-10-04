@@ -45,19 +45,13 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(900); // 15 mins
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  const [receiveAccount, setReceiveAccount] = useState('');
   const [messages, setMessages] = useState<P2PChatMessage[]>([
     {
       id: 'm-sys-1',
       sender: 'system',
-      senderName: 'AURA Escrow Bot',
-      text: '🔒 Smart Escrow is active. Funds are safely locked in the AURA Security Treasury. Do not send payment without the reference code.',
-      timestamp: 'Just now',
-    },
-    {
-      id: 'm-merch-1',
-      sender: 'merchant',
-      senderName: offer?.merchant.name || 'AURA Member',
-      text: 'Hello! I have verified escrow collateral locked. Please send to the matching account name below. Once sent, tap "I Have Paid" and I will release USDT in under 60 seconds.',
+      senderName: 'AURA Trade System',
+      text: '🔒 AURA ledger hold is active. The seller balance is reserved until the payment step is completed or the order is cancelled.',
       timestamp: 'Just now',
     },
   ]);
@@ -73,7 +67,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       if (!data) return;
       setMessages((data as any[]).map((m) => ({
         id: m.id,
-        sender: m.sender_id === user.id ? 'buyer' : m.sender_role === 'system' ? 'system' : 'merchant',
+        sender: m.sender_role === 'system' ? 'system' : m.sender_id === user.id ? 'buyer' : 'merchant',
         senderName: m.sender?.display_name || m.sender?.handle || 'AURA Member',
         text: m.text,
         timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -119,11 +113,18 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const handleStartTrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!offer || numCrypto <= 0) return;
+    if (offer.type === 'buy' && !receiveAccount.trim()) {
+      alert('Add the account or handle where the buyer should send your fiat payment.');
+      return;
+    }
     try {
       await startP2POrder({
         offer,
         cryptoAmount: numCrypto,
         paymentMethod: selectedMethod,
+        paymentDetails: offer.type === 'buy'
+          ? { accountName: user?.user_metadata?.name || undefined, accountNumberOrId: receiveAccount.trim() }
+          : undefined,
       });
     } catch (err: any) {
       alert(err.message || 'Error creating P2P order');
@@ -146,7 +147,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       void supabase.from('p2p_messages').insert({
         order_id: activeP2POrder.id,
         sender_id: user.id,
-        sender_role: activeP2POrder.type === 'sell' ? 'seller' : 'buyer',
+        sender_role: user.id === activeP2POrder.sellerId ? 'seller' : 'buyer',
         text: chatInput.trim(),
       });
     }
@@ -222,13 +223,13 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 </div>
               </div>
               <div className="flex justify-between text-xs text-stone-400 pt-1 border-t border-white/5">
-                <span>USDT to Receive:</span>
+                <span>{activeP2POrder.buyerId === user?.id ? 'USDT to Receive' : 'USDT to Sell'}:</span>
                 <span className="font-serif text-lg font-bold text-emerald-400">
                   {activeP2POrder.cryptoAmount} USDT
                 </span>
               </div>
               <div className="flex justify-between text-xs text-stone-400">
-                <span>Fiat to Pay:</span>
+                <span>{activeP2POrder.buyerId === user?.id ? 'Fiat to Pay' : 'Fiat to Receive'}:</span>
                 <span className="font-serif text-lg font-bold text-stone-100">
                   ${activeP2POrder.fiatAmount.toFixed(2)} {activeP2POrder.fiatCurrency}
                 </span>
@@ -336,12 +337,18 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             {/* Stepper Actions */}
             {activeP2POrder.status === 'escrow_locked' && (
               <div className="space-y-2 pt-1">
-                <button
-                  onClick={() => markP2PPaymentSent(activeP2POrder.id)}
-                  className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
-                >
-                  I Have Transferred ${activeP2POrder.fiatAmount.toFixed(2)} {activeP2POrder.fiatCurrency}
-                </button>
+                {activeP2POrder.buyerId === user?.id ? (
+                  <button
+                    onClick={() => markP2PPaymentSent(activeP2POrder.id)}
+                    className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
+                  >
+                    I Have Transferred ${activeP2POrder.fiatAmount.toFixed(2)} {activeP2POrder.fiatCurrency}
+                  </button>
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs text-stone-400">
+                    Waiting for the buyer to transfer ${activeP2POrder.fiatAmount.toFixed(2)} {activeP2POrder.fiatCurrency}.
+                  </div>
+                )}
                 <button
                   onClick={() => cancelP2POrder(activeP2POrder.id)}
                   className="w-full py-2.5 text-stone-400 hover:text-stone-200 text-xs"
@@ -354,9 +361,9 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             {activeP2POrder.status === 'payment_marked' && (
               <div className="space-y-3 pt-1">
                 <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 text-center">
-                  Payment confirmed! Merchant is releasing {activeP2POrder.cryptoAmount} USDT to your vault.
+                  Payment marked by the buyer. {activeP2POrder.sellerId === user?.id ? 'Release the held USDT when you confirm receipt.' : 'Waiting for the seller to release the held USDT.'}
                 </div>
-                {activeP2POrder.type === 'sell' && user ? (
+                {activeP2POrder.sellerId === user?.id ? (
                   <button
                     onClick={async () => {
                       await completeP2POrder(activeP2POrder.id);
@@ -368,7 +375,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                   </button>
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs text-stone-400">
-                    Waiting for the selling counterparty to release the held USDT after payment verification.
+                    Waiting for the seller to release the held USDT after payment verification.
                   </div>
                 )}
               </div>
@@ -427,6 +434,25 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
               </div>
             </div>
 
+            {currentOffer.type === 'buy' && (
+              <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-2">
+                <label className="text-xs text-cyan-200 font-medium block">
+                  Your Fiat Receiving Account / Handle
+                </label>
+                <input
+                  type="text"
+                  value={receiveAccount}
+                  onChange={(e) => setReceiveAccount(e.target.value)}
+                  placeholder="Bank account, wallet handle, or payment ID"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-cyan-400/60"
+                  required
+                />
+                <p className="text-[10px] text-stone-500">
+                  This is shown to the buyer so they know where to send the fiat payment.
+                </p>
+              </div>
+            )}
+
             {/* Calculated Fiat */}
             <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
               <span className="text-stone-400">Total Fiat to Pay / Receive:</span>
@@ -468,7 +494,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-stone-300 leading-relaxed">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <span>
-                Merchant's {currentOffer.merchant?.depositBondUSDT || 5000} USDT security bond is locked in the AURA smart escrow. You are 100% insured against non-release.
+                The seller's USDT is reserved in the AURA internal ledger until completion or cancellation. Never send fiat outside the instructions shown in this order.
               </span>
             </div>
 
