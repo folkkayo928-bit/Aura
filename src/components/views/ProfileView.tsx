@@ -161,7 +161,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
       </div>
       </> )}
 
-      {/* PROFILE REPUTATION */
+      {/* PROFILE REPUTATION */}
       <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
         <div className="flex items-center justify-between">
           <div>
