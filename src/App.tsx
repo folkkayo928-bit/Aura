@@ -1,33 +1,31 @@
-/**
+/** 
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { AuthProvider } from './context/AuthContext';
+import { AuthModal } from './components/auth/AuthModal';
 import { P2POffer } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 
-// Views
 import { HomeView } from './components/views/HomeView';
 import { DiscoverView } from './components/views/DiscoverView';
 import { CreateView } from './components/views/CreateView';
 import { WalletView } from './components/views/WalletView';
 import { ProfileView } from './components/views/ProfileView';
 
-// Modals & Drawers
 import { ArtworkModal } from './components/ArtworkModal';
 import { CollectModal } from './components/CollectModal';
 import { ConvertModal } from './components/ConvertModal';
 import { CommunityValueDrawer } from './components/CommunityValueDrawer';
 import { SendModal, ReceiveModal, BuyModal } from './components/SendReceiveModals';
 
-// Settings & Security Modals
 import { SettingsModal } from './components/settings/SettingsModal';
 import { SeedPhraseModal } from './components/settings/SeedPhraseModal';
 
-// P2P Trustless Escrow Modals
 import { P2PView } from './components/p2p/P2PView';
 import { P2PTradeModal } from './components/p2p/P2PTradeModal';
 import { CreateP2POfferModal } from './components/p2p/CreateP2POfferModal';
@@ -48,8 +46,6 @@ const TelegramWebAppBridge: React.FC = () => {
     tg.enableClosingConfirmation?.();
     tg.setHeaderColor?.('#101017');
     tg.setBackgroundColor?.('#09090d');
-
-    // Telegram is the native shell; the website itself is always the real AURA app.
     setIsTelegramShellMode(true);
     setTelegramViewMode('miniapp');
 
@@ -69,7 +65,7 @@ const TelegramWebAppBridge: React.FC = () => {
         body: JSON.stringify({ initData: tg.initData }),
       }).catch(() => undefined);
     }
-  }, []);
+  }, [setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
 
   return null;
 };
@@ -102,136 +98,58 @@ const AppContent: React.FC = () => {
   return (
     <>
       <TelegramWebAppBridge />
-
-      {/* The public website and Telegram Mini App use the same real AURA application.
-          No simulated Telegram profile/chat/preview is rendered here. */}
       <Header />
 
       <div className="px-3 pt-3">
-        {activeTab === 'home' && (
-          <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
-        )}
-        {activeTab === 'discover' && (
-          <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
-        )}
+        {activeTab === 'home' && <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
+        {activeTab === 'discover' && <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
         {activeTab === 'create' && <CreateView />}
         {activeTab === 'wallet' && <WalletView />}
-        {activeTab === 'profile' && (
-          <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
-        )}
+        {activeTab === 'profile' && <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
       </div>
 
       <BottomNav />
 
-      {/* Fullscreen Hero Artwork Inspector Modal */}
-      {selectedArtwork && (
-        <ArtworkModal
-          artwork={selectedArtwork}
-          onClose={() => setSelectedArtwork(null)}
-        />
-      )}
+      {selectedArtwork && <ArtworkModal artwork={selectedArtwork} onClose={() => setSelectedArtwork(null)} />}
+      {collectModalArtwork && <CollectModal artwork={collectModalArtwork} onClose={() => setCollectModalArtwork(null)} />}
+      {convertModalArtwork && <ConvertModal artwork={convertModalArtwork} onClose={() => setConvertModalArtwork(null)} />}
+      {communityDrawerArtwork && <CommunityValueDrawer artwork={communityDrawerArtwork} onClose={() => setCommunityDrawerArtwork(null)} />}
 
-      {/* 1-Tap Collection Modal */}
-      {collectModalArtwork && (
-        <CollectModal
-          artwork={collectModalArtwork}
-          onClose={() => setCollectModalArtwork(null)}
-        />
-      )}
-
-      {/* Artwork to Crypto Conversion Modal */}
-      {convertModalArtwork && (
-        <ConvertModal
-          artwork={convertModalArtwork}
-          onClose={() => setConvertModalArtwork(null)}
-        />
-      )}
-
-      {/* Community Value 500+ Interaction Inspector Drawer */}
-      {communityDrawerArtwork && (
-        <CommunityValueDrawer
-          artwork={communityDrawerArtwork}
-          onClose={() => setCommunityDrawerArtwork(null)}
-        />
-      )}
-
-      {/* Multi-Chain Web3 Send / Receive / Buy Modals */}
       <SendModal />
       <ReceiveModal />
       <BuyModal />
-
-      {/* Account Settings & Seed Phrase Backup Modals */}
       <SettingsModal />
       <SeedPhraseModal />
 
-      {/* Binance-style P2P Escrow Market Modal / Full Sheet */}
       {p2pModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#09090d]/95 backdrop-blur-2xl flex flex-col no-scrollbar">
           <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#09090d]/90 backdrop-blur-md border-b border-white/5">
-            <span className="text-xs font-mono tracking-widest uppercase text-stone-300">
-              AURA P2P Trading Desk
-            </span>
-            <button
-              onClick={() => setP2pModalOpen(false)}
-              className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <span className="text-xs font-mono tracking-widest uppercase text-stone-300">AURA P2P Trading Desk</span>
+            <button onClick={() => setP2pModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"><X className="w-4 h-4" /></button>
           </div>
           <div className="max-w-xl mx-auto w-full px-3 pt-2 pb-24">
-            <P2PView
-              onSelectOffer={(offer) => setSelectedP2POffer(offer)}
-              onOpenCreateOffer={() => setCreateP2POfferOpen(true)}
-            />
+            <P2PView onSelectOffer={(offer) => setSelectedP2POffer(offer)} onOpenCreateOffer={() => setCreateP2POfferOpen(true)} />
           </div>
         </div>
       )}
 
-      {/* Active P2P Trade Sheet */}
-      {(selectedP2POffer || activeP2POrder) && (
-        <P2PTradeModal
-          offer={selectedP2POffer}
-          onClose={() => setSelectedP2POffer(null)}
-        />
-      )}
+      {(selectedP2POffer || activeP2POrder) && <P2PTradeModal offer={selectedP2POffer} onClose={() => setSelectedP2POffer(null)} />}
+      {createP2POfferOpen && <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />}
+      {selectedCollection && <CollectionHubModal collection={selectedCollection} onClose={() => setSelectedCollection(null)} onOpenArtworkDetail={(artwork) => setSelectedArtwork(artwork)} />}
+      {makeOfferArtwork && <MakeOfferModal artwork={makeOfferArtwork} onClose={() => setMakeOfferArtwork(null)} />}
+      {sellArtworkP2PModal && <SellArtP2PModal artwork={sellArtworkP2PModal} onClose={() => setSellArtworkP2PModal(null)} />}
 
-      {/* Post P2P Ad Modal */}
-      {createP2POfferOpen && (
-        <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />
-      )}
-
-      {/* Collection / Art Creator Hub Modal */}
-      {selectedCollection && (
-        <CollectionHubModal
-          collection={selectedCollection}
-          onClose={() => setSelectedCollection(null)}
-          onOpenArtworkDetail={(artwork) => setSelectedArtwork(artwork)}
-        />
-      )}
-
-      {/* Make Offer Modal */}
-      {makeOfferArtwork && (
-        <MakeOfferModal
-          artwork={makeOfferArtwork}
-          onClose={() => setMakeOfferArtwork(null)}
-        />
-      )}
-
-      {/* Sell Artwork / Photo on P2P Desk */}
-      {sellArtworkP2PModal && (
-        <SellArtP2PModal
-          artwork={sellArtworkP2PModal}
-          onClose={() => setSellArtworkP2PModal(null)}
-        />
-      )}
+      <AuthModal />
     </>
   );
 };
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </AuthProvider>
   );
 }
