@@ -1015,16 +1015,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `"${newArt.title}" is now in your AURA collection.`,
       'community'
     );
-    setTransactions(prev => [{
-      id: `local-${Date.now()}`,
-      type: 'create',
-      artworkTitle: newArt.title,
-      amount: newArt.price,
-      currency: 'ART',
-      date: 'Just now',
-      recipientOrSender: 'AURA Creator Vault',
-      status: 'confirmed',
-    }, ...prev]);
     setActiveTab('home');
   };
 
