@@ -8,21 +8,51 @@ on:
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
     steps:
-      - name: Wait for Netlify deployment and bootstrap Telegram
+      - name: Wait for Netlify deployment
         shell: bash
         run: |
           set -euo pipefail
           url="https://aura-3idc.netlify.app/api/telegram/health"
           for attempt in $(seq 1 12); do
-            echo "Checking Telegram health (attempt $attempt/12)..."
-            response="$(curl -sS --max-time 10 "$url" || true)"
-            echo "$response"
-            if echo "$response" | grep -q '"tokenConfigured":true' &&                echo "$response" | grep -q '"configured":true'; then
-              echo "Telegram bot configuration is active."
-              exit 0
+            status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url" || true)"
+            echo "Netlify health HTTP status: $status (attempt $attempt/12)"
+            if [ "$status" = "200" ] || [ "$status" = "502" ]; then
+              break
             fi
             sleep 10
           done
-          echo "Telegram bootstrap did not become healthy in time."
-          exit 1
+
+      - name: Configure Telegram webhook and bot
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+            echo "TELEGRAM_BOT_TOKEN GitHub Actions secret is missing."
+            exit 1
+          fi
+
+          webhook_secret="$(printf '%s' "$TELEGRAM_BOT_TOKEN::aura-webhook" | sha256sum | cut -d' ' -f1)"
+
+          set_webhook="$(curl -sS --fail-with-body --max-time 20             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"             -H 'content-type: application/json'             --data "$(jq -n               --arg url 'https://aura-3idc.netlify.app/api/telegram/webhook'               --arg secret "$webhook_secret"               '{url:$url,secret_token:$secret,allowed_updates:["message","callback_query"],drop_pending_updates:false}')")"
+          echo "$set_webhook" | jq -e '.ok == true' >/dev/null
+
+          set_commands="$(curl -sS --fail-with-body --max-time 20             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands"             -H 'content-type: application/json'             --data '{"commands":[{"command":"start","description":"Open AURA Vault"},{"command":"app","description":"Launch the AURA Mini App"},{"command":"help","description":"Show AURA help"}]}')"
+          echo "$set_commands" | jq -e '.ok == true' >/dev/null
+
+          set_menu="$(curl -sS --fail-with-body --max-time 20             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setChatMenuButton"             -H 'content-type: application/json'             --data '{"menu_button":{"type":"web_app","text":"Open AURA","web_app":{"url":"https://aura-3idc.netlify.app"}}}')"
+          echo "$set_menu" | jq -e '.ok == true' >/dev/null
+
+          bot_info="$(curl -sS --fail-with-body --max-time 20 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe")"
+          echo "$bot_info" | jq -e '.ok == true' >/dev/null
+          echo "Telegram bot and webhook configured successfully."
+
+      - name: Verify Netlify Telegram health
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl -sS --fail-with-body --max-time 20 "https://aura-3idc.netlify.app/api/telegram/health")"
+          echo "$response" | jq '{ok, bot, configured, tokenConfigured, appUrlConfigured, webhook}'
+          echo "$response" | jq -e '.ok == true and .configured == true and .tokenConfigured == true and .webhook.url == "https://aura-3idc.netlify.app/api/telegram/webhook"'
