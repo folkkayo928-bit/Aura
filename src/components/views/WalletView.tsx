@@ -38,11 +38,11 @@ export const WalletView: React.FC = () => {
     connectedWallets,
     setSettingsModalOpen,
     activeP2POrder,
+    userProfile,
   } = useApp();
 
-  const [activeNetworkView, setActiveNetworkView] = useState<CryptoNetwork>('ton');
-  const [copiedAddr, setCopiedAddr] = useState(false);
-  const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
+
+
 
   const ownedArtworks = artworks.filter((a) => a.isOwned);
   const digitalArtValuation = ownedArtworks.reduce((acc, a) => acc + a.currentValue, 0);
@@ -69,11 +69,11 @@ export const WalletView: React.FC = () => {
           <div className="flex items-center justify-between text-xs mb-2">
             <span className="font-mono text-stone-300 uppercase tracking-widest flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Multi-Chain Web3 Vault
+              AURA Internal Vault
             </span>
             <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
-              Live Net
+              Wallet Balance
             </span>
           </div>
 
@@ -211,14 +211,14 @@ export const WalletView: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-stone-100">
-                    Protected P2P Escrow
+                    AURA P2P Trade Hold
                   </span>
                   <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                    100% Guaranteed
+                    Internal Hold
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-400 mt-0.5">
-                  Exchange USDT with verified legal peers via Revolut, Bank Wire, Wise, or Telegram Wallet.
+                  Trade with other AURA accounts using the payment instructions in each live offer.
                 </p>
               </div>
             </div>
@@ -236,60 +236,35 @@ export const WalletView: React.FC = () => {
         </div>
       </div>
 
-      {/* REAL MULTI-CHAIN WEB3 ADDRESS STRIP */}
+      {/* AURA INTERNAL VAULT */}
       <div className="space-y-3 px-1">
         <div className="flex items-center justify-between text-xs">
           <span className="font-mono text-stone-300 uppercase tracking-widest flex items-center gap-1.5">
-            <Globe className="w-3.5 h-3.5 text-cyan-400" />
-            On-Chain Deposit Addresses
+            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+            AURA Internal Vault
           </span>
-          <span className="text-stone-400 font-mono text-[11px]">Universal Web3</span>
+          <span className="text-stone-500 font-mono text-[10px]">Account-linked</span>
         </div>
-
         <div className="p-4 rounded-3xl bg-[#111118] border border-white/5 space-y-3">
-          {/* Network Switcher */}
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-2xl border border-white/5">
-            {(['ton', 'polygon', 'solana'] as const).map((net) => (
+          <div>
+            <span className="text-[10px] text-stone-500 block uppercase mb-1">Your Vault ID</span>
+            <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-black/30 border border-white/10">
+              <span className="font-mono text-xs text-cyan-300 truncate">{userProfile.vaultId}</span>
               <button
-                key={net}
-                onClick={() => setActiveNetworkView(net)}
-                className={`py-1.5 text-xs font-mono uppercase rounded-xl transition-all ${
-                  activeNetworkView === net
-                    ? 'bg-stone-100 text-stone-950 font-bold shadow-sm'
-                    : 'text-stone-400 hover:text-stone-200'
-                }`}
+                onClick={() => navigator.clipboard?.writeText(userProfile.vaultId)}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-stone-400 hover:text-cyan-300"
+                title="Copy Vault ID"
               >
-                {net === 'ton' ? 'TON Network' : net === 'polygon' ? 'Polygon / EVM' : 'Solana'}
+                <Link className="w-4 h-4" />
               </button>
-            ))}
-          </div>
-
-          {/* Address Display Box with Copy */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-black/40 border border-white/10 font-mono text-xs text-stone-300">
-            <div className="truncate mr-2">
-              <span className="text-[10px] text-stone-500 block mb-0.5 uppercase">
-                {activeNetworkView} Address (Public Key)
-              </span>
-              <span className="text-stone-200">{currentAddress}</span>
             </div>
-            <button
-              onClick={handleCopy}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-stone-400 hover:text-amber-300 transition-colors shrink-0"
-              title="Copy Address"
-            >
-              {copiedAddr ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </button>
           </div>
-
-          <div className="flex items-center justify-between text-[11px] text-stone-400 pt-1">
-            <span>• Supported by MetaMask, Trust Wallet, Tonkeeper, Phantom, Binance</span>
-            <button
-              onClick={() => setReceiveModalOpen(true)}
-              className="text-cyan-300 hover:underline font-mono"
-            >
-              Show QR Code →
-            </button>
-          </div>
+          <p className="text-[11px] text-stone-400 leading-relaxed">
+            Use this Vault ID or your AURA handle to receive internal USDT from another AURA account. External blockchain deposits require a connected wallet/provider and are not simulated by AURA.
+          </p>
+          <button onClick={() => setReceiveModalOpen(true)} className="w-full py-3 rounded-xl bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 font-semibold text-xs">
+            Show Receive Details
+          </button>
         </div>
       </div>
 
