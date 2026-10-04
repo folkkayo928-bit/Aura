@@ -143,8 +143,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         </button>
       </div>
 
-      {profileMode === 'private' && (
       {/* PROFILE SNAPSHOT */}
+      {profileMode === 'private' && (<>
       <div className="grid grid-cols-2 gap-3 px-1 mt-4">
         <div className="rounded-2xl bg-amber-400/[0.05] border border-amber-400/15 p-4">
           <div className="flex items-center gap-2 text-[10px] text-amber-300 font-mono uppercase tracking-widest"><Sparkles className="w-3.5 h-3.5" /> Vault performance</div>
@@ -159,10 +159,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
           <div className="text-[10px] text-stone-500">Web3 wallets linked</div>
         </button>
       </div>
+      </> )}
 
-      )}
-
-      {/* PROFILE REPUTATION */}
+      {/* PROFILE REPUTATION */
       <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -311,7 +310,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
               );
             })}
           </div>
-        )}
         )}
 
         {profileSection === 'created' && (
