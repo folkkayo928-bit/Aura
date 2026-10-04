@@ -170,7 +170,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             <span className="text-xs uppercase tracking-widest font-mono text-stone-300">
               {activeP2POrder
                 ? 'Protected P2P Escrow Order'
-                : `${currentOffer.type === 'buy' ? 'Buy' : 'Sell'} USDT with 100% Protection`}
+                : `${currentOffer.type === 'sell' ? 'Buy' : 'Sell'} USDT with AURA Ledger Protection`}
             </span>
           </div>
           <button
@@ -481,7 +481,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
               {currentOffer.paymentInstructions && (
                 <div className="mt-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-[11px] text-stone-300">
                   <span className="text-[10px] font-mono text-amber-300 block uppercase mb-0.5">
-                    Seller Note / Instructions:
+                    Payment Instructions:
                   </span>
                   <p className="font-mono text-stone-300 leading-relaxed">
                     {currentOffer.paymentInstructions}
@@ -508,7 +508,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                   : 'bg-rose-500 hover:bg-rose-400 text-stone-100 shadow-rose-500/20'
               }`}
             >
-              {currentOffer.type === 'buy' ? 'Lock Escrow & Buy USDT' : 'Lock Escrow & Sell USDT'}
+              {currentOffer.type === 'sell' ? 'Lock Escrow & Buy USDT' : 'Lock Escrow & Sell USDT'}
             </button>
           </form>
         )}
