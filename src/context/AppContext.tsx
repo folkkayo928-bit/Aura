@@ -365,70 +365,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     seedPhrase: '',
   };
 
-  const [connectedWallets, setConnectedWallets] = useState<ConnectedExternalWallet[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_WALLETS);
-      return saved
-        ? JSON.parse(saved)
-        : [
-            {
-              id: 'w-tonkeeper',
-              name: 'Tonkeeper',
-              network: 'ton',
-              address: 'EQA_9kX8t...B2nP',
-              connectedAt: 'March 2026',
-              balance: 42.5,
-            },
-          ];
-    } catch {
-      return [];
-    }
-  });
+  const [connectedWallets, setConnectedWallets] = useState<ConnectedExternalWallet[]>([]);
 
-  const [p2pOffers, setP2pOffers] = useState<P2POffer[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_P2P);
-      return saved ? JSON.parse(saved).map(sanitizeP2POffer) : INITIAL_P2P_OFFERS;
-    } catch {
-      return INITIAL_P2P_OFFERS;
-    }
-  });
+  const [p2pOffers, setP2pOffers] = useState<P2POffer[]>([]);
 
   const [activeP2POrder, setActiveP2POrder] = useState<P2POrder | null>(null);
 
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_TXS);
-      return saved
-        ? JSON.parse(saved)
-        : [
-            {
-              id: 'tx-101',
-              type: 'collect',
-              artworkTitle: 'Azuki #8781',
-              amount: 1752.03,
-              currency: 'USDT',
-              date: 'Yesterday, 18:24',
-              recipientOrSender: '@chirulabs',
-              status: 'confirmed',
-            },
-            {
-              id: 'tx-ext-01',
-              type: 'receive',
-              amount: 1500,
-              currency: 'USDT',
-              date: '2 days ago',
-              recipientOrSender: '0x8b32...F91a',
-              status: 'confirmed',
-              network: 'polygon',
-              txHash: '0x49c9f28a8d11e9...b8c1',
-              isExternal: true,
-            },
-          ];
-    } catch {
-      return [];
-    }
-  });
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'create' | 'wallet' | 'profile'>('home');
   const [feedFilter, setFeedFilter] = useState<FeedSection>('trending');
@@ -436,7 +379,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedCollection, setSelectedCollection] = useState<NFTCollection | null>(null);
   const [makeOfferArtwork, setMakeOfferArtwork] = useState<Artwork | null>(null);
   const [sellArtworkP2PModal, setSellArtworkP2PModal] = useState<Artwork | null>(null);
-  const [isTelegramShellMode, setIsTelegramShellMode] = useState<boolean>(true);
+  const [isTelegramShellMode, setIsTelegramShellMode] = useState<boolean>(false);
   const [telegramViewMode, setTelegramViewMode] = useState<TelegramViewMode>('bot_profile');
 
   // Modals state
