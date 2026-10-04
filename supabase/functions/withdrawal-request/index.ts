@@ -18,6 +18,9 @@ function secretKey() {
   const raw = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
   try { return JSON.parse(raw).default as string; } catch { return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""; }
 }
+function escapeHtml(value: string) {
+  return value.replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char] || char));
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -39,6 +42,12 @@ Deno.serve(async (req) => {
 
     if (!chain || !destinationAddress || !Number.isFinite(amount) || amount <= 0) {
       return json({ error: "INVALID_WITHDRAWAL_REQUEST" }, 400);
+    }
+    if (!["ethereum", "polygon", "arbitrum"].includes(chain)) {
+      return json({ error: "CHAIN_NOT_YET_SUPPORTED_FOR_REAL_WITHDRAWAL" }, 400);
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(destinationAddress)) {
+      return json({ error: "INVALID_EVM_DESTINATION_ADDRESS" }, 400);
     }
 
     const { data: userData, error: userError } = await userClient.auth.getUser();
@@ -80,11 +89,13 @@ Deno.serve(async (req) => {
     }
 
     const confirmUrl = `${url}/functions/v1/withdrawal-confirm?token=${encodeURIComponent(String(confirmation.token))}`;
+    const safeChain = escapeHtml(chain.toUpperCase());
+    const safeDestination = escapeHtml(destinationAddress);
     const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#0b0b10;color:#f5f5f4;padding:32px">
       <div style="max-width:560px;margin:auto;background:#15151c;border:1px solid #292933;border-radius:20px;padding:28px">
         <h2 style="margin-top:0">Confirm your AURA withdrawal</h2>
-        <p>A withdrawal request was created for <strong>${amount.toFixed(6)} USDT</strong> on <strong>${chain.toUpperCase()}</strong>.</p>
-        <p>Destination: <code>${destinationAddress}</code></p>
+        <p>A withdrawal request was created for <strong>${amount.toFixed(6)} USDT</strong> on <strong>${safeChain}</strong>.</p>
+        <p>Destination: <code>${safeDestination}</code></p>
         <p>Your funds are already reserved, but nothing will be broadcast to the blockchain until you confirm this email.</p>
         <p><a href="${confirmUrl}" style="display:inline-block;padding:13px 18px;background:#fbbf24;color:#111;border-radius:12px;text-decoration:none;font-weight:700">Confirm withdrawal</a></p>
         <p style="font-size:12px;color:#a8a29e">This confirmation expires in 30 minutes. If you did not request this withdrawal, ignore this email and cancel the reservation from AURA.</p>
