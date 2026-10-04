@@ -10,16 +10,17 @@ interface CommunityValueDrawerProps {
 
 export const CommunityValueDrawer: React.FC<CommunityValueDrawerProps> = ({ artwork, onClose }) => {
   const interactions = artwork.eligibleInteractions ?? 0;
-  const nextMilestone = interactions < 500 
-    ? 500 
-    : Math.ceil(interactions / 500) * 500;
+  const likes = artwork.likes ?? 0;
+  const dislikes = artwork.dislikes ?? 0;
+  const nextMilestone = likes < 500 ? 500 : Math.ceil(likes / 500) * 500;
   
-  const progressPercent = Math.min(100, Math.round((interactions / (nextMilestone || 500)) * 100));
+  const progressPercent = Math.min(100, Math.round((likes / (nextMilestone || 500)) * 100));
 
   const origPrice = artwork.originalPrice || 1;
   const currVal = artwork.currentValue || origPrice;
   const appreciation = currVal - origPrice;
   const appreciationPercent = Math.round((appreciation / origPrice) * 100);
+  const modeLabel = artwork.valuationMode === 'community' ? 'Community Value' : 'Market Price';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-md transition-opacity p-0 sm:p-4">
@@ -62,7 +63,7 @@ export const CommunityValueDrawer: React.FC<CommunityValueDrawerProps> = ({ artw
               </span>
             </div>
             <div>
-              <span className="text-xs text-amber-300/80 block mb-1">Current Community Value</span>
+              <span className="text-xs text-amber-300/80 block mb-1">Current {modeLabel}</span>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-serif text-amber-300 font-medium">
                   ${artwork.currentValue}
@@ -102,7 +103,7 @@ export const CommunityValueDrawer: React.FC<CommunityValueDrawerProps> = ({ artw
                 Eligible Interactions
               </span>
               <span className="font-mono text-stone-200 font-medium tabular-nums">
-                {(artwork.eligibleInteractions ?? 0).toLocaleString()} / {(nextMilestone ?? 500).toLocaleString()}
+                {likes.toLocaleString()} / {(nextMilestone ?? 500).toLocaleString()} likes
               </span>
             </div>
             {/* Progress Bar */}
@@ -114,24 +115,24 @@ export const CommunityValueDrawer: React.FC<CommunityValueDrawerProps> = ({ artw
             </div>
             <p className="text-[11px] text-stone-300 mt-1.5 flex items-center gap-1">
               <Info className="w-3 h-3 text-stone-300 shrink-0" />
-              {artwork.eligibleInteractions >= 500
+              {likes >= 500
                 ? 'Threshold met. Active community appraisal active.'
-                : `${500 - artwork.eligibleInteractions} more community interactions needed for next evaluation tier.`}
+                : `${500 - likes} more likes needed for the next evaluation tier.`}
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <span className="text-[11px] text-stone-400 block mb-1">Community Interest</span>
+              <span className="text-[11px] text-stone-400 block mb-1">Valuation Mode</span>
               <span className="text-sm font-semibold text-stone-100 flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                {artwork.interestLevel}
+                {modeLabel}
               </span>
             </div>
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-              <span className="text-[11px] text-stone-400 block mb-1">Verified Collectors</span>
+              <span className="text-[11px] text-stone-400 block mb-1">Community Votes</span>
               <span className="text-sm font-semibold text-stone-100 font-mono tabular-nums">
-                {artwork.collectorsCount} vaults
+                {likes.toLocaleString()} likes · {dislikes.toLocaleString()} dislikes
               </span>
             </div>
           </div>
