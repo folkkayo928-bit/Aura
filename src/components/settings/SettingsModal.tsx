@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 import {
   X,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 
 export const SettingsModal: React.FC = () => {
+  const { user, signOut, updatePassword } = useAuth();
   const {
     settingsModalOpen,
     setSettingsModalOpen,
@@ -43,12 +46,22 @@ export const SettingsModal: React.FC = () => {
   const [biometricAuth, setBiometricAuth] = useState(userProfile.biometricAuth);
 
   const [connectWalletPickerOpen, setConnectWalletPickerOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
 
-  const handleImageUpload = (file: File, setter: (value: string) => void) => {
-    if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => setter(String(reader.result || ''));
-    reader.readAsDataURL(file);
+  const handleImageUpload = async (file: File, setter: (value: string) => void) => {
+    if (!user || !file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) return;
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const path = `${user.id}/profile-${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from('aura-artworks').upload(path, file, {
+      upsert: true,
+      cacheControl: '31536000',
+      contentType: file.type,
+    });
+    if (error) return;
+    const { data } = supabase.storage.from('aura-artworks').getPublicUrl(path);
+    setter(data.publicUrl);
   };
 
   if (!settingsModalOpen) return null;
@@ -151,7 +164,7 @@ export const SettingsModal: React.FC = () => {
                     placeholder="https://..."
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-stone-200 font-mono truncate focus:outline-none focus:border-amber-400/60"
                   />
-                  <p className="mt-1 text-[9px] text-stone-600">Images stay in this device until a backend profile system is connected.</p>
+                  <p className="mt-1 text-[9px] text-stone-600">Images are stored in your AURA profile media bucket.</p>
                 </div>
               </div>
             </div>
@@ -293,52 +306,84 @@ export const SettingsModal: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 3: VAULT SECURITY & RECOVERY PHRASE */}
+        {/* TAB 3: ACCOUNT SECURITY */}
         {activeTab === 'security' && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/20 space-y-2">
-              <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                <Key className="w-4 h-4" />
-                Non-Custodial Recovery Phrase
+            <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-2">
+              <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" />
+                AURA Account Security
               </span>
               <p className="text-xs text-stone-300 leading-relaxed">
-                Your 12-word cryptographic seed phrase controls your entire art vault and funds across all Web3 networks. Back it up safely.
+                AURA does not show or store a recovery phrase in the browser. External wallet providers keep their own recovery credentials.
               </p>
               <button
                 onClick={() => setSeedPhraseModalOpen(true)}
-                className="w-full mt-2 py-3 rounded-xl bg-amber-400 text-stone-950 font-bold text-xs hover:bg-amber-300 transition-colors"
+                className="w-full mt-2 py-3 rounded-xl bg-cyan-400 text-stone-950 font-bold text-xs hover:bg-cyan-300 transition-colors"
               >
-                View 12-Word Seed Phrase
+                Wallet Security Guide
               </button>
+            </div>
+
+            {user?.email && (
+              <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500">Account email</span>
+                <span className="mt-1 block text-sm text-stone-200 break-all">{user.email}</span>
+              </div>
+            )}
+
+            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+              <span className="text-xs font-semibold text-stone-200">Change password</span>
+              <div className="flex gap-2">
+                <input
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  type="password"
+                  minLength={6}
+                  placeholder="New password"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-amber-400/60"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setPasswordMessage('');
+                    if (newPassword.length < 6) { setPasswordMessage('Use at least 6 characters.'); return; }
+                    const result = await updatePassword(newPassword);
+                    setPasswordMessage(result.error || 'Password updated.');
+                    if (!result.error) setNewPassword('');
+                  }}
+                  className="px-3 rounded-xl bg-white/10 text-xs font-semibold text-stone-200"
+                >
+                  Update
+                </button>
+              </div>
+              {passwordMessage && <p className="text-[10px] text-stone-400">{passwordMessage}</p>}
             </div>
 
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
                 <div>
-                  <span className="text-xs font-medium text-stone-200 block">Telegram 2-Step Verification</span>
-                  <span className="text-[11px] text-stone-500 block">Require password for big transfers</span>
+                  <span className="text-xs font-medium text-stone-200 block">Two-Step Transfer Protection</span>
+                  <span className="text-[11px] text-stone-500 block">Extra confirmation for sensitive account actions</span>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={twoFactorEnabled}
-                  onChange={(e) => setTwoFactorEnabled(e.target.checked)}
-                  className="w-4 h-4 accent-amber-400"
-                />
+                <input type="checkbox" checked={twoFactorEnabled} onChange={(e) => setTwoFactorEnabled(e.target.checked)} className="w-4 h-4 accent-amber-400" />
               </div>
-
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
                 <div>
-                  <span className="text-xs font-medium text-stone-200 block">Biometric Vault Unlock</span>
-                  <span className="text-[11px] text-stone-500 block">FaceID / TouchID biometric auth</span>
+                  <span className="text-xs font-medium text-stone-200 block">Biometric Unlock</span>
+                  <span className="text-[11px] text-stone-500 block">Use your device biometric prompt when supported</span>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={biometricAuth}
-                  onChange={(e) => setBiometricAuth(e.target.checked)}
-                  className="w-4 h-4 accent-amber-400"
-                />
+                <input type="checkbox" checked={biometricAuth} onChange={(e) => setBiometricAuth(e.target.checked)} className="w-4 h-4 accent-amber-400" />
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="w-full py-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-300 font-semibold text-xs hover:bg-rose-500/10"
+            >
+              Sign out of AURA
+            </button>
           </div>
         )}
 
