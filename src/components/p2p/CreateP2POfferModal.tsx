@@ -20,14 +20,14 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     'revolut',
   ]);
   const [instructions, setInstructions] = useState(
-    'Instant smart contract escrow. Auto release upon confirmed payment receipt.'
+    'Tell the counterparty where and how to pay. AURA holds the USDT internally until the trade is completed.'
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedMethods.length === 0) return;
 
-    createP2POffer({
+    await createP2POffer({
       type,
       pricePerUnit: parseFloat(price) || 1.0,
       fiatCurrency: 'USD',
@@ -37,7 +37,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
       paymentMethods: selectedMethods,
       paymentInstructions:
         instructions.trim() ||
-        'Instant smart contract escrow. Auto release upon confirmed payment receipt.',
+        'Tell the counterparty where and how to pay. AURA holds the USDT internally until the trade is completed.',
       isBuyerProtected: true,
     });
     onClose();
