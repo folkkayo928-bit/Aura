@@ -20,7 +20,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     'revolut',
   ]);
   const [instructions, setInstructions] = useState(
-    'Tell the counterparty where and how to pay. AURA holds the USDT internally until the trade is completed.'
+    'Tell the counterparty where and how to pay. AURA reserves the seller's USDT in its internal ledger until the trade is completed or cancelled.'
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,7 +162,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
           <div className="flex items-center gap-2 text-[11px] text-stone-400 bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Escrow lock is enforced automatically by the smart contract upon order matching.</span>
+            <span>USDT escrow is enforced by the AURA server-side ledger when the order is matched.</span>
           </div>
 
           <button
