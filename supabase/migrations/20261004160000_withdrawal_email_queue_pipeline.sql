@@ -1,6 +1,7 @@
 -- AURA withdrawal email confirmation, durable queue, broadcaster and on-chain confirmation pipeline.
 create extension if not exists pgmq;
 create extension if not exists pg_cron;
+create extension if not exists pg_net;
 
 select pgmq.create('aura_withdrawals')
 where not exists (select 1 from pgmq.list_queues() where queue_name='aura_withdrawals');
