@@ -52,7 +52,7 @@ const TelegramWebAppBridge: React.FC = () => {
     const user = tg.initDataUnsafe?.user;
     if (user) {
       const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
-      updateUserProfile({
+      void updateUserProfile({
         ...(fullName ? { name: fullName } : {}),
         ...(user.username ? { telegramHandle: `@${user.username}` } : {}),
       });
