@@ -6,10 +6,8 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { P2POffer } from './types';
-import { TelegramFrame } from './components/TelegramFrame';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
-import { TelegramNotificationToast } from './components/TelegramNotificationToast';
 
 // Views
 import { HomeView } from './components/views/HomeView';
@@ -29,10 +27,6 @@ import { SendModal, ReceiveModal, BuyModal } from './components/SendReceiveModal
 import { SettingsModal } from './components/settings/SettingsModal';
 import { SeedPhraseModal } from './components/settings/SeedPhraseModal';
 
-// Telegram Bot Homepage & Chat Views (Matches Screenshots)
-import { TelegramBotProfileView } from './components/telegram/TelegramBotProfileView';
-import { TelegramBotChatView } from './components/telegram/TelegramBotChatView';
-
 // P2P Trustless Escrow Modals
 import { P2PView } from './components/p2p/P2PView';
 import { P2PTradeModal } from './components/p2p/P2PTradeModal';
@@ -44,19 +38,39 @@ import { X } from 'lucide-react';
 
 const TelegramWebAppBridge: React.FC = () => {
   const { setIsTelegramShellMode, setTelegramViewMode, updateUserProfile } = useApp();
+
   React.useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (!tg) return;
-    tg.ready(); tg.expand(); tg.enableClosingConfirmation?.();
-    tg.setHeaderColor?.('#101017'); tg.setBackgroundColor?.('#09090d');
-    setIsTelegramShellMode(true); setTelegramViewMode('miniapp');
+
+    tg.ready();
+    tg.expand();
+    tg.enableClosingConfirmation?.();
+    tg.setHeaderColor?.('#101017');
+    tg.setBackgroundColor?.('#09090d');
+
+    // Telegram is the native shell; the website itself is always the real AURA app.
+    setIsTelegramShellMode(true);
+    setTelegramViewMode('miniapp');
+
     const user = tg.initDataUnsafe?.user;
     if (user) {
       const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
-      updateUserProfile({ ...(fullName ? { name: fullName } : {}), ...(user.username ? { telegramHandle: `@${user.username}` } : {}) });
+      updateUserProfile({
+        ...(fullName ? { name: fullName } : {}),
+        ...(user.username ? { telegramHandle: `@${user.username}` } : {}),
+      });
     }
-    if (tg.initData) fetch('/api/telegram/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({initData:tg.initData}) }).catch(()=>undefined);
-  }, []);
+
+    if (tg.initData) {
+      fetch('/api/telegram/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: tg.initData }),
+      }).catch(() => undefined);
+    }
+  }, [setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
+
   return null;
 };
 
@@ -80,8 +94,6 @@ const AppContent: React.FC = () => {
     p2pModalOpen,
     setP2pModalOpen,
     activeP2POrder,
-    telegramViewMode,
-    setTelegramViewMode,
   } = useApp();
 
   const [selectedP2POffer, setSelectedP2POffer] = useState<P2POffer | null>(null);
@@ -90,45 +102,26 @@ const AppContent: React.FC = () => {
   return (
     <>
       <TelegramWebAppBridge />
-      <TelegramFrame>
-      {/* Real-time simulated Telegram Bot Notification Dropdown */}
-      <TelegramNotificationToast />
 
-      {/* VIEW 1: Telegram Bot Profile & Homepage Preview (Matches Screenshot 1) */}
-      {telegramViewMode === 'bot_profile' && (
-        <TelegramBotProfileView onOpenChat={() => setTelegramViewMode('bot_chat')} />
-      )}
+      {/* The public website and Telegram Mini App use the same real AURA application.
+          No simulated Telegram profile/chat/preview is rendered here. */}
+      <Header />
 
-      {/* VIEW 2: Telegram Bot Chat & /start Flow (Matches Screenshot 2) */}
-      {telegramViewMode === 'bot_chat' && (
-        <TelegramBotChatView onOpenProfile={() => setTelegramViewMode('bot_profile')} />
-      )}
+      <div className="px-3 pt-3">
+        {activeTab === 'home' && (
+          <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
+        )}
+        {activeTab === 'discover' && (
+          <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
+        )}
+        {activeTab === 'create' && <CreateView />}
+        {activeTab === 'wallet' && <WalletView />}
+        {activeTab === 'profile' && (
+          <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
+        )}
+      </div>
 
-      {/* VIEW 3: Live Mini App */}
-      {telegramViewMode === 'miniapp' && (
-        <>
-          {/* Top Header Bar */}
-          <Header />
-
-          {/* Main View Area */}
-          <div className="px-3 pt-3">
-            {activeTab === 'home' && (
-              <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
-            )}
-            {activeTab === 'discover' && (
-              <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
-            )}
-            {activeTab === 'create' && <CreateView />}
-            {activeTab === 'wallet' && <WalletView />}
-            {activeTab === 'profile' && (
-              <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />
-            )}
-          </div>
-
-          {/* Bottom Ergonomic Navigation Bar */}
-          <BottomNav />
-        </>
-      )}
+      <BottomNav />
 
       {/* Fullscreen Hero Artwork Inspector Modal */}
       {selectedArtwork && (
@@ -194,7 +187,7 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {/* Active P2P Trade Sheet (Smart Contract Escrow) */}
+      {/* Active P2P Trade Sheet */}
       {(selectedP2POffer || activeP2POrder) && (
         <P2PTradeModal
           offer={selectedP2POffer}
@@ -207,7 +200,7 @@ const AppContent: React.FC = () => {
         <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />
       )}
 
-      {/* Collection / Art Creator Hub Modal (Like photo uploaded by user) */}
+      {/* Collection / Art Creator Hub Modal */}
       {selectedCollection && (
         <CollectionHubModal
           collection={selectedCollection}
@@ -224,14 +217,13 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {/* Sell Artwork / Photo on P2P Desk for Cash Modal */}
+      {/* Sell Artwork / Photo on P2P Desk */}
       {sellArtworkP2PModal && (
         <SellArtP2PModal
           artwork={sellArtworkP2PModal}
           onClose={() => setSellArtworkP2PModal(null)}
         />
       )}
-      </TelegramFrame>
     </>
   );
 };
