@@ -198,118 +198,45 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         </div>
 
         {profileSection === 'collection' && (
-        ownedArtworks.length === 0 ? (
-          <div className="py-12 text-center p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
-            <Award className="w-10 h-10 text-stone-600 mx-auto" />
-            <h4 className="font-serif text-lg text-stone-300">Your Vault is Empty</h4>
-            <p className="text-xs text-stone-500 max-w-xs mx-auto">
-              Discover fine digital art in the gallery and collect editions to start growing your community collection.
-            </p>
-            <button
-              onClick={() => setActiveTab('home')}
-              className="px-4 py-2 rounded-xl bg-amber-400 text-stone-950 font-semibold text-xs mt-2"
-            >
-              Browse Gallery
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {ownedArtworks.map((artwork) => {
-              const boughtFor = artwork.purchasePrice || artwork.originalPrice;
-              const currentVal = artwork.currentValue;
-              const pieceGain = currentVal - boughtFor;
-              const pieceGainPercent = Math.round((pieceGain / boughtFor) * 100);
-
-              return (
-                <div
-                  key={artwork.id}
-                  className="rounded-3xl bg-[#111118] border border-white/5 overflow-hidden p-4 shadow-lg hover:border-white/15 transition-all"
-                >
+          ownedArtworks.length === 0 ? (
+            <div className="py-12 text-center p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
+              <Award className="w-10 h-10 text-stone-600 mx-auto" />
+              <h4 className="font-serif text-lg text-stone-300">Your Vault is Empty</h4>
+              <p className="text-xs text-stone-500 max-w-xs mx-auto">Discover fine digital art in the gallery and collect editions to start growing your collection.</p>
+              <button onClick={() => setActiveTab('home')} className="px-4 py-2 rounded-xl bg-amber-400 text-stone-950 font-semibold text-xs mt-2">Browse Gallery</button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {ownedArtworks.map((artwork) => (
+                <div key={artwork.id} className="rounded-3xl bg-[#111118] border border-white/5 overflow-hidden p-4 shadow-lg">
                   <div className="flex items-start gap-4">
-                    {/* Visual Thumbnail */}
-                    <div
-                      onClick={() => onOpenDetail(artwork)}
-                      className="w-24 h-32 rounded-2xl overflow-hidden shrink-0 border border-white/10 cursor-pointer relative group"
-                    >
+                    <button type="button" onClick={() => onOpenDetail(artwork)} className="w-24 h-32 rounded-2xl overflow-hidden shrink-0 border border-white/10 relative">
                       <ArtworkCanvas artwork={artwork} showOverlayGrain={false} />
-                      <div className="absolute inset-0 bg-black/30 group-hover:bg-transparent transition-colors" />
-                    </div>
-
-                    {/* Details */}
+                    </button>
                     <div className="flex-1 min-w-0 space-y-2">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">
-                            {artwork.edition}
-                          </span>
-                          <span className="text-[10px] text-emerald-400 font-mono font-medium">
-                            +{pieceGainPercent}% Gain
-                          </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">{artwork.edition}</span>
+                          <h4 className="mt-1 font-serif text-lg text-stone-100 truncate">{artwork.title}</h4>
+                          <p className="text-xs text-stone-400 truncate">by {artwork.creator.name}</p>
                         </div>
-                        <h4
-                          onClick={() => onOpenDetail(artwork)}
-                          className="font-serif text-lg text-stone-100 truncate cursor-pointer hover:text-amber-200 transition-colors"
-                        >
-                          {artwork.title}
-                        </h4>
-                        <p className="text-xs text-stone-400 truncate">
-                          by {artwork.creator.name}
-                        </p>
+                        <span className="text-[10px] text-emerald-400 font-mono font-medium shrink-0">${artwork.currentValue.toLocaleString()} USDT</span>
                       </div>
-
-                      {/* Pricing Comparison */}
                       <div className="grid grid-cols-2 gap-2 p-2 rounded-xl bg-white/[0.02] border border-white/5 text-[11px]">
-                        <div>
-                          <span className="text-stone-400 block">Acquired:</span>
-                          <span className="font-mono text-stone-300">${boughtFor} USDT</span>
-                        </div>
-                        <div>
-                          <span className="text-stone-400 block">Current Value:</span>
-                          <span className="font-mono text-amber-300 font-semibold">
-                            ${currentVal} USDT
-                          </span>
-                        </div>
+                        <div><span className="text-stone-400 block">Acquired:</span><span className="font-mono text-stone-300">${(artwork.purchasePrice || artwork.originalPrice).toLocaleString()} USDT</span></div>
+                        <div><span className="text-stone-400 block">Current Value:</span><span className="font-mono text-amber-300 font-semibold">${artwork.currentValue.toLocaleString()} USDT</span></div>
                       </div>
-
-                      {/* Action buttons: Certificate, Convert to USDT, Sell on P2P for Cash */}
                       <div className="flex items-center gap-1.5 pt-1">
-                        <button
-                          onClick={() => setSelectedCertArtwork(artwork)}
-                          className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-stone-300 text-xs font-medium flex items-center justify-center gap-1 transition-colors"
-                          title="View provenance certificate"
-                        >
-                          <FileCheck className="w-3.5 h-3.5 text-cyan-400" />
-                          <span className="hidden sm:inline">Cert</span>
-                        </button>
-
-                        <button
-                          onClick={() => setConvertModalArtwork(artwork)}
-                          className="flex-1 py-2 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-medium flex items-center justify-center gap-1 transition-colors"
-                          title="Convert to instant USDT crypto"
-                        >
-                          <ArrowRightLeft className="w-3 h-3" />
-                          <span>Convert</span>
-                        </button>
-
-                        <button
-                          onClick={() => setSellArtworkP2PModal(artwork)}
-                          className={`flex-1 py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
-                            artwork.isListedOnP2P
-                              ? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
-                              : 'bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
-                          }`}
-                          title="Sell on Binance-style P2P Escrow Desk for Real Cash"
-                        >
-                          <ArrowUpDown className="w-3 h-3" />
-                          <span>{artwork.isListedOnP2P ? 'P2P Live' : 'Sell P2P'}</span>
-                        </button>
+                        <button type="button" onClick={() => setSelectedCertArtwork(artwork)} className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-stone-300 text-xs font-medium"><FileCheck className="w-3.5 h-3.5 text-cyan-400 inline-block mr-1" /> Cert</button>
+                        <button type="button" onClick={() => setConvertModalArtwork(artwork)} className="flex-1 py-2 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-medium"><ArrowRightLeft className="w-3 h-3 inline-block mr-1" /> Convert</button>
+                        <button type="button" onClick={() => setSellArtworkP2PModal(artwork)} className="flex-1 py-2 px-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-medium"><ArrowUpDown className="w-3 h-3 inline-block mr-1" /> {artwork.isListedOnP2P ? 'P2P Live' : 'Sell P2P'}</button>
                       </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )
         )}
 
         {profileSection === 'created' && (
