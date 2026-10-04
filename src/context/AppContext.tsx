@@ -816,7 +816,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const payout = Number((data as any)?.payout_usdt || 0);
       setWalletBalance(prev => prev + payout);
       setArtworks(prev => prev.map(a => a.id === artwork.id ? { ...a, isOwned: false, purchasePrice: undefined, isListedOnP2P: false } : a));
-      setTransactions(prev => [{ id: `tx-${Date.now()}`, type: 'convert', artworkTitle: artwork.title, amount: payout, currency: 'USDT', date: 'Just now', recipientOrSender: 'AURA Liquidity', status: 'confirmed' }, ...prev]);
+      const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+      if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
       addNotification('💸 Converted to AURA Wallet', `$${payout.toFixed(2)} USDT credited after the $${fee.toFixed(2)} service fee.`, 'convert');
     })();
     return { success: true, netPayout: Math.max(0, artwork.currentValue - fee) };
