@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { CryptoNetwork } from '../../types';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
 import {
@@ -13,10 +12,7 @@ import {
   Clock,
   Sparkles,
   ChevronRight,
-  Globe,
   Link,
-  Copy,
-  Check,
   Zap,
   ArrowUpDown,
   Lock,
@@ -34,7 +30,6 @@ export const WalletView: React.FC = () => {
     setConvertModalArtwork,
     setSelectedArtwork,
     setP2pModalOpen,
-    vaultAddresses,
     connectedWallets,
     setSettingsModalOpen,
     activeP2POrder,
@@ -48,18 +43,8 @@ export const WalletView: React.FC = () => {
   const digitalArtValuation = ownedArtworks.reduce((acc, a) => acc + a.currentValue, 0);
   const totalNetWorth = walletBalance + digitalArtValuation;
 
-  const currentAddress =
-    activeNetworkView === 'ton'
-      ? vaultAddresses.ton
-      : activeNetworkView === 'solana'
-      ? vaultAddresses.solana
-      : vaultAddresses.polygon;
+  const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard?.writeText(currentAddress);
-    setCopiedAddr(true);
-    setTimeout(() => setCopiedAddr(false), 2000);
-  };
 
   return (
     <div className="space-y-6 pb-24">
