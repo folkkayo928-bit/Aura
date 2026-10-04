@@ -14,9 +14,9 @@ jobs:
         run: |
           set -euo pipefail
           url="https://aura-3idc.netlify.app/api/telegram/health"
-          for attempt in $(seq 1 24); do
-            echo "Checking Telegram health (attempt $attempt/24)..."
-            response="$(curl -sS --max-time 20 "$url" || true)"
+          for attempt in $(seq 1 12); do
+            echo "Checking Telegram health (attempt $attempt/12)..."
+            response="$(curl -sS --max-time 10 "$url" || true)"
             echo "$response"
             if echo "$response" | grep -q '"tokenConfigured":true' &&                echo "$response" | grep -q '"configured":true'; then
               echo "Telegram bot configuration is active."
