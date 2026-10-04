@@ -1224,7 +1224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const completeP2POrder = async (orderId: string) => {
     if (!user) { openAuth('signin'); return; }
-    const { data, error } = await supabase.rpc('complete_p2p_order', { p_order_id: orderId });
+    const { data, error } = await supabase.rpc('settle_p2p_order', { p_order_id: orderId });
     if (error || !data) {
       addNotification('P2P Release Failed', error?.message === 'ONLY_SELLER_CAN_RELEASE' ? 'Only the seller can release the held USDT after payment is confirmed.' : (error?.message || 'Could not release this trade.'), 'p2p');
       return;
