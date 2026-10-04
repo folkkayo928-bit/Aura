@@ -38,6 +38,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
     setSettingsModalOpen,
     setSeedPhraseModalOpen,
     connectedWallets,
+    transactions,
   } = useApp();
   const [selectedCertArtwork, setSelectedCertArtwork] = useState<Artwork | null>(null);
   const [copied, setCopied] = useState(false);
@@ -142,6 +143,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         </button>
       </div>
 
+      {profileMode === 'private' && (
       {/* PROFILE SNAPSHOT */}
       <div className="grid grid-cols-2 gap-3 px-1 mt-4">
         <div className="rounded-2xl bg-amber-400/[0.05] border border-amber-400/15 p-4">
@@ -157,6 +159,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
           <div className="text-[10px] text-stone-500">Web3 wallets linked</div>
         </button>
       </div>
+
+      )}
 
       {/* PROFILE REPUTATION */}
       <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
@@ -194,6 +198,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
           </span>
         </div>
 
+        {profileSection === 'collection' && (
         {ownedArtworks.length === 0 ? (
           <div className="py-12 text-center p-6 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
             <Award className="w-10 h-10 text-stone-600 mx-auto" />
@@ -257,12 +262,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
                       <div className="grid grid-cols-2 gap-2 p-2 rounded-xl bg-white/[0.02] border border-white/5 text-[11px]">
                         <div>
                           <span className="text-stone-400 block">Acquired:</span>
-                          <span className="font-mono text-stone-300">${boughtFor} USDT</span>
+                          <span className="font-mono text-stone-300">\${boughtFor} USDT</span>
                         </div>
                         <div>
                           <span className="text-stone-400 block">Current Value:</span>
                           <span className="font-mono text-amber-300 font-semibold">
-                            ${currentVal} USDT
+                            \${currentVal} USDT
                           </span>
                         </div>
                       </div>
@@ -289,7 +294,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
                         <button
                           onClick={() => setSellArtworkP2PModal(artwork)}
-                          className={`flex-1 py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 transition-colors ${
+                          className={`flex-1 py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 transition-colors \${
                             artwork.isListedOnP2P
                               ? 'bg-amber-400/15 border-amber-400/40 text-amber-300'
                               : 'bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/30 text-cyan-300'
@@ -307,8 +312,44 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
             })}
           </div>
         )}
-      </div>
+        )}
 
+        {profileSection === 'created' && (
+          <div className="grid grid-cols-2 gap-3">
+            {artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).length === 0 ? (
+              <div className="col-span-2 rounded-3xl border border-white/5 bg-white/[0.02] p-8 text-center">
+                <Sparkles className="mx-auto h-8 w-8 text-stone-600" />
+                <p className="mt-3 text-xs text-stone-500">Your minted creations will appear here.</p>
+                <button onClick={() => setActiveTab('create')} className="mt-4 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-stone-950">Create a work</button>
+              </div>
+            ) : (
+              artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).map((artwork) => (
+                <button key={artwork.id} onClick={() => onOpenDetail(artwork)} className="overflow-hidden rounded-2xl border border-white/10 bg-[#111118] text-left">
+                  <div className="aspect-square"><ArtworkCanvas artwork={artwork} showOverlayGrain={false} /></div>
+                  <div className="p-3"><div className="truncate text-xs font-semibold text-stone-100">{artwork.title}</div><div className="mt-1 text-[10px] text-stone-500">${artwork.currentValue.toLocaleString()} USDT</div></div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+        {profileSection === 'activity' && (
+          <div className="space-y-2">
+            {transactions.length === 0 ? (
+              <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-8 text-center text-xs text-stone-500">Your AURA activity will appear here.</div>
+            ) : (
+              transactions.slice(0, 12).map((tx) => (
+                <div key={tx.id} className="flex items-center gap-3 rounded-2xl border border-white/5 bg-[#111118] p-3">
+                  <div className="h-9 w-9 shrink-0 rounded-xl bg-amber-400/10 flex items-center justify-center text-amber-300"><ArrowUpDown className="w-4 h-4" /></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-semibold text-stone-200">{tx.type.replaceAll('_', ' ')}</div>
+                    <div className="mt-1 text-[10px] text-stone-500">{tx.date} · {tx.status}</div>
+                  </div>
+                  <span className="font-mono text-[11px] text-stone-300">{tx.amount} {tx.currency}</span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       {/* CERTIFICATE OF AUTHENTICITY MODAL */}
       {selectedCertArtwork && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
