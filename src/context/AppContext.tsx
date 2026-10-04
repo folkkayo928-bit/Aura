@@ -1126,6 +1126,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const walletRow = data as any;
+      await supabase.from('onchain_wallets').upsert(
+        {
+          user_id: user.id,
+          chain: network,
+          address,
+          address_type: 'external',
+          provider: name,
+          verified_at: new Date().toISOString(),
+        },
+        { onConflict: 'chain,address' }
+      );
       const connected: ConnectedExternalWallet = {
         id: walletRow?.id || `wallet-${Date.now()}`,
         name,
