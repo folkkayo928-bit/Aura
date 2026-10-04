@@ -190,7 +190,7 @@ Tap below to launch into the mini app!`,
             onClick={() =>
               addNotification(
                 'Telegram Bot Menu',
-                '@auravault_bot settings and notifications configured.',
+                '@myaura1_bot settings and notifications configured.',
                 'community'
               )
             }
