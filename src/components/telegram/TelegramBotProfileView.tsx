@@ -44,19 +44,19 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
     addNotification(
       nextState ? 'Notifications Muted' : 'Notifications Unmuted',
       nextState
-        ? 'You will not receive instant alerts from @auravault_bot.'
+        ? 'You will not receive instant alerts from @myaura1_bot.'
         : 'Live drops, P2P escrow matches, and vault alerts are enabled.',
       'community'
     );
   };
 
   const handleShare = () => {
-    navigator.clipboard?.writeText('https://t.me/auravault_bot/app');
+    navigator.clipboard?.writeText('https://t.me/myaura1_bot');
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
     addNotification(
       'Bot Link Copied',
-      'Share https://t.me/auravault_bot with your friends on Telegram!',
+      'Share https://t.me/myaura1_bot with your friends on Telegram!',
       'community'
     );
   };
@@ -64,7 +64,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
   const handleStopBot = () => {
     addNotification(
       'Bot Status: Active',
-      '@auravault_bot is running with smart contract escrow and verified TON identity.',
+      '@myaura1_bot is running with smart contract escrow and verified TON identity.',
       'community'
     );
   };
@@ -407,10 +407,10 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
           <div className="flex items-center justify-between pt-2 border-t border-white/5">
             <div>
               <div className="text-xs font-semibold text-[#3390ec]">
-                @auravault_bot
+                @myaura1_bot
               </div>
               <div className="text-[10px] text-stone-400 italic">
-                also @AuraVaultApp_bot
+                also @myaura1_bot
               </div>
             </div>
 
@@ -447,7 +447,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
             onClick={() =>
               addNotification(
                 'Telegram Bot Integration',
-                '@auravault_bot can be added to your channels for automatic escrow alerts and community art drops.',
+                '@myaura1_bot can be added to your channels for automatic escrow alerts and community art drops.',
                 'community'
               )
             }
@@ -639,7 +639,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
             </div>
 
             <div className="space-y-1 text-xs">
-              <div className="font-semibold text-stone-200">@auravault_bot</div>
+              <div className="font-semibold text-stone-200">@myaura1_bot</div>
               <p className="text-[11px] text-stone-400">
                 Scan with any smartphone camera or Telegram scanner to open on mobile.
               </p>
