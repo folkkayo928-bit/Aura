@@ -50,6 +50,7 @@ export const CreateView: React.FC = () => {
     'bank_transfer',
     'telegram_pay',
   ]);
+  const [p2pPaymentInstructions, setP2pPaymentInstructions] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [publishError, setPublishError] = useState('');
@@ -194,6 +195,7 @@ export const CreateView: React.FC = () => {
         listOnP2P,
         p2pPriceFiat: listOnP2P ? parseFloat(p2pPrice) || parseFloat(price) : undefined,
         p2pPaymentMethods: listOnP2P ? p2pPaymentMethods : undefined,
+        p2pPaymentInstructions: listOnP2P ? p2pPaymentInstructions.trim() : undefined,
       });
     } catch (error: any) {
       setPublishError(error?.message || 'Something went wrong while publishing the artwork.');
@@ -494,6 +496,23 @@ export const CreateView: React.FC = () => {
                   />
                 </div>
                 <span className="text-xs font-mono text-emerald-400">USD</span>
+              </div>
+
+              {/* Payment account / instructions */}
+              <div>
+                <label className="text-xs text-stone-300 font-medium block mb-1.5">
+                  Your P2P Payment Account / Instructions
+                </label>
+                <textarea
+                  rows={2}
+                  value={p2pPaymentInstructions}
+                  onChange={(e) => setP2pPaymentInstructions(e.target.value)}
+                  placeholder="Example: Revolut @yourhandle, bank IBAN, or Telegram Pay username"
+                  className="w-full bg-black/40 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs text-stone-100 placeholder:text-stone-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-stone-500 mt-1">
+                  Buyers see this only inside an active order after they choose the payment method.
+                </p>
               </div>
 
               {/* Custom Payment Methods for Art P2P Sale */}
