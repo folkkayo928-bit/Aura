@@ -6,8 +6,29 @@ const appUrl = (process.env.TELEGRAM_WEBAPP_URL || process.env.PUBLIC_APP_URL ||
 const secret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 const webAppUrl = appUrl ? `${appUrl}/?v=aura-2026-10-04-1` : '';
 
+function prepareProfilePhotoAsset() {
+  const encodedPath = path.resolve('assets/aura-bot-avatar.jpg.b64');
+  if (!fs.existsSync(encodedPath)) return;
+
+  const outputPath = path.resolve('public/aura-bot-avatar.jpg');
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(
+    outputPath,
+    Buffer.from(fs.readFileSync(encodedPath, 'utf8').trim(), 'base64'),
+  );
+}
+
 if (!token || !appUrl) {
   console.log('Telegram build setup skipped: TELEGRAM_BOT_TOKEN and PUBLIC_APP_URL/TELEGRAM_WEBAPP_URL are not configured.');
+  process.exit(0);
+}
+
+// Keep the public avatar asset available to the Mini App welcome message,
+// but do not call Telegram on every normal deploy.
+prepareProfilePhotoAsset();
+
+if (process.env.RUN_TELEGRAM_SETUP !== 'true') {
+  console.log('Telegram API setup skipped for this build. Set RUN_TELEGRAM_SETUP=true only when bot configuration changes are needed.');
   process.exit(0);
 }
 
@@ -30,24 +51,33 @@ async function telegram(method, body) {
 }
 
 async function setProfilePhoto() {
-  const encodedPath = path.resolve('assets/aura-bot-avatar.jpg.b64');
-  if (!fs.existsSync(encodedPath)) return;
   const outputPath = path.resolve('public/aura-bot-avatar.jpg');
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, Buffer.from(fs.readFileSync(encodedPath, 'utf8').trim(), 'base64'));
+  if (!fs.existsSync(outputPath)) return;
 
   const form = new FormData();
   form.append('photo', JSON.stringify({ type: 'static', photo: 'attach://aura_profile_photo' }));
-  form.append('aura_profile_photo', new Blob([fs.readFileSync(outputPath)], { type: 'image/jpeg' }), 'aura-bot-avatar.jpg');
+  form.append(
+    'aura_profile_photo',
+    new Blob([fs.readFileSync(outputPath)], { type: 'image/jpeg' }),
+    'aura-bot-avatar.jpg',
+  );
 
-  const response = await fetch(`https://api.telegram.org/bot${token}/setMyProfilePhoto`, { method: 'POST', body: form });
+  const response = await fetch(`https://api.telegram.org/bot${token}/setMyProfilePhoto`, {
+    method: 'POST',
+    body: form,
+  });
   const data = await response.json();
+
   if (response.status === 429) {
     const retryAfter = data.parameters?.retry_after;
     console.warn(`Telegram profile photo update rate limited.${retryAfter ? ` Retry after ${retryAfter} seconds.` : ''} Skipping.`);
     return;
   }
-  if (!response.ok || !data.ok) throw new Error(data.description || 'Telegram profile photo update failed');
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.description || 'Telegram profile photo update failed');
+  }
+
   console.log('Telegram bot profile photo updated.');
 }
 
@@ -55,11 +85,6 @@ try {
   await setProfilePhoto();
 } catch (error) {
   console.warn('Telegram profile photo update skipped:', error instanceof Error ? error.message : error);
-}
-
-if (process.env.RUN_TELEGRAM_SETUP !== 'true') {
-  console.log('Telegram API setup skipped for this build. Set RUN_TELEGRAM_SETUP=true only when bot configuration changes are needed.');
-  process.exit(0);
 }
 
 await telegram('setWebhook', {
