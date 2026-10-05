@@ -874,25 +874,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const makeOfferOnArtwork = (artworkId: string, offerAmount: number) => {
-    setArtworks((prev) =>
-      prev.map((art) => {
-        if (art.id === artworkId) {
-          return {
-            ...art,
-            topOfferUSDT: offerAmount,
-          };
-        }
-        return art;
-      })
-    );
+    if (!user) { openAuth('signin'); return; }
+    const artwork = artworks.find((art) => art.id === artworkId);
+    if (!artwork || !isBackendArtworkId(artworkId)) {
+      addNotification('Live Listing Required', 'Offers can only be submitted on verified AURA artwork listings.', 'p2p');
+      return;
+    }
+    if (!Number.isFinite(offerAmount) || offerAmount <= 0) {
+      addNotification('Invalid Offer', 'Enter a positive USDT offer amount.', 'p2p');
+      return;
+    }
 
-    addNotification(
-      '🤝 Offer Submitted',
-      `Your offer of $${offerAmount} USDT on "${artworks.find((a) => a.id === artworkId)?.title}" was relayed to the owner.`,
-      'p2p'
-    );
+    void (async () => {
+      const { error } = await supabase.rpc('create_artwork_offer', {
+        p_artwork_id: artworkId,
+        p_offer_amount_usdt: offerAmount,
+      });
+      if (error) {
+        addNotification('Offer Failed', error.message, 'p2p');
+        return;
+      }
+      setArtworks(prev => prev.map(art => art.id === artworkId ? { ...art, topOfferUSDT: offerAmount } : art));
+      addNotification(
+        '🤝 Offer Submitted',
+        `Your $${offerAmount.toFixed(2)} USDT offer on "${artwork.title}" was sent to the owner.`,
+        'p2p'
+      );
+    })();
   };
-
   const convertArtwork = (artwork: Artwork, fee: number) => {
     if (!user) { openAuth('signin'); return { success: false, netPayout: 0 }; }
     if (!isBackendArtworkId(artwork.id) || !artwork.isOwned) {
