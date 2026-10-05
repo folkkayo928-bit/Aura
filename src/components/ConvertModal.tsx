@@ -21,18 +21,14 @@ export const ConvertModal: React.FC<ConvertModalProps> = ({ artwork, onClose }) 
 
   const isEligible = artwork.conversionEligible && artwork.eligibleInteractions >= 500;
 
-  const handleConvert = () => {
+  const handleConvert = async () => {
     setIsConverting(true);
-    setTimeout(() => {
-      const res = convertArtwork(artwork, protocolFee);
-      setIsConverting(false);
-      if (res.success) {
-        setIsSuccess(true);
-        setTimeout(() => {
-          onClose();
-        }, 1500);
-      }
-    }, 700);
+    const res = await convertArtwork(artwork, protocolFee);
+    setIsConverting(false);
+    if (res.success) {
+      setIsSuccess(true);
+      setTimeout(() => onClose(), 1500);
+    }
   };
 
   return (
