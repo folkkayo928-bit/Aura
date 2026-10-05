@@ -501,7 +501,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                   {currentOffer.merchant?.legalName}
                 </span>
                 <span className="text-[10px] text-emerald-400 font-mono">
-                  {currentOffer.merchant?.ordersCompleted} trades · AURA Ledger Hold
+                  {currentOffer.merchant?.ordersCompleted ? currentOffer.merchant.ordersCompleted + ' trades' : 'New trader'} · AURA Ledger Hold
                 </span>
               </div>
             </div>
