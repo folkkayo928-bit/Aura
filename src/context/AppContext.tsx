@@ -86,7 +86,7 @@ interface AppContextType {
   toggleCollectionWatchlist: (collectionId: string) => void;
   toggleDropReminder: (dropId: string) => void;
   addComment: (artworkId: string, text: string) => void;
-  collectArtwork: (artwork: Artwork) => boolean;
+  collectArtwork: (artwork: Artwork) => Promise<boolean>;
   quickBuyArtwork: (artwork: Artwork) => boolean;
   makeOfferOnArtwork: (artworkId: string, offerAmount: number) => void;
   convertArtwork: (artwork: Artwork, fee: number) => { success: boolean; netPayout: number };
@@ -894,33 +894,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification('💬 Comment Posted', `Your comment was added to "${artwork.title}".`, 'community');
     })();
   };
-  const collectArtwork = (artwork: Artwork): boolean => {
+  const collectArtwork = async (artwork: Artwork): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
     if (!isBackendArtworkId(artwork.id)) {
       addNotification('Live Listing Required', 'This catalog item is a preview. Live collecting is available for verified AURA listings.', 'community');
       return false;
     }
-    void (async () => {
-      const { error } = await supabase.rpc('collect_artwork', { p_artwork_id: artwork.id });
-      if (error) {
-        addNotification('Collect Failed', error.message.includes('INSUFFICIENT_FUNDS') ? 'Your AURA wallet needs more USDT.' : 'This artwork could not be collected right now.', 'community');
-        return;
-      }
-      setArtworks(prev => prev.map(a => a.id === artwork.id ? { ...a, isOwned: true, purchasePrice: artwork.currentValue, collectorsCount: a.collectorsCount + 1 } : a));
-      const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
-      if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
-      setTransactions(prev => [{
-        id: `tx-${Date.now()}`,
-        type: 'collect',
-        artworkTitle: artwork.title,
-        amount: artwork.currentValue,
-        currency: 'USDT',
-        date: 'Just now',
-        recipientOrSender: artwork.creator.handle,
-        status: 'confirmed',
-      }, ...prev]);
-      addNotification('🎨 Masterpiece Collected', `You acquired "${artwork.title}" for $${artwork.currentValue.toFixed(2)} USDT.`, 'collect');
-    })();
+
+    const { error } = await supabase.rpc('collect_artwork', { p_artwork_id: artwork.id });
+    if (error) {
+      addNotification('Collect Failed', error.message.includes('INSUFFICIENT_FUNDS') ? 'Your AURA wallet needs more USDT.' : 'This artwork could not be collected right now.', 'community');
+      return false;
+    }
+
+    setArtworks(prev => prev.map(a => a.id === artwork.id ? {
+      ...a,
+      isOwned: true,
+      purchasePrice: artwork.currentValue,
+      collectorsCount: a.collectorsCount + 1,
+    } : a));
+
+    const [wallet, ledger] = await Promise.all([
+      supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
+      supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+    ]);
+    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+
+    addNotification('🎨 Masterpiece Collected', `You acquired "${artwork.title}" for $${artwork.currentValue.toFixed(2)} USDT.`, 'collect');
     return true;
   };
 
