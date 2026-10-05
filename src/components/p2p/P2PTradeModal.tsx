@@ -403,7 +403,8 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                           if (inserted.error) throw inserted.error;
                           const signed = await supabase.storage.from('aura-p2p-proofs').createSignedUrl(path, 600);
                           setProofs((prev) => [...prev, { ...(inserted.data as any), url: signed.data?.signedUrl || undefined }]);
-                          await markP2PPaymentSent(activeP2POrder.id);
+                          const marked = await markP2PPaymentSent(activeP2POrder.id);
+                          if (!marked) throw new Error('Payment proof was uploaded, but the trade could not be marked as paid.');
                           setPaymentProof(null);
                         } catch (err: any) {
                           alert(err.message || 'Could not upload payment proof.');
@@ -461,8 +462,8 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 {activeP2POrder.sellerId === user?.id ? (
                   <button
                     onClick={async () => {
-                      await completeP2POrder(activeP2POrder.id);
-                      onClose();
+                      const completed = await completeP2POrder(activeP2POrder.id);
+                      if (completed) onClose();
                     }}
                     className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 text-stone-950 font-bold text-xs transition-all shadow-lg active:scale-[0.98]"
                   >
