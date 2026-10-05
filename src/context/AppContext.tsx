@@ -72,7 +72,7 @@ interface AppContextType {
   vaultAddresses: Web3VaultAddresses;
   connectedWallets: ConnectedExternalWallet[];
   connectExternalWallet: (name: ConnectedExternalWallet['name'], network: CryptoNetwork) => void;
-  disconnectExternalWallet: (id: string) => void;
+  disconnectExternalWallet: (id: string) => Promise<boolean>;
   walletBalance: number; // USDT
   transactions: Transaction[];
   notifications: TelegramNotification[];
@@ -1358,11 +1358,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification('🔐 Wallet Ownership Verified', `${name} ownership was cryptographically verified on ${network}.`, 'community');
     })();
   };
-  const disconnectExternalWallet = (id: string) => {
-    if (user) void supabase.from('external_wallets').delete().eq('id', id).eq('user_id', user.id);
+  const disconnectExternalWallet = async (id: string): Promise<boolean> => {
+    if (!user) {
+      openAuth('signin');
+      return false;
+    }
+    const { error } = await supabase.from('external_wallets')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+    if (error) {
+      addNotification('Disconnect Failed', error.message || 'Could not disconnect this wallet.', 'community');
+      return false;
+    }
     setConnectedWallets(prev => prev.filter(w => w.id !== id));
     addNotification('Wallet Disconnected', 'External wallet session closed.', 'community');
+    return true;
   };
+
+  useEffect(() => {
+    const win = window as any;
+    const ethereum = win.ethereum;
+    const solana = win.solana;
+    if (!user) return;
+
+    const expectedChainIds: Record<string, string> = {
+      ethereum: '0x1',
+      polygon: '0x89',
+      arbitrum: '0xa4b1',
+    };
+
+    const handleEvmAccountsChanged = (accounts: string[]) => {
+      const nextAddress = String(accounts?.[0] || '').toLowerCase();
+      setConnectedWallets(prev => prev.filter(wallet =>
+        wallet.name !== 'MetaMask' || wallet.address.toLowerCase() === nextAddress
+      ));
+    };
+
+    const handleEvmChainChanged = (chainId: string) => {
+      const normalized = String(chainId).toLowerCase();
+      setConnectedWallets(prev => prev.filter(wallet =>
+        wallet.name !== 'MetaMask' || expectedChainIds[wallet.network] === normalized
+      ));
+    };
+
+    const handleSolanaAccountChanged = (publicKey: any) => {
+      const nextAddress = publicKey?.toString?.().toLowerCase() || '';
+      setConnectedWallets(prev => prev.filter(wallet =>
+        wallet.name !== 'Phantom' || wallet.address.toLowerCase() === nextAddress
+      ));
+    };
+
+    ethereum?.on?.('accountsChanged', handleEvmAccountsChanged);
+    ethereum?.on?.('chainChanged', handleEvmChainChanged);
+    solana?.on?.('accountChanged', handleSolanaAccountChanged);
+
+    return () => {
+      ethereum?.removeListener?.('accountsChanged', handleEvmAccountsChanged);
+      ethereum?.removeListener?.('chainChanged', handleEvmChainChanged);
+      solana?.removeListener?.('accountChanged', handleSolanaAccountChanged);
+    };
+  }, [user]);
 
   const startP2POrder = async ({
     offer,
