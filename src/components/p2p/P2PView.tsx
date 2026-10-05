@@ -296,7 +296,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           <div>
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono tracking-widest uppercase">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>AURA Internal Ledger Protection</span>
+              <span>AURA Internal Ledger Controls</span>
             </div>
             <h2 className="font-serif text-2xl text-stone-100 font-light mt-0.5">
               Peer-to-Peer Exchange
@@ -316,10 +316,10 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
               <BadgeCheck className="w-4 h-4 shrink-0" />
-              <span>AURA Trade Protection</span>
+              <span>AURA Trade Controls</span>
             </div>
             <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/20">
-              Internal ledger protection
+              Internal ledger hold
             </span>
           </div>
           <p className="text-[11px] text-stone-300 leading-relaxed">
