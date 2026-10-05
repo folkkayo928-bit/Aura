@@ -9,7 +9,7 @@ app.use(express.json({ limit: '64kb' }));
 
 const PORT = Number(process.env.PORT || 8080);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/$/, '');
+const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 const WEBAPP_URL = (process.env.TELEGRAM_WEBAPP_URL || PUBLIC_APP_URL).replace(/\/$/, '');
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 
