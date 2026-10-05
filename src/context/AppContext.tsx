@@ -89,7 +89,7 @@ interface AppContextType {
   collectArtwork: (artwork: Artwork) => Promise<boolean>;
   quickBuyArtwork: (artwork: Artwork) => Promise<boolean>;
   makeOfferOnArtwork: (artworkId: string, offerAmount: number) => void;
-  convertArtwork: (artwork: Artwork, fee: number) => { success: boolean; netPayout: number };
+  convertArtwork: (artwork: Artwork, fee: number) => Promise<{ success: boolean; netPayout: number }>;
   listArtworkOnP2P: (params: {
     artworkId: string;
     fiatPrice: number;
@@ -135,7 +135,7 @@ interface AppContextType {
   p2pModalOpen: boolean;
   setP2pModalOpen: (open: boolean) => void;
   topUpBalance: (amount: number) => void;
-  sendInternalFunds: (recipient: string, amount: number) => boolean;
+  sendInternalFunds: (recipient: string, amount: number) => Promise<boolean>;
   sendExternalCrypto: (params: {
     network: CryptoNetwork;
     destinationAddress: string;
@@ -950,26 +950,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     })();
   };
-  const convertArtwork = (artwork: Artwork, fee: number) => {
+  const convertArtwork = async (artwork: Artwork, fee: number): Promise<{ success: boolean; netPayout: number }> => {
     if (!user) { openAuth('signin'); return { success: false, netPayout: 0 }; }
     if (!isBackendArtworkId(artwork.id) || !artwork.isOwned) {
       addNotification('Not Available', 'Only verified AURA-owned listings can be converted to wallet USDT.', 'community');
       return { success: false, netPayout: 0 };
     }
-    void (async () => {
-      const { data, error } = await supabase.rpc('convert_owned_artwork', { p_artwork_id: artwork.id, p_fee_usdt: fee });
-      if (error) {
-        addNotification('Conversion Failed', error.message, 'community');
-        return;
-      }
-      const payout = Number((data as any)?.payout_usdt || 0);
-      setWalletBalance(prev => prev + payout);
-      setArtworks(prev => prev.map(a => a.id === artwork.id ? { ...a, isOwned: false, purchasePrice: undefined, isListedOnP2P: false } : a));
-      const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
-      if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
-      addNotification('💸 Converted to AURA Wallet', `$${payout.toFixed(2)} USDT credited after the $${fee.toFixed(2)} service fee.`, 'convert');
-    })();
-    return { success: true, netPayout: Math.max(0, artwork.currentValue - fee) };
+    const { data, error } = await supabase.rpc('convert_owned_artwork', { p_artwork_id: artwork.id, p_fee_usdt: fee });
+    if (error) {
+      addNotification('Conversion Failed', error.message, 'community');
+      return { success: false, netPayout: 0 };
+    }
+    const payout = Number((data as any)?.payout_usdt || 0);
+    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
+    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    setArtworks(prev => prev.map(a => a.id === artwork.id ? { ...a, isOwned: false, purchasePrice: undefined, isListedOnP2P: false } : a));
+    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    addNotification('💸 Converted to AURA Wallet', `${payout.toFixed(2)} USDT credited after the ${fee.toFixed(2)} service fee.`, 'convert');
+    return { success: true, netPayout: payout };
   };
 
   // Artwork-to-Fiat P2P listing. The backend keeps ownership authoritative
@@ -1173,24 +1172,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return;
   };
 
-  const sendInternalFunds = (recipient: string, amount: number): boolean => {
+  const sendInternalFunds = async (recipient: string, amount: number): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
     if (walletBalance < amount) {
       addNotification('Transfer Error', 'Insufficient AURA wallet balance.', 'community');
       return false;
     }
-    void (async () => {
-      const { error } = await supabase.rpc('internal_transfer', { p_recipient: recipient.trim(), p_amount_usdt: amount });
-      if (error) {
-        addNotification('Transfer Failed', error.message.includes('RECIPIENT_NOT_FOUND') ? 'Recipient not found. Use an @handle or AURA Vault ID.' : error.message, 'community');
-        return;
-      }
-      const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
-      if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
-      const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
-      if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
-      addNotification('Sent Successfully', `Transferred $${amount.toFixed(2)} USDT to ${recipient}.`, 'convert');
-    })();
+    const { error } = await supabase.rpc('internal_transfer', { p_recipient: recipient.trim(), p_amount_usdt: amount });
+    if (error) {
+      addNotification('Transfer Failed', error.message.includes('RECIPIENT_NOT_FOUND') ? 'Recipient not found. Use an @handle or AURA Vault ID.' : error.message, 'community');
+      return false;
+    }
+    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
+    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    addNotification('Sent Successfully', `Transferred ${amount.toFixed(2)} USDT to ${recipient}.`, 'convert');
     return true;
   };
 
