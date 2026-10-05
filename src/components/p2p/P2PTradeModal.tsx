@@ -277,9 +277,6 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             <div className="p-4 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 space-y-3 text-xs">
               <div className="flex items-center justify-between text-emerald-300 font-semibold">
                 <span>Payment Details ({formatPaymentMethodLabel(activeP2POrder.paymentMethod)})</span>
-                <span className="text-[10px] text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/30">
-                  Name Matched
-                </span>
               </div>
 
               <div>
