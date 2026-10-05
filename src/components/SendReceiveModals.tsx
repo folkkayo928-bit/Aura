@@ -106,7 +106,7 @@ export const SendModal: React.FC = () => {
             <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center border border-emerald-500/30">
               <Check className="w-7 h-7" />
             </div>
-            <h4 className="font-serif text-xl text-stone-100">Broadcast Confirmed</h4>
+            <h4 className="font-serif text-xl text-stone-100">Withdrawal Requested</h4>
             <p className="text-xs text-stone-300">
               Transferred ${amount} USDT to {recipient.slice(0, 8)}...
             </p>
