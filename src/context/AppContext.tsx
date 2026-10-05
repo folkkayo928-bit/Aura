@@ -1266,14 +1266,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let address = '';
       const win = window as any;
       try {
-        if (name === 'MetaMask' && win.ethereum?.request) {
+        if (name === 'MetaMask') {
+          if (network === 'solana' || network === 'ton') {
+            addNotification('Network Not Supported', 'MetaMask connection is available for EVM networks only.', 'community');
+            return;
+          }
+          if (!win.ethereum?.request) {
+            addNotification('MetaMask Not Found', 'Open Aura in a browser with MetaMask installed, then try again.', 'community');
+            return;
+          }
+
+          const chainId = String(await win.ethereum.request({ method: 'eth_chainId' })).toLowerCase();
+          const expectedChainIds: Record<string, string> = {
+            ethereum: '0x1',
+            polygon: '0x89',
+            arbitrum: '0xa4b1',
+          };
+          if (chainId !== expectedChainIds[network]) {
+            addNotification(
+              'Wrong Network',
+              `Switch MetaMask to ${network === 'ethereum' ? 'Ethereum' : network === 'polygon' ? 'Polygon' : 'Arbitrum'} and try again.`,
+              'community'
+            );
+            return;
+          }
+
           const accounts = await win.ethereum.request({ method: 'eth_requestAccounts' });
           address = accounts?.[0] || '';
-        } else if (name === 'Phantom' && win.solana?.connect) {
+        } else if (name === 'Phantom') {
+          if (network !== 'solana') {
+            addNotification('Network Not Supported', 'Phantom connection currently supports Solana in Aura.', 'community');
+            return;
+          }
+          if (!win.solana?.connect) {
+            addNotification('Phantom Not Found', 'Open Aura in a browser with Phantom installed, then try again.', 'community');
+            return;
+          }
+
           const result = await win.solana.connect();
           address = result?.publicKey?.toString?.() || '';
         } else {
-          addNotification('Wallet Provider Needed', `${name} connection needs its wallet provider extension/app bridge. AURA will never fabricate an address.`, 'community');
+          addNotification('Wallet Provider Needed', `${name} connection needs its wallet provider bridge. Aura will never fabricate an address.`, 'community');
           return;
         }
       } catch (e: any) {
@@ -1306,7 +1339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         balance: 0,
       };
       setConnectedWallets(prev => [connected, ...prev.filter(w => w.address !== address)]);
-      addNotification('🔗 External Wallet Connected', `${name} is linked to AURA. Balance data will appear when a provider indexer is connected.`, 'community');
+      addNotification('🔗 External Wallet Connected', `${name} is connected on the correct ${network} network.`, 'community');
     })();
   };
 
