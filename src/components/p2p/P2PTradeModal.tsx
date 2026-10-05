@@ -131,7 +131,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     paymentMethods: activeP2POrder ? [activeP2POrder.paymentMethod] : [],
     paymentInstructions: '',
     isSmartEscrowLocked: activeP2POrder?.status === 'escrow_locked',
-    isBuyerProtected: Boolean(activeP2POrder),
+    isBuyerProtected: false,
     artworkId: activeP2POrder?.artwork?.id,
     artworkTitle: activeP2POrder?.artwork?.title,
     artworkImage: activeP2POrder?.artwork?.image,
@@ -202,7 +202,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span className="text-xs uppercase tracking-widest font-mono text-stone-300">
               {activeP2POrder
-                ? (activeP2POrder.artwork ? 'Protected Artwork P2P Order' : 'Protected USDT P2P Order')
+                ? (activeP2POrder.artwork ? 'Artwork P2P Order' : 'USDT P2P Order')
                 : (isArtworkOffer ? 'Buy Artwork through AURA P2P' : `${currentOffer.type === 'sell' ? 'Buy' : 'Sell'} USDT with AURA Ledger Protection`)}
             </span>
           </div>
@@ -236,8 +236,8 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 <span className="font-mono text-emerald-400 flex items-center gap-1">
                   <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
                   {activeP2POrder.artwork
-                    ? `AURA ownership transfer · Ref ${activeP2POrder.escrowTxHash}`
-                    : `AURA ledger hold · Ref ${activeP2POrder.escrowTxHash}`}
+                    ? `AURA ownership transfer · Reference ${activeP2POrder.escrowTxHash}`
+                    : `AURA ledger hold · Reference ${activeP2POrder.escrowTxHash}`}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
@@ -251,7 +251,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             {/* Merchant Details & Amounts */}
             <div className="p-4 rounded-2xl bg-stone-900/60 border border-white/5 space-y-2">
               <div className="flex justify-between text-xs text-stone-400">
-                <span>Verified Peer:</span>
+                <span>Counterparty:</span>
                 <div className="text-right">
                   <span className="text-stone-100 font-semibold block">{activeP2POrder.merchant.name}</span>
                   <span className="text-[10px] text-stone-400 font-mono">{activeP2POrder.merchant.legalName}</span>
