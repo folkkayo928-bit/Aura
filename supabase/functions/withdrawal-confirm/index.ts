@@ -1,8 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-function publicKey() {
-  const raw = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "";
-  try { return JSON.parse(raw).default as string; } catch { return Deno.env.get("SUPABASE_ANON_KEY") || ""; }
+function secretKey() {
+  const raw = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
+  try { return JSON.parse(raw).default as string; } catch { return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""; }
 }
 
 Deno.serve(async (req) => {
@@ -14,7 +14,9 @@ Deno.serve(async (req) => {
 
   if (!token) return Response.redirect(`${appUrl}/?withdrawal=error&reason=missing_token`, 303);
 
-  const client = createClient(url, publicKey());
+  // The emailed one-time token is the authorization factor. Keep the
+  // SECURITY DEFINER RPC off the public roles and invoke it server-side.
+  const client = createClient(url, secretKey());
   const { data, error } = await client.rpc("confirm_wallet_withdrawal", { p_token: token });
   if (error || !data?.withdrawal_id) {
     return Response.redirect(`${appUrl}/?withdrawal=error&reason=invalid_or_expired`, 303);
