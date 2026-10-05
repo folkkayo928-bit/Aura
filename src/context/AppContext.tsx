@@ -702,76 +702,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const persistArtworkInteraction = async (artworkId: string, kind: 'liked' | 'disliked' | 'loved' | 'saved' | 'watched') => {
+    if (!isBackendArtworkId(artworkId)) return true;
+    const { error } = await supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: kind });
+    return !error;
+  };
+
   const toggleLike = (artworkId: string) => {
     if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
-    if (!artwork) return;
+    if (!artwork) return false;
     const nextLiked = !artwork.isLiked;
-    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
-      ...art, isLiked: nextLiked, likes: Math.max(0, nextLiked ? art.likes + 1 : art.likes - 1),
-      eligibleInteractions: nextLiked ? art.eligibleInteractions + 1 : art.eligibleInteractions,
+    const previous = artwork;
+    setArtworks(prev => prev.map(art => art.id === artworkId ? {
+      ...art, isLiked: nextLiked,
+      likes: Math.max(0, nextLiked ? art.likes + 1 : art.likes - 1),
+      eligibleInteractions: Math.max(0, nextLiked ? art.eligibleInteractions + 1 : art.eligibleInteractions - 1),
+      isDisliked: nextLiked ? false : art.isDisliked,
+      dislikes: nextLiked && art.isDisliked ? Math.max(0, art.dislikes - 1) : art.dislikes,
     } : art));
-    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'liked' });
-    addNotification(nextLiked ? '❤️ Added to Favorites' : '↩️ Like Removed',
-      nextLiked ? `You liked "${artwork.title}".` : `Your like for "${artwork.title}" was removed.`, 'value_surge');
+    void (async () => {
+      if (!(await persistArtworkInteraction(artworkId, 'liked'))) {
+        setArtworks(prev => prev.map(art => art.id === artworkId ? previous : art));
+        addNotification('Like Failed', 'Your like could not be saved. Please try again.', 'community');
+        return;
+      }
+      addNotification(nextLiked ? '❤️ Added to Favorites' : '↩️ Like Removed',
+        nextLiked ? `You liked "${artwork.title}".` : `Your like for "${artwork.title}" was removed.`, 'value_surge');
+    })();
+    return true;
   };
 
   const toggleDislike = (artworkId: string) => {
-    if (!user) { openAuth('signin'); return; }
+    if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
-    if (!artwork) return;
+    if (!artwork) return false;
     const nextDisliked = !artwork.isDisliked;
-    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
-      ...art,
-      isDisliked: nextDisliked,
-      dislikes: Math.max(0, nextDisliked ? (art.dislikes ?? 0) + 1 : (art.dislikes ?? 0) - 1),
+    const previous = artwork;
+    setArtworks(prev => prev.map(art => art.id === artworkId ? {
+      ...art, isDisliked: nextDisliked,
+      dislikes: Math.max(0, nextDisliked ? art.dislikes + 1 : art.dislikes - 1),
       isLiked: nextDisliked ? false : art.isLiked,
       likes: nextDisliked && art.isLiked ? Math.max(0, art.likes - 1) : art.likes,
+      eligibleInteractions: Math.max(0, nextDisliked ? art.eligibleInteractions : art.eligibleInteractions),
     } : art));
-    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'disliked' });
-    addNotification(nextDisliked ? '👎 Feedback Recorded' : '↩️ Dislike Removed',
-      nextDisliked ? `Your feedback on "${artwork.title}" was recorded.` : `Your negative feedback for "${artwork.title}" was removed.`, 'community');
+    void (async () => {
+      if (!(await persistArtworkInteraction(artworkId, 'disliked'))) {
+        setArtworks(prev => prev.map(art => art.id === artworkId ? previous : art));
+        addNotification('Feedback Failed', 'Your feedback could not be saved. Please try again.', 'community');
+        return;
+      }
+      addNotification(nextDisliked ? '👎 Feedback Recorded' : '↩️ Dislike Removed',
+        nextDisliked ? `Your feedback on "${artwork.title}" was recorded.` : `Your negative feedback for "${artwork.title}" was removed.`, 'community');
+    })();
+    return true;
   };
 
   const toggleLove = (artworkId: string) => {
-    if (!user) { openAuth('signin'); return; }
+    if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
-    if (!artwork) return;
+    if (!artwork) return false;
     const nextLoved = !artwork.isLoved;
-    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
+    const previous = artwork;
+    setArtworks(prev => prev.map(art => art.id === artworkId ? {
       ...art, isLoved: nextLoved, loves: Math.max(0, nextLoved ? art.loves + 1 : art.loves - 1),
-      eligibleInteractions: nextLoved ? art.eligibleInteractions + 2 : art.eligibleInteractions,
+      eligibleInteractions: Math.max(0, nextLoved ? art.eligibleInteractions + 2 : art.eligibleInteractions - 2),
     } : art));
-    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'loved' });
-    addNotification(nextLoved ? '💛 Added to Love List' : '↩️ Love Removed',
-      nextLoved ? `"${artwork.title}" is now in your Love List.` : `"${artwork.title}" was removed from your Love List.`, 'value_surge');
+    void (async () => {
+      if (!(await persistArtworkInteraction(artworkId, 'loved'))) {
+        setArtworks(prev => prev.map(art => art.id === artworkId ? previous : art));
+        addNotification('Love Failed', 'Your love reaction could not be saved. Please try again.', 'community');
+        return;
+      }
+      addNotification(nextLoved ? '💛 Added to Love List' : '↩️ Love Removed',
+        nextLoved ? `"${artwork.title}" is now in your Love List.` : `"${artwork.title}" was removed from your Love List.`, 'value_surge');
+    })();
+    return true;
   };
 
   const toggleSave = (artworkId: string) => {
-    if (!user) { openAuth('signin'); return; }
+    if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
-    if (!artwork) return;
+    if (!artwork) return false;
     const nextSaved = !artwork.isSaved;
-    setArtworks((prev) => prev.map((art) => art.id === artworkId ? {
+    const previous = artwork;
+    setArtworks(prev => prev.map(art => art.id === artworkId ? {
       ...art, isSaved: nextSaved, saves: Math.max(0, nextSaved ? art.saves + 1 : art.saves - 1),
-      eligibleInteractions: nextSaved ? art.eligibleInteractions + 1 : art.eligibleInteractions,
+      eligibleInteractions: Math.max(0, nextSaved ? art.eligibleInteractions + 1 : art.eligibleInteractions - 1),
     } : art));
-    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'saved' });
-    addNotification(nextSaved ? '🔖 Saved to Your Vault' : '↩️ Removed from Saved',
-      nextSaved ? `"${artwork.title}" was saved for later.` : `"${artwork.title}" was removed from your saved works.`, 'community');
+    void (async () => {
+      if (!(await persistArtworkInteraction(artworkId, 'saved'))) {
+        setArtworks(prev => prev.map(art => art.id === artworkId ? previous : art));
+        addNotification('Save Failed', 'Your saved state could not be saved. Please try again.', 'community');
+        return;
+      }
+      addNotification(nextSaved ? '🔖 Saved to Your Vault' : '↩️ Removed from Saved',
+        nextSaved ? `"${artwork.title}" was saved for later.` : `"${artwork.title}" was removed from your saved works.`, 'community');
+    })();
+    return true;
   };
 
   const toggleWatchlist = (artworkId: string) => {
-    if (!user) { openAuth('signin'); return; }
+    if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
-    if (!artwork) return;
-    const isWatched = !artwork.isWatched;
-    setArtworks(prev => prev.map(a => a.id === artworkId ? { ...a, isWatched } : a));
-    if (isBackendArtworkId(artworkId)) void supabase.rpc('toggle_artwork_interaction', { p_artwork_id: artworkId, p_kind: 'watched' });
-    addNotification(isWatched ? '⭐ Added to Watchlist' : 'Removed from Watchlist',
-      `"${artwork.title}" is ${isWatched ? 'now tracked in your Watchlist' : 'removed'}.`, 'community');
+    if (!artwork) return false;
+    const nextWatched = !artwork.isWatched;
+    const previous = artwork;
+    setArtworks(prev => prev.map(a => a.id === artworkId ? { ...a, isWatched: nextWatched } : a));
+    void (async () => {
+      if (!(await persistArtworkInteraction(artworkId, 'watched'))) {
+        setArtworks(prev => prev.map(a => a.id === artworkId ? previous : a));
+        addNotification('Watchlist Update Failed', 'Your watchlist could not be updated. Please try again.', 'community');
+        return;
+      }
+      addNotification(nextWatched ? '⭐ Added to Watchlist' : 'Removed from Watchlist',
+        `"${artwork.title}" is ${nextWatched ? 'now tracked in your Watchlist' : 'removed'}.`, 'community');
+    })();
   };
-
   const toggleCollectionWatchlist = (collectionId: string) => {
     if (!user) { openAuth('signin'); return; }
     const collection = collections.find(col => col.id === collectionId);
