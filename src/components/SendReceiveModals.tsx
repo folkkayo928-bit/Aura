@@ -22,7 +22,6 @@ export const SendModal: React.FC = () => {
     setSendModalOpen,
     walletBalance,
     sendInternalFunds,
-    sendExternalCrypto,
     userProfile,
     requestWalletWithdrawal,
   } = useApp();
