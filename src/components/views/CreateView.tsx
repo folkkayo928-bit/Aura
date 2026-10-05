@@ -30,19 +30,13 @@ export const CreateView: React.FC = () => {
   const [price, setPrice] = useState('150');
   const [category, setCategory] = useState<ArtworkCategory>('brand_streetwear');
   const [mediaType, setMediaType] = useState<MediaType>('brand_streetwear');
-  const [collectionName, setCollectionName] = useState('Nike Virtual Studios x RTFKT');
-  const [customMediaUrl, setCustomMediaUrl] = useState<string>(
-    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80'
-  );
-  const [traits, setTraits] = useState<NFTTrait[]>([
-    { trait_type: 'Brand', value: 'Nike x RTFKT', rarityPercent: 100 },
-    { trait_type: 'Wearable Category', value: 'Digital Footwear', rarityPercent: 20 },
-    { trait_type: 'Asset Format', value: '3D AR Ready', rarityPercent: 15 },
-  ]);
+  const [collectionName, setCollectionName] = useState('');
+  const [customMediaUrl, setCustomMediaUrl] = useState<string>('');
+  const [traits, setTraits] = useState<NFTTrait[]>([]);
   const [newTraitKey, setNewTraitKey] = useState('');
   const [newTraitVal, setNewTraitVal] = useState('');
-  const [hasUnlockable, setHasUnlockable] = useState(true);
-  const [unlockableContent, setUnlockableContent] = useState('figma.com/@aura/design-system-master-tokens');
+  const [hasUnlockable, setHasUnlockable] = useState(false);
+  const [unlockableContent, setUnlockableContent] = useState('');
   const [listOnP2P, setListOnP2P] = useState(true);
   const [p2pPrice, setP2pPrice] = useState('150');
   const [p2pPaymentMethods, setP2pPaymentMethods] = useState<PaymentMethodType[]>([
@@ -539,7 +533,7 @@ export const CreateView: React.FC = () => {
           disabled={isPublishing || !title.trim()}
           className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold text-sm transition-all shadow-xl shadow-amber-500/10 active:scale-[0.98] disabled:opacity-50"
         >
-          {isPublishing ? 'Minting to Vault & Inscribing...' : `Mint & List for Sale · $${parseFloat(price) || 0} USDT`}
+          {isPublishing ? 'Publishing to AURA...' : `Publish & List for Sale · ${parseFloat(price) || 0} USDT`}
         </button>
       </form>
     </div>
