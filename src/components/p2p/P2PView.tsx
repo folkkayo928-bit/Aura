@@ -4,7 +4,6 @@ import { P2POffer, PaymentMethodType } from '../../types';
 import { formatPaymentMethodLabel } from './CustomPaymentMethodInput';
 import {
   ShieldCheck,
-  CheckCircle2,
   Clock,
   Plus,
   ArrowUpDown,
