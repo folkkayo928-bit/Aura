@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 import { CryptoNetwork } from '../types';
 import {
   X,
@@ -241,19 +242,53 @@ export const SendModal: React.FC = () => {
 
 export const ReceiveModal: React.FC = () => {
   const { receiveModalOpen, setReceiveModalOpen, userProfile } = useApp();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [depositAddresses, setDepositAddresses] = useState<Record<string, string>>({});
+  const [depositLoading, setDepositLoading] = useState(false);
+  const [depositMessage, setDepositMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!receiveModalOpen) return;
+    let cancelled = false;
+    const loadDepositAddresses = async () => {
+      setDepositLoading(true);
+      setDepositMessage(null);
+      const { data, error } = await supabase.functions.invoke('provision-deposit-address', {
+        body: {},
+      });
+      if (cancelled) return;
+      if (error || !data?.success) {
+        setDepositAddresses({});
+        setDepositMessage(
+          data?.error === 'DEPOSIT_ADDRESS_PROVISIONING_UNAVAILABLE'
+            ? 'External on-chain receiving is not enabled yet. AURA will not show an unowned or fake deposit address.'
+            : (data?.error || error?.message || 'Could not load an AURA deposit address.'),
+        );
+      } else {
+        setDepositAddresses({
+          ethereum: data.addresses?.ethereum || '',
+          polygon: data.addresses?.polygon || '',
+          arbitrum: data.addresses?.arbitrum || '',
+        });
+      }
+      setDepositLoading(false);
+    };
+    void loadDepositAddresses();
+    return () => { cancelled = true; };
+  }, [receiveModalOpen]);
 
   if (!receiveModalOpen) return null;
 
-  const handleCopy = () => {
-    navigator.clipboard?.writeText(userProfile.vaultId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+  const handleCopy = (value: string) => {
+    if (!value) return;
+    void navigator.clipboard?.writeText(value);
+    setCopied(value);
+    setTimeout(() => setCopied(null), 1800);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
-      <div className="w-full max-w-md bg-[#12121a] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl">
+      <div className="w-full max-w-md bg-[#12121a] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto no-scrollbar">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <QrCode className="w-4 h-4 text-cyan-400" />
@@ -269,8 +304,8 @@ export const ReceiveModal: React.FC = () => {
             <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">AURA Vault ID</span>
             <div className="mt-2 flex items-center gap-2">
               <div className="flex-1 rounded-2xl bg-black/30 border border-white/10 p-3 font-mono text-xs text-cyan-200 break-all">{userProfile.vaultId}</div>
-              <button onClick={handleCopy} className="p-3 rounded-2xl bg-white/5 text-stone-300">
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              <button onClick={() => handleCopy(userProfile.vaultId)} className="p-3 rounded-2xl bg-white/5 text-stone-300">
+                {copied === userProfile.vaultId ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -278,11 +313,43 @@ export const ReceiveModal: React.FC = () => {
             <span className="text-[10px] font-mono uppercase tracking-wider text-stone-500">AURA handle</span>
             <div className="mt-1 text-lg font-serif text-stone-100">{userProfile.telegramHandle}</div>
           </div>
-          <p className="text-[11px] text-stone-400 leading-relaxed">
-            Share your Vault ID or handle with another AURA account to receive internal USDT. AURA does not display a fake blockchain deposit address. External on-chain receiving will be available after a supported custody/provider connection is enabled.
-          </p>
+
+          <div className="pt-2 border-t border-white/10 space-y-3">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">External USDT deposit</span>
+              <p className="mt-1 text-[11px] text-stone-400 leading-relaxed">
+                Send USDT only on the matching network. AURA monitors these addresses and credits only confirmed on-chain deposits.
+              </p>
+            </div>
+            {depositLoading ? (
+              <div className="rounded-2xl bg-black/20 border border-white/10 p-3 text-xs text-stone-400">Checking secure deposit address…</div>
+            ) : Object.values(depositAddresses).some(Boolean) ? (
+              (['ethereum', 'polygon', 'arbitrum'] as const).map((chain) => {
+                const address = depositAddresses[chain];
+                if (!address) return null;
+                return (
+                  <div key={chain} className="rounded-2xl bg-black/20 border border-white/10 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[10px] uppercase font-mono text-stone-400">{chain} · USDT</span>
+                      <button onClick={() => handleCopy(address)} className="p-1.5 rounded-lg bg-white/5 text-stone-300">
+                        {copied === address ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <div className="mt-2 font-mono text-[10px] text-cyan-200 break-all">{address}</div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="rounded-2xl bg-black/20 border border-amber-500/20 p-3 text-[11px] text-stone-400">
+                {depositMessage || 'External on-chain receiving is currently unavailable.'}
+              </div>
+            )}
+          </div>
         </div>
 
+        <p className="mt-4 text-[10px] text-stone-500 leading-relaxed">
+          Never send another token or use a different network to these addresses. Blockchain deposits are credited only after AURA’s on-chain confirmation process.
+        </p>
         <button onClick={() => setReceiveModalOpen(false)} className="mt-5 w-full py-3 rounded-xl bg-white/5 text-stone-300 text-xs font-semibold">Done</button>
       </div>
     </div>
