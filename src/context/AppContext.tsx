@@ -625,15 +625,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       for (const row of (interactionsRes.data || []) as any[]) interactions.set(row.artwork_id, row);
 
       const watchedCollectionIds = new Set(((collectionWatchlistRes.data || []) as any[]).map(row => row.collection_id));
-      setCollections(prev => prev.map(col => ({ ...col, isWatched: watchedCollectionIds.has(col.id) })));
 
-      if (artworkRes.data) {
-        const mapped = (artworkRes.data as any[]).map(row => backendArtworkToUi(row, owned.has(row.id), owned.get(row.id), interactions.get(row.id)));
-        setArtworks(prev => {
-          const byId = new Map(prev.map(a => [a.id, a]));
-          for (const art of mapped) byId.set(art.id, { ...(byId.get(art.id) || {}), ...art });
-          return Array.from(byId.values());
-        });
+      // For authenticated users, published backend content is authoritative.
+      // Keep the existing local/demo data only as a fallback when the backend query fails.
+      if (!publicCollectionRes.error) {
+        setCollections((publicCollectionRes.data || []).map(row => ({
+          ...backendCollectionToUi(row),
+          isWatched: watchedCollectionIds.has(row.id),
+        })));
+      } else {
+        setCollections(prev => prev.map(col => ({ ...col, isWatched: watchedCollectionIds.has(col.id) })));
+      }
+
+      if (!artworkRes.error) {
+        const mapped = (artworkRes.data || []).map(row =>
+          backendArtworkToUi(row, owned.has(row.id), owned.get(row.id), interactions.get(row.id))
+        );
+        setArtworks(mapped);
       }
     };
     void loadBackendState();
