@@ -341,7 +341,6 @@ const backendCollectionToUi = (row: any): NFTCollection => ({
   totalVolumeUSDT: 0,
   ownersCount: 0,
   itemsCount: 0,
-  totalVolumeUSDT: 0,
   description: row.description || '',
   category: row.category || 'generative',
   isWatched: false,
