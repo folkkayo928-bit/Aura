@@ -296,10 +296,10 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           <div>
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono tracking-widest uppercase">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>AURA Protected Peer Escrow</span>
+              <span>AURA Internal Ledger Protection</span>
             </div>
             <h2 className="font-serif text-2xl text-stone-100 font-light mt-0.5">
-              Certified P2P Exchange
+              Peer-to-Peer Exchange
             </h2>
           </div>
           <button
@@ -316,14 +316,14 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
               <BadgeCheck className="w-4 h-4 shrink-0" />
-              <span>AURA P2P Protection</span>
+              <span>AURA Trade Protection</span>
             </div>
             <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/20">
               Internal ledger protection
             </span>
           </div>
           <p className="text-[11px] text-stone-300 leading-relaxed">
-            USDT trades use an AURA internal ledger hold until the trade is completed or cancelled. Fiat payments are handled directly through the selected payment rail, with dispute controls available when needed.
+            USDT trades can use an AURA internal ledger hold until the trade is completed or cancelled. Fiat payments are handled directly through the selected payment rail, and dispute controls are available when supported by the order.
           </p>
         </div>
       </div>
