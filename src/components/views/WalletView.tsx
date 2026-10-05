@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ArtworkCanvas } from '../ArtworkCanvas';
+import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
 import {
   Send,
@@ -46,7 +47,8 @@ export const WalletView: React.FC = () => {
 
   const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const [withdrawChain, setWithdrawChain] = useState<'ton' | 'polygon' | 'ethereum' | 'arbitrum' | 'solana'>('polygon');
+  const [withdrawAsset, setWithdrawAsset] = useState<'USDT'>('USDT');
+  const [withdrawChain, setWithdrawChain] = useState<'polygon' | 'ethereum' | 'arbitrum'>('polygon');
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawBusy, setWithdrawBusy] = useState(false);
@@ -474,14 +476,22 @@ export const WalletView: React.FC = () => {
               <button onClick={() => setWithdrawOpen(false)} className="text-stone-400 text-sm">Close</button>
             </div>
             <div className="space-y-3">
+              <label className="block text-xs text-stone-400">Asset
+                <select value={withdrawAsset} onChange={e => setWithdrawAsset(e.target.value as 'USDT')} className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100">
+                  {AURA_ASSETS.map((asset) => (
+                    <option key={asset.id} value={asset.id}>{asset.label}</option>
+                  ))}
+                </select>
+              </label>
               <label className="block text-xs text-stone-400">Network
                 <select value={withdrawChain} onChange={e => setWithdrawChain(e.target.value as typeof withdrawChain)} className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100">
-                  <option value="ton">TON</option>
-                  <option value="polygon">Polygon</option>
-                  <option value="ethereum">Ethereum</option>
-                  <option value="arbitrum">Arbitrum</option>
-                  <option value="solana">Solana</option>
+                  {AURA_WITHDRAWAL_NETWORKS.map((network) => (
+                    <option key={network.id} value={network.id}>{network.label} · {network.tokenSymbol}</option>
+                  ))}
                 </select>
+                <span className="text-[10px] text-stone-500 mt-1 block">
+                  Real withdrawals currently support USDT on these three networks. Other chains/assets are kept out of the form until their secure ledger and broadcaster support is ready.
+                </span>
               </label>
               <label className="block text-xs text-stone-400">Destination address
                 <input value={withdrawAddress} onChange={e => setWithdrawAddress(e.target.value)} placeholder="Paste the destination wallet address" className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100 placeholder:text-stone-600" />
