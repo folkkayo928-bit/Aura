@@ -560,12 +560,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!user) {
         if (!publicArtworkRes.error) {
           setArtworks((publicArtworkRes.data || []).map(row => backendArtworkToUi(row)));
+        } else {
+          setArtworks([]);
         }
         if (!publicCollectionRes.error) {
           setCollections((publicCollectionRes.data || []).map(row => backendCollectionToUi(row)));
+        } else {
+          setCollections([]);
         }
         if (!publicP2pRes.error) {
           setP2pOffers((publicP2pRes.data || []).map(row => backendP2POfferToUi(row)));
+        } else {
+          setP2pOffers([]);
         }
 
         setWalletBalance(0);
