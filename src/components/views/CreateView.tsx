@@ -426,33 +426,17 @@ export const CreateView: React.FC = () => {
           </div>
         </div>
 
-        {/* UNLOCKABLE CONTENT (FOR UI DESIGN ASSETS / SOURCE FILES) */}
-        <div className="p-4 rounded-3xl bg-[#12121a] border border-white/5 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4 text-purple-400" />
-              <span className="text-xs font-bold text-stone-200">Unlockable Commercial Content</span>
-            </div>
-            <input
-              type="checkbox"
-              checked={hasUnlockable}
-              onChange={(e) => setHasUnlockable(e.target.checked)}
-              className="w-4 h-4 accent-purple-400"
-            />
+        {/* SECURE UNLOCKABLE CONTENT — NOT YET BACKED BY ENTITLEMENT STORAGE */}
+        <div className="p-4 rounded-3xl bg-white/[0.02] border border-white/5 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-stone-200">Commercial Unlocks</span>
+            <span className="text-[9px] font-mono uppercase tracking-wider text-stone-500 border border-white/10 rounded-full px-2 py-0.5">
+              Coming with secure entitlements
+            </span>
           </div>
-          {hasUnlockable && (
-            <div>
-              <span className="text-[10px] text-stone-400 block mb-1">
-                Private link / license code revealed only to verified buyer after purchase:
-              </span>
-              <input
-                type="text"
-                value={unlockableContent}
-                onChange={(e) => setUnlockableContent(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-200 font-mono focus:outline-none"
-              />
-            </div>
-          )}
+          <p className="text-[10px] leading-relaxed text-stone-500">
+            Private buyer-only links and license codes are not collected here yet. AURA will add them only when a secure ownership entitlement system can enforce access after purchase.
+          </p>
         </div>
 
         {/* DUAL LISTING OPTION: DIRECT P2P CASH SALE */}
