@@ -848,19 +848,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleDropReminder = (dropId: string) => {
-    setUpcomingDrops((prev) =>
-      prev.map((drop) => {
-        if (drop.id === dropId) {
-          const isReminded = !drop.isReminded;
-          addNotification(
-            isReminded ? '🔔 Drop Reminder Set' : 'Drop Reminder Cancelled',
-            `We will notify you on Telegram 15 minutes before "${drop.title}" mints!`,
-            'drop_alert'
-          );
-          return { ...drop, isReminded };
-        }
-        return drop;
-      })
+    const drop = upcomingDrops.find(item => item.id === dropId);
+    if (!drop) return;
+    addNotification(
+      'Drop Reminder Unavailable',
+      'AURA does not currently persist drop reminders because there is no backend reminder record yet. Your account and wallet data are not changed.',
+      'drop_alert'
     );
   };
 
