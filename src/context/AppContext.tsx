@@ -534,7 +534,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     let cancelled = false;
     const loadBackendState = async () => {
+      const [publicArtworkRes, publicCollectionRes, publicP2pRes] = await Promise.all([
+        supabase
+          .from('artworks')
+          .select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)')
+          .eq('published', true)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('collections')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('p2p_offers')
+          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(100),
+      ]);
+
       if (!user) {
+        if (!publicArtworkRes.error) {
+          setArtworks((publicArtworkRes.data || []).map(row => backendArtworkToUi(row)));
+        }
+        if (!publicCollectionRes.error) {
+          setCollections((publicCollectionRes.data || []).map(row => backendCollectionToUi(row)));
+        }
+        if (!publicP2pRes.error) {
+          setP2pOffers((publicP2pRes.data || []).map(row => backendP2POfferToUi(row)));
+        }
+
         setWalletBalance(0);
         setTransactions([]);
         setConnectedWallets([]);
