@@ -230,28 +230,26 @@ const sanitizeDrop = (drop: any): UpcomingDrop => ({
 
 const sanitizeP2POffer = (offer: any): P2POffer => ({
   ...offer,
-  availableCrypto: typeof offer.availableCrypto === 'number' ? offer.availableCrypto : 500,
-  minLimitFiat: typeof offer.minLimitFiat === 'number' ? offer.minLimitFiat : 10,
-  maxLimitFiat: typeof offer.maxLimitFiat === 'number' ? offer.maxLimitFiat : 1000,
-  pricePerUnit: typeof offer.pricePerUnit === 'number' ? offer.pricePerUnit : 1.0,
+  availableCrypto: typeof offer.availableCrypto === 'number' ? offer.availableCrypto : 0,
+  minLimitFiat: typeof offer.minLimitFiat === 'number' ? offer.minLimitFiat : 0,
+  maxLimitFiat: typeof offer.maxLimitFiat === 'number' ? offer.maxLimitFiat : 0,
+  pricePerUnit: typeof offer.pricePerUnit === 'number' ? offer.pricePerUnit : 0,
   merchant: {
     ...offer.merchant,
-    name: offer.merchant?.name || 'Verified Merchant',
-    legalName: offer.merchant?.legalName || offer.merchant?.name || 'Verified Peer',
-    depositBondUSDT: typeof offer.merchant?.depositBondUSDT === 'number' ? offer.merchant.depositBondUSDT : 5000,
-    ordersCompleted: typeof offer.merchant?.ordersCompleted === 'number' ? offer.merchant.ordersCompleted : 500,
-    completionRate: typeof offer.merchant?.completionRate === 'number' ? offer.merchant.completionRate : 99.8,
-    avgReleaseTimeMinutes: typeof offer.merchant?.avgReleaseTimeMinutes === 'number' ? offer.merchant.avgReleaseTimeMinutes : 2,
-    verifiedMerchant: true,
-    kycVerified: true,
-    positiveFeedbackPercent: typeof offer.merchant?.positiveFeedbackPercent === 'number' ? offer.merchant.positiveFeedbackPercent : 100,
-    telegramHandle: offer.merchant?.telegramHandle || '@merchant',
+    name: offer.merchant?.name || 'AURA Merchant',
+    legalName: offer.merchant?.legalName || offer.merchant?.name || 'AURA Merchant',
+    depositBondUSDT: typeof offer.merchant?.depositBondUSDT === 'number' ? offer.merchant.depositBondUSDT : 0,
+    ordersCompleted: typeof offer.merchant?.ordersCompleted === 'number' ? offer.merchant.ordersCompleted : 0,
+    completionRate: typeof offer.merchant?.completionRate === 'number' ? offer.merchant.completionRate : 0,
+    avgReleaseTimeMinutes: typeof offer.merchant?.avgReleaseTimeMinutes === 'number' ? offer.merchant.avgReleaseTimeMinutes : 0,
+    verifiedMerchant: offer.merchant?.verifiedMerchant === true,
+    kycVerified: offer.merchant?.kycVerified === true,
+    positiveFeedbackPercent: typeof offer.merchant?.positiveFeedbackPercent === 'number' ? offer.merchant.positiveFeedbackPercent : 0,
+    telegramHandle: offer.merchant?.telegramHandle || '',
   },
-  paymentMethods: Array.isArray(offer.paymentMethods) && offer.paymentMethods.length > 0
-    ? offer.paymentMethods
-    : ['telegram_pay', 'revolut'],
-  isSmartEscrowLocked: true,
-  isBuyerProtected: true,
+  paymentMethods: Array.isArray(offer.paymentMethods) ? offer.paymentMethods : [],
+  isSmartEscrowLocked: offer.isSmartEscrowLocked === true,
+  isBuyerProtected: offer.isBuyerProtected === true,
 });
 
 const isBackendArtworkId = (id: string) => /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id);
@@ -265,6 +263,11 @@ const mapLedgerToTransaction = (row: any): Transaction => {
   else if (String(row.kind).includes('create')) type = 'create';
   else if (String(row.kind).includes('p2p_buy')) type = 'p2p_buy';
   else if (String(row.kind).includes('p2p_sell')) type = 'p2p_sell';
+  const rawStatus = String(row.status || row.transaction_status || '').toLowerCase();
+  const status: Transaction['status'] =
+    rawStatus === 'pending' || rawStatus === 'processing' ? 'pending' :
+    rawStatus === 'failed' || rawStatus === 'rejected' || rawStatus === 'cancelled' ? 'failed' :
+    'confirmed';
   return {
     id: row.id,
     type,
@@ -272,7 +275,7 @@ const mapLedgerToTransaction = (row: any): Transaction => {
     currency: 'USDT',
     date: new Date(row.created_at).toLocaleString(),
     recipientOrSender: row.memo || undefined,
-    status: 'confirmed',
+    status,
   };
 };
 
