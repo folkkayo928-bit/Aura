@@ -194,17 +194,17 @@ const COMBINED_INITIAL_ARTWORKS: Artwork[] = [
 
 const sanitizeArtwork = (art: any): Artwork => ({
   ...art,
-  eligibleInteractions: typeof art.eligibleInteractions === 'number' ? art.eligibleInteractions : 500,
-  currentValue: typeof art.currentValue === 'number' ? art.currentValue : 25,
-  originalPrice: typeof art.originalPrice === 'number' ? art.originalPrice : 25,
+  eligibleInteractions: typeof art.eligibleInteractions === 'number' ? art.eligibleInteractions : 0,
+  currentValue: typeof art.currentValue === 'number' ? art.currentValue : 0,
+  originalPrice: typeof art.originalPrice === 'number' ? art.originalPrice : 0,
   likes: typeof art.likes === 'number' ? art.likes : 0,
   dislikes: typeof art.dislikes === 'number' ? art.dislikes : 0,
   loves: typeof art.loves === 'number' ? art.loves : 0,
   saves: typeof art.saves === 'number' ? art.saves : 0,
   collectorsCount: typeof art.collectorsCount === 'number' ? art.collectorsCount : 0,
-  interestLevel: art.interestLevel || 'High',
+  interestLevel: art.interestLevel || 'Not available',
   isWatched: art.isWatched ?? false,
-  conversionEligible: true, // Photos and artworks can be converted into money
+  conversionEligible: Boolean(art.conversionEligible),
   traits: Array.isArray(art.traits) ? art.traits : [],
   comments: Array.isArray(art.comments) ? art.comments : [],
   collectors: Array.isArray(art.collectors) ? art.collectors : [],
@@ -212,19 +212,19 @@ const sanitizeArtwork = (art: any): Artwork => ({
 
 const sanitizeCollection = (col: any): NFTCollection => ({
   ...col,
-  floorPriceUSDT: typeof col.floorPriceUSDT === 'number' ? col.floorPriceUSDT : 10,
-  totalVolumeUSDT: typeof col.totalVolumeUSDT === 'number' ? col.totalVolumeUSDT : 1000,
-  itemsCount: typeof col.itemsCount === 'number' ? col.itemsCount : 100,
-  ownersCount: typeof col.ownersCount === 'number' ? col.ownersCount : 50,
+  floorPriceUSDT: typeof col.floorPriceUSDT === 'number' ? col.floorPriceUSDT : 0,
+  totalVolumeUSDT: typeof col.totalVolumeUSDT === 'number' ? col.totalVolumeUSDT : 0,
+  itemsCount: typeof col.itemsCount === 'number' ? col.itemsCount : 0,
+  ownersCount: typeof col.ownersCount === 'number' ? col.ownersCount : 0,
   isWatched: Boolean(col.isWatched),
 });
 
 const sanitizeDrop = (drop: any): UpcomingDrop => ({
   ...drop,
-  mintPriceUSDT: typeof drop.mintPriceUSDT === 'number' ? drop.mintPriceUSDT : 50,
-  supply: typeof drop.supply === 'number' ? drop.supply : 1000,
+  mintPriceUSDT: typeof drop.mintPriceUSDT === 'number' ? drop.mintPriceUSDT : 0,
+  supply: typeof drop.supply === 'number' ? drop.supply : 0,
   mintedSoFar: typeof drop.mintedSoFar === 'number' ? drop.mintedSoFar : 0,
-  mintTimestamp: typeof drop.mintTimestamp === 'number' ? drop.mintTimestamp : Date.now() + 86400000,
+  mintTimestamp: typeof drop.mintTimestamp === 'number' ? drop.mintTimestamp : 0,
   perks: Array.isArray(drop.perks) ? drop.perks : [],
 });
 
@@ -630,14 +630,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const watchedCollectionIds = new Set(((collectionWatchlistRes.data || []) as any[]).map(row => row.collection_id));
 
       // For authenticated users, published backend content is authoritative.
-      // Keep the existing local/demo data only as a fallback when the backend query fails.
+      // Never surface stale/demo marketplace state when an authenticated backend read fails.
       if (!publicCollectionRes.error) {
         setCollections((publicCollectionRes.data || []).map(row => ({
           ...backendCollectionToUi(row),
           isWatched: watchedCollectionIds.has(row.id),
         })));
       } else {
-        setCollections(prev => prev.map(col => ({ ...col, isWatched: watchedCollectionIds.has(col.id) })));
+        setCollections([]);
       }
 
       if (!artworkRes.error) {
@@ -645,6 +645,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           backendArtworkToUi(row, owned.has(row.id), owned.get(row.id), interactions.get(row.id))
         );
         setArtworks(mapped);
+      } else {
+        setArtworks([]);
+      }
+
+      if (!p2pOffersRes.error) {
+        setP2pOffers((p2pOffersRes.data || []).map(backendP2POfferToUi));
+      } else {
+        setP2pOffers([]);
       }
     };
     void loadBackendState();
