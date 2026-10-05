@@ -616,7 +616,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                     </span>
                     <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3" />
-                      <span>AURA Ledger Hold</span>
+                      <span>AURA Trade Controls</span>
                     </span>
                   </div>
                 )}
@@ -634,7 +634,6 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                         <span className="text-xs font-bold text-stone-100">
                           {offer.merchant.name}
                         </span>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       </div>
                       <span className="text-[10px] text-stone-400 block font-mono">
                         {offer.merchant?.legalName || offer.merchant?.name || 'AURA Member'}
@@ -657,7 +656,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
 
                   <div className="text-right flex items-center gap-1 text-[11px] text-stone-400 font-mono">
                     <Clock className="w-3 h-3 text-emerald-400" />
-                    <span>{offer.merchant?.avgReleaseTimeMinutes ?? 2}m avg</span>
+                    <span>{offer.merchant?.avgReleaseTimeMinutes > 0 ? `${offer.merchant.avgReleaseTimeMinutes}m avg` : 'Release time unavailable'}</span>
                   </div>
                 </div>
 
@@ -667,7 +666,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                     <span className="text-[10px] text-stone-400 block font-mono">Exchange Rate</span>
                     <div className="flex items-baseline gap-1">
                       <span className="font-serif text-2xl font-semibold text-stone-100 tabular-nums">
-                        ${(offer.pricePerUnit ?? 1.0).toFixed(2)}
+                        {offer.pricePerUnit > 0 ? `${offer.pricePerUnit.toFixed(2)}` : 'Rate unavailable'}
                       </span>
                       <span className="text-xs font-mono text-stone-400">{offer.fiatCurrency || 'USD'} / USDT</span>
                     </div>
@@ -681,7 +680,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                       </span>
                     </div>
                     <div className="text-[11px] text-stone-400 font-mono mt-0.5">
-                      Limits: ${offer.minLimitFiat ?? 10} - ${(offer.maxLimitFiat ?? 500).toLocaleString()}
+                      {offer.minLimitFiat > 0 && offer.maxLimitFiat > 0 ? `Limits: ${offer.minLimitFiat.toLocaleString()} - ${offer.maxLimitFiat.toLocaleString()}` : 'Limits unavailable'}
                     </div>
                   </div>
                 </div>
