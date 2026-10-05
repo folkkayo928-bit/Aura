@@ -19,6 +19,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     'telegram_pay',
     'revolut',
   ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [instructions, setInstructions] = useState(
     'Tell the counterparty where and how to pay. AURA reserves the seller’s USDT in its internal ledger until the trade is completed or cancelled.'
   );
@@ -27,7 +28,8 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     e.preventDefault();
     if (selectedMethods.length === 0) return;
 
-    await createP2POffer({
+    setIsSubmitting(true);
+    const ok = await createP2POffer({
       type,
       pricePerUnit: parseFloat(price) || 1.0,
       fiatCurrency: 'USD',
@@ -40,7 +42,8 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
         'Tell the counterparty where and how to pay. AURA holds the USDT internally until the trade is completed.',
       isBuyerProtected: true,
     });
-    onClose();
+    setIsSubmitting(false);
+    if (ok) onClose();
   };
 
   return (
@@ -167,9 +170,10 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full py-3.5 rounded-xl bg-amber-400 text-stone-950 font-bold text-xs hover:bg-amber-300 transition-colors shadow-lg shadow-amber-500/10"
           >
-            Publish P2P Ad
+            {isSubmitting ? 'Publishing…' : 'Publish P2P Ad'}
           </button>
         </form>
       </div>
