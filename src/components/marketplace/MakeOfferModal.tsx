@@ -61,7 +61,7 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ artwork, onClose
             </div>
             <h4 className="font-serif text-xl text-stone-100">Offer Submitted</h4>
             <p className="text-xs text-stone-400">
-              Your offer of ${offerPrice} USDT was placed with smart escrow locking.
+              Your offer of ${offerPrice} USDT was recorded by the AURA backend. No funds are deducted when the offer is submitted.
             </p>
           </div>
         ) : (
