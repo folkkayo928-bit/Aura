@@ -163,7 +163,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     if (!chatInput.trim()) return;
     const newMsg: P2PChatMessage = {
       id: `chat-${Date.now()}`,
-      sender: 'buyer',
+      sender: activeP2POrder?.sellerId === user?.id ? 'merchant' : 'buyer',
       senderName: 'You',
       text: chatInput.trim(),
       timestamp: 'Just now',
