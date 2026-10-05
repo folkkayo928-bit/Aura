@@ -874,7 +874,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!trimmed) return;
     const artwork = artworks.find(art => art.id === artworkId);
     if (!artwork || !isBackendArtworkId(artworkId)) {
-      addNotification('Live Artwork Required', 'Comments are available on verified AURA artwork listings.', 'community');
+      addNotification('Live Artwork Required', 'Comments are available on live AURA artwork listings.', 'community');
       return;
     }
     void (async () => {
@@ -901,7 +901,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const collectArtwork = async (artwork: Artwork): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
     if (!isBackendArtworkId(artwork.id)) {
-      addNotification('Live Listing Required', 'This catalog item is a preview. Live collecting is available for verified AURA listings.', 'community');
+      addNotification('Live Listing Required', 'This catalog item is a preview. Live collecting is available for published AURA listings.', 'community');
       return false;
     }
 
@@ -936,7 +936,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
     if (!artwork || !isBackendArtworkId(artworkId)) {
-      addNotification('Live Listing Required', 'Offers can only be submitted on verified AURA artwork listings.', 'p2p');
+      addNotification('Live Listing Required', 'Offers can only be submitted on live AURA artwork listings.', 'p2p');
       return false;
     }
     if (!Number.isFinite(offerAmount) || offerAmount <= 0) {
@@ -959,7 +959,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const convertArtwork = async (artwork: Artwork, fee: number): Promise<{ success: boolean; netPayout: number }> => {
     if (!user) { openAuth('signin'); return { success: false, netPayout: 0 }; }
     if (!isBackendArtworkId(artwork.id) || !artwork.isOwned) {
-      addNotification('Not Available', 'Only verified AURA-owned listings can be converted to wallet USDT.', 'community');
+      addNotification('Not Available', 'Only live AURA-owned listings can be converted to wallet USDT.', 'community');
       return { success: false, netPayout: 0 };
     }
     const { data, error } = await supabase.rpc('convert_owned_artwork', { p_artwork_id: artwork.id, p_fee_usdt: fee });
