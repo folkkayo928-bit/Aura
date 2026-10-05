@@ -127,7 +127,7 @@ export interface Transaction {
   currency: 'USDT' | 'ART' | 'TON' | 'MATIC';
   date: string;
   recipientOrSender?: string;
-  status: 'confirmed' | 'processing';
+  status: 'confirmed' | 'processing' | 'pending' | 'failed';
   network?: CryptoNetwork;
   txHash?: string;
   isExternal?: boolean;
