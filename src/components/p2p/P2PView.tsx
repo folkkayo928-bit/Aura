@@ -643,12 +643,14 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                         <span>{offer.merchant?.ordersCompleted ?? 0} trades</span>
                         <span>·</span>
                         <span className="text-emerald-400 font-medium">
-                          {offer.merchant?.completionRate ?? 99}% completion
+                          {offer.merchant?.completionRate ? (offer.merchant.completionRate + '% completion') : 'New trader'}
                         </span>
-                        <span>·</span>
-                        <span className="text-cyan-300">
-                          ${(offer.merchant?.depositBondUSDT ?? 5000).toLocaleString()} bond
-                        </span>
+                        {offer.merchant?.depositBondUSDT > 0 && <>
+                          <span>·</span>
+                          <span className="text-cyan-300">
+                            ${offer.merchant.depositBondUSDT.toLocaleString()} bond
+                          </span>
+                        </>}
                       </div>
                     </div>
                   </div>
