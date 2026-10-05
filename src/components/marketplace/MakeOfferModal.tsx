@@ -16,13 +16,17 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ artwork, onClose
   );
   const [expirationDays, setExpirationDays] = useState('3');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const num = parseFloat(offerPrice);
     if (isNaN(num) || num <= 0) return;
 
-    makeOfferOnArtwork(artwork.id, num);
+    setIsSubmitting(true);
+    const ok = await makeOfferOnArtwork(artwork.id, num);
+    setIsSubmitting(false);
+    if (!ok) return;
     setIsSuccess(true);
     setTimeout(() => {
       setIsSuccess(false);
@@ -126,9 +130,10 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ artwork, onClose
 
             <button
               type="submit"
+              disabled={isSubmitting}
               className="w-full py-4 rounded-xl bg-[#0088ff] hover:bg-[#0077ee] text-white font-bold text-xs transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
             >
-              Confirm Offer of ${offerPrice} USDT
+              {isSubmitting ? 'Submitting…' : `Confirm Offer of ${offerPrice} USDT`}
             </button>
           </form>
         )}
