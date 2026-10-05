@@ -22,7 +22,7 @@ interface UsdtAssetDetailsModalProps {
 
 export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ isOpen, onClose }) => {
   const { walletBalance, setSendModalOpen, setReceiveModalOpen, setP2pModalOpen } = useApp();
-  const [selectedNetwork, setSelectedNetwork] = useState<CryptoNetwork>('ton');
+  const [selectedNetwork, setSelectedNetwork] = useState<CryptoNetwork>('polygon');
   const [copiedContract, setCopiedContract] = useState(false);
 
   if (!isOpen) return null;
@@ -200,7 +200,7 @@ export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ is
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-400 leading-relaxed mb-5">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <span>
-            USDT held in your AURA vault is backed 1:1 by real US Dollar liquid reserves. Convert to cash at any time through certified P2P merchants or withdraw to your personal Web3 wallet.
+            Your AURA balance is maintained in the platform ledger. When you withdraw, AURA reserves the requested amount first and only broadcasts after the security confirmation flow succeeds.
           </span>
         </div>
 
