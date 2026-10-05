@@ -88,7 +88,7 @@ interface AppContextType {
   addComment: (artworkId: string, text: string) => void;
   collectArtwork: (artwork: Artwork) => Promise<boolean>;
   quickBuyArtwork: (artwork: Artwork) => Promise<boolean>;
-  makeOfferOnArtwork: (artworkId: string, offerAmount: number) => void;
+  makeOfferOnArtwork: (artworkId: string, offerAmount: number) => Promise<boolean>;
   convertArtwork: (artwork: Artwork, fee: number) => Promise<{ success: boolean; netPayout: number }>;
   listArtworkOnP2P: (params: {
     artworkId: string;
@@ -162,11 +162,11 @@ interface AppContextType {
       accountNumberOrId?: string;
     };
   }) => Promise<P2POrder | null>;
-  markP2PPaymentSent: (orderId: string) => void;
-  completeP2POrder: (orderId: string) => void;
-  cancelP2POrder: (orderId: string) => void;
-  raiseP2PDispute: (orderId: string) => void;
-  createP2POffer: (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => void;
+  markP2PPaymentSent: (orderId: string) => Promise<boolean>;
+  completeP2POrder: (orderId: string) => Promise<boolean>;
+  cancelP2POrder: (orderId: string) => Promise<boolean>;
+  raiseP2PDispute: (orderId: string) => Promise<boolean>;
+  createP2POffer: (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => Promise<boolean>;
   // Telegram Bot Homepage & Chat integration
   telegramViewMode: TelegramViewMode;
   setTelegramViewMode: (mode: TelegramViewMode) => void;
@@ -932,19 +932,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Quick Buy (like in the photo!)
   const quickBuyArtwork = (artwork: Artwork): Promise<boolean> => collectArtwork(artwork);
 
-  const makeOfferOnArtwork = (artworkId: string, offerAmount: number) => {
-    if (!user) { openAuth('signin'); return; }
+  const makeOfferOnArtwork = async (artworkId: string, offerAmount: number): Promise<boolean> => {
+    if (!user) { openAuth('signin'); return false; }
     const artwork = artworks.find((art) => art.id === artworkId);
     if (!artwork || !isBackendArtworkId(artworkId)) {
       addNotification('Live Listing Required', 'Offers can only be submitted on verified AURA artwork listings.', 'p2p');
-      return;
+      return false;
     }
     if (!Number.isFinite(offerAmount) || offerAmount <= 0) {
       addNotification('Invalid Offer', 'Enter a positive USDT offer amount.', 'p2p');
-      return;
+      return false;
     }
 
-    void (async () => {
+    const { error } = await supabase.rpc('create_artwork_offer', {
+      p_artwork_id: artworkId,
+      p_offer_amount_usdt: offerAmount,
+    });
+    if (error) {
+      addNotification('Offer Failed', error.message, 'p2p');
+      return false;
+    }
+    setArtworks(prev => prev.map(art => art.id === artworkId ? { ...art, topOfferUSDT: offerAmount } : art));
+    addNotification(
+      '🤝 Offer Submitted',
+      `Your ${offerAmount.toFixed(2)} USDT offer on "${artwork.title}" was sent to the owner.`,
+      'p2p'
+    );
+    return true;
+
+    /*
       const { error } = await supabase.rpc('create_artwork_offer', {
         p_artwork_id: artworkId,
         p_offer_amount_usdt: offerAmount,
