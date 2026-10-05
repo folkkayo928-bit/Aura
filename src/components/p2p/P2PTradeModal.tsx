@@ -132,6 +132,9 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     paymentInstructions: '',
     isSmartEscrowLocked: activeP2POrder?.status === 'escrow_locked',
     isBuyerProtected: Boolean(activeP2POrder),
+    artworkId: activeP2POrder?.artwork?.id,
+    artworkTitle: activeP2POrder?.artwork?.title,
+    artworkImage: activeP2POrder?.artwork?.image,
   };
 
   const typedOffer = currentOffer as P2POffer;
