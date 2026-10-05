@@ -49,7 +49,7 @@ export interface Artwork {
   purchasePrice?: number;
   isOwned?: boolean;
   eligibleInteractions: number;
-  interestLevel: 'High' | 'Surging' | 'Rising' | 'Steady';
+  interestLevel: 'High' | 'Surging' | 'Rising' | 'Steady' | 'Not reported';
   interestScore: number;
   likes: number;
   loves: number;
@@ -72,7 +72,7 @@ export interface Artwork {
   traits?: NFTTrait[];
   topOfferUSDT?: number;
   conversionEligible: boolean;
-  conversionLiquidity: 'Ample' | 'Moderate' | 'Limited';
+  conversionLiquidity: 'Ample' | 'Moderate' | 'Limited' | 'Not reported';
   // P2P Direct Art Sale
   isListedOnP2P?: boolean;
   p2pPriceFiat?: number;
