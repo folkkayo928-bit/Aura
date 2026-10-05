@@ -34,8 +34,6 @@ export const CreateView: React.FC = () => {
   const [traits, setTraits] = useState<NFTTrait[]>([]);
   const [newTraitKey, setNewTraitKey] = useState('');
   const [newTraitVal, setNewTraitVal] = useState('');
-  const [hasUnlockable, setHasUnlockable] = useState(false);
-  const [unlockableContent, setUnlockableContent] = useState('');
   const [listOnP2P, setListOnP2P] = useState(true);
   const [p2pPrice, setP2pPrice] = useState('150');
   const [p2pPaymentMethods, setP2pPaymentMethods] = useState<PaymentMethodType[]>([
