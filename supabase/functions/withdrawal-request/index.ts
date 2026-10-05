@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import nodemailer from "npm:nodemailer";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -7,19 +8,26 @@ const cors = {
 };
 
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
 }
 
 function publicKey() {
   const raw = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "";
   try { return JSON.parse(raw).default as string; } catch { return Deno.env.get("SUPABASE_ANON_KEY") || ""; }
 }
+
 function secretKey() {
   const raw = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
   try { return JSON.parse(raw).default as string; } catch { return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""; }
 }
+
 function escapeHtml(value: string) {
-  return value.replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char] || char));
+  return value.replace(/[&<>\"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+  }[char] || char));
 }
 
 Deno.serve(async (req) => {
@@ -80,10 +88,14 @@ Deno.serve(async (req) => {
       return json({ error: "ACCOUNT_EMAIL_UNAVAILABLE" }, 409);
     }
 
-    const resendKey = Deno.env.get("RESEND_API_KEY");
-    const from = Deno.env.get("RESEND_FROM_EMAIL");
-    const appUrl = Deno.env.get("AURA_APP_URL") || "https://aura-3idc.netlify.app";
-    if (!resendKey || !from) {
+    const smtpHost = Deno.env.get("BREVO_SMTP_HOST") || "smtp-relay.brevo.com";
+    const smtpPort = Number(Deno.env.get("BREVO_SMTP_PORT") || "587");
+    const smtpUser = Deno.env.get("BREVO_SMTP_USER");
+    const smtpPassword = Deno.env.get("BREVO_SMTP_PASSWORD");
+    const from = Deno.env.get("BREVO_FROM_EMAIL") || "Aura@brevosend.com";
+    const fromName = Deno.env.get("BREVO_FROM_NAME") || "AURA";
+
+    if (!smtpUser || !smtpPassword || !from) {
       await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
       return json({ error: "EMAIL_PROVIDER_NOT_CONFIGURED" }, 503);
     }
@@ -102,23 +114,30 @@ Deno.serve(async (req) => {
       </div>
     </body></html>`;
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from,
-        to: [email],
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: { user: smtpUser, pass: smtpPassword },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
+    });
+
+    try {
+      await transporter.sendMail({
+        from: `"${fromName}" <${from}>`,
+        to: email,
         subject: "Confirm your AURA withdrawal",
         html,
         headers: { "X-Entity-Ref-ID": `aura-withdrawal-${withdrawal.id}` },
-      }),
-    });
-
-    if (!emailResponse.ok) {
-      const detail = await emailResponse.text();
+      });
+    } catch (mailError) {
       await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
-      console.error("Resend rejected withdrawal email", detail.slice(0, 1000));
+      console.error("Brevo SMTP rejected withdrawal email", String(mailError).slice(0, 1000));
       return json({ error: "EMAIL_DELIVERY_FAILED" }, 502);
+    } finally {
+      try { transporter.close(); } catch { /* best effort */ }
     }
 
     return json({
