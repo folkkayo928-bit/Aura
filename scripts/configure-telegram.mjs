@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const token = process.env.TELEGRAM_BOT_TOKEN || '';
-const appUrl = (process.env.TELEGRAM_WEBAPP_URL || process.env.PUBLIC_APP_URL || '').replace(/\/$/, '');
+const appUrl = (process.env.TELEGRAM_WEBAPP_URL || process.env.PUBLIC_APP_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 const secret = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 const webAppUrl = appUrl ? `${appUrl}/?v=aura-2026-10-04-1` : '';
 
@@ -42,7 +42,7 @@ async function telegram(method, body) {
 
   if (response.status === 429) {
     const retryAfter = data.parameters?.retry_after;
-    console.warn(`Telegram API rate limited during ${method}.${retryAfter ? ` Retry after ${retryAfter} seconds.` : ''} Skipping this setup call so the Netlify build can continue.`);
+    console.warn(`Telegram API rate limited during ${method}.${retryAfter ? ` Retry after ${retryAfter} seconds.` : ''} Skipping this setup call so the Render build can continue.`);
     return null;
   }
 
