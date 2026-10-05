@@ -1276,73 +1276,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
           }
 
-          const chainId = String(await win.ethereum.request({ method: 'eth_chainId' })).toLowerCase();
           const expectedChainIds: Record<string, string> = {
             ethereum: '0x1',
             polygon: '0x89',
             arbitrum: '0xa4b1',
           };
+          const chainId = String(await win.ethereum.request({ method: 'eth_chainId' })).toLowerCase();
           if (chainId !== expectedChainIds[network]) {
-            addNotification(
-              'Wrong Network',
-              `Switch MetaMask to ${network === 'ethereum' ? 'Ethereum' : network === 'polygon' ? 'Polygon' : 'Arbitrum'} and try again.`,
-              'community'
-            );
+            addNotification('Wrong Network', `Switch MetaMask to ${network === 'ethereum' ? 'Ethereum' : network === 'polygon' ? 'Polygon' : 'Arbitrum'} and try again.`, 'community');
             return;
           }
 
           const accounts = await win.ethereum.request({ method: 'eth_requestAccounts' });
           address = accounts?.[0] || '';
+          if (!address) throw new Error('Wallet address missing.');
+
+          const challenge = await supabase.functions.invoke('verify-external-wallet', {
+            body: { action: 'challenge', provider: 'MetaMask', network, address },
+          });
+          if (challenge.error || !challenge.data?.success) throw new Error(challenge.data?.error || challenge.error?.message || 'Could not create ownership challenge.');
+
+          const signature = await win.ethereum.request({
+            method: 'personal_sign',
+            params: [challenge.data.message, address],
+          });
+
+          const verified = await supabase.functions.invoke('verify-external-wallet', {
+            body: { action: 'verify', provider: 'MetaMask', network, address, signature },
+          });
+          if (verified.error || !verified.data?.success) throw new Error(verified.data?.error || verified.error?.message || 'Wallet ownership verification failed.');
         } else if (name === 'Phantom') {
           if (network !== 'solana') {
             addNotification('Network Not Supported', 'Phantom connection currently supports Solana in Aura.', 'community');
             return;
           }
-          if (!win.solana?.connect) {
+          if (!win.solana?.connect || !win.solana?.signMessage) {
             addNotification('Phantom Not Found', 'Open Aura in a browser with Phantom installed, then try again.', 'community');
             return;
           }
 
           const result = await win.solana.connect();
           address = result?.publicKey?.toString?.() || '';
+          if (!address) throw new Error('Wallet address missing.');
+
+          const challenge = await supabase.functions.invoke('verify-external-wallet', {
+            body: { action: 'challenge', provider: 'Phantom', network: 'solana', address },
+          });
+          if (challenge.error || !challenge.data?.success) throw new Error(challenge.data?.error || challenge.error?.message || 'Could not create ownership challenge.');
+
+          const signed = await win.solana.signMessage(new TextEncoder().encode(challenge.data.message), 'utf8');
+          const signatureBytes = signed?.signature ? new Uint8Array(signed.signature) : null;
+          if (!signatureBytes) throw new Error('Phantom did not return a signature.');
+          const signature = '0x' + Array.from(signatureBytes, (b: number) => b.toString(16).padStart(2, '0')).join('');
+
+          const verified = await supabase.functions.invoke('verify-external-wallet', {
+            body: { action: 'verify', provider: 'Phantom', network: 'solana', address, signature },
+          });
+          if (verified.error || !verified.data?.success) throw new Error(verified.data?.error || verified.error?.message || 'Wallet ownership verification failed.');
         } else {
           addNotification('Wallet Provider Needed', `${name} connection needs its wallet provider bridge. Aura will never fabricate an address.`, 'community');
           return;
         }
       } catch (e: any) {
-        addNotification('Wallet Connection Cancelled', e?.message || 'The wallet connection was cancelled.', 'community');
+        addNotification('Wallet Verification Cancelled', e?.message || 'The wallet connection or signature was cancelled.', 'community');
         return;
       }
 
-      if (!address) {
-        addNotification('Wallet Address Missing', 'The connected provider did not return an address.', 'community');
+      const { data, error } = await supabase.from('external_wallets').select('*')
+        .eq('user_id', user.id).eq('provider', name).eq('network', network).eq('address', address).maybeSingle();
+
+      if (error || !data) {
+        addNotification('Wallet Verification Failed', error?.message || 'The wallet was not verified by AURA.', 'community');
         return;
       }
 
-      const { data, error } = await supabase.from('external_wallets').upsert(
-        { user_id: user.id, provider: name, network, address },
-        { onConflict: 'user_id,provider,address' }
-      ).select().maybeSingle();
-
-      if (error) {
-        addNotification('Wallet Save Failed', error.message, 'community');
-        return;
-      }
-
-      const walletRow = data as any;
       const connected: ConnectedExternalWallet = {
-        id: walletRow?.id || `wallet-${Date.now()}`,
+        id: data.id,
         name,
         network,
-        address,
-        connectedAt: new Date().toLocaleDateString(),
+        address: data.address,
+        connectedAt: new Date(data.connected_at).toLocaleDateString(),
         balance: 0,
       };
-      setConnectedWallets(prev => [connected, ...prev.filter(w => w.address !== address)]);
-      addNotification('🔗 External Wallet Connected', `${name} is connected on the correct ${network} network.`, 'community');
+      setConnectedWallets(prev => [connected, ...prev.filter(w => w.id !== connected.id && w.address !== address)]);
+      addNotification('🔐 Wallet Ownership Verified', `${name} ownership was cryptographically verified on ${network}.`, 'community');
     })();
   };
-
   const disconnectExternalWallet = (id: string) => {
     if (user) void supabase.from('external_wallets').delete().eq('id', id).eq('user_id', user.id);
     setConnectedWallets(prev => prev.filter(w => w.id !== id));
