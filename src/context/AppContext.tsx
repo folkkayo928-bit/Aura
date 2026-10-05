@@ -1122,10 +1122,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       p_media_url: newArt.customMediaUrl || null,
       p_collection_name: newArt.collectionName?.trim() || null,
       p_traits: newArt.traits || [],
-      p_list_on_p2p: false,
-      p_p2p_price_fiat: null,
+      p_list_on_p2p: Boolean(newArt.listOnP2P && newArt.p2pPriceFiat),
+      p_p2p_price_fiat: newArt.listOnP2P && newArt.p2pPriceFiat ? newArt.p2pPriceFiat : null,
       p_p2p_currency: 'USD',
-      p_p2p_payment_methods: [],
+      p_p2p_payment_methods: newArt.listOnP2P ? (newArt.p2pPaymentMethods || []) : [],
     });
 
     if (error || !data) {
