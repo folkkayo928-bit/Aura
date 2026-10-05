@@ -24,6 +24,7 @@ export const SendModal: React.FC = () => {
     sendInternalFunds,
     sendExternalCrypto,
     userProfile,
+    requestWalletWithdrawal,
   } = useApp();
 
   const [mode, setMode] = useState<'external' | 'internal'>('external');
@@ -31,18 +32,11 @@ export const SendModal: React.FC = () => {
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [sentSuccessTxHash, setSentSuccessTxHash] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!sendModalOpen) return null;
 
-  const gasFeeMap: Record<CryptoNetwork, number> = {
-    ton: 0.05,
-    polygon: 0.02,
-    arbitrum: 0.1,
-    ethereum: 1.5,
-    solana: 0.01,
-  };
-
-  const currentGas = mode === 'external' ? gasFeeMap[network] : 0.0;
+  const currentGas = 0;
   const numAmount = parseFloat(amount) || 0;
   const totalCost = numAmount + currentGas;
 
@@ -62,14 +56,16 @@ export const SendModal: React.FC = () => {
         }, 1800);
       }
     } else {
-      const res = sendExternalCrypto({
-        network,
+      setIsSubmitting(true);
+      const res = await requestWalletWithdrawal({
+        chain: network,
         destinationAddress: recipient.trim(),
         amount: numAmount,
-        gasFee: currentGas,
+        networkFee: 0,
       });
+      setIsSubmitting(false);
       if (res.success) {
-        setSentSuccessTxHash(res.txHash);
+        setSentSuccessTxHash('withdrawal-requested');
         setTimeout(() => {
           setSentSuccessTxHash(null);
           setSendModalOpen(false);
@@ -112,7 +108,7 @@ export const SendModal: React.FC = () => {
             </p>
             {sentSuccessTxHash !== 'internal' && (
               <div className="p-2.5 rounded-xl bg-white/5 font-mono text-[10px] text-cyan-300 break-all border border-white/5">
-                TxHash: {sentSuccessTxHash}
+                Confirm the withdrawal email sent to your account. Blockchain broadcast occurs only after confirmation.
               </div>
             )}
           </div>
@@ -149,7 +145,7 @@ export const SendModal: React.FC = () => {
               <div>
                 <label className="text-xs text-stone-400 block mb-1 font-medium">Select Blockchain Network</label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {(['ton', 'polygon', 'arbitrum', 'ethereum', 'solana'] as const).map((net) => (
+                  {(['polygon', 'arbitrum', 'ethereum'] as const).map((net) => (
                     <button
                       type="button"
                       key={net}
@@ -232,10 +228,10 @@ export const SendModal: React.FC = () => {
 
             <button
               type="submit"
-              disabled={!recipient || numAmount <= 0 || totalCost > walletBalance}
+              disabled={isSubmitting || !recipient || numAmount <= 0 || totalCost > walletBalance}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98] disabled:opacity-40"
             >
-              {mode === 'external' ? `Broadcast to ${network.toUpperCase()}` : 'Transfer Instantly'}
+              {isSubmitting ? 'Submitting…' : mode === 'external' ? `Request ${network.toUpperCase()} Withdrawal` : 'Transfer Instantly'}
             </button>
           </form>
         )}
