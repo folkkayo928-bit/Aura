@@ -741,7 +741,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const previous = artwork;
     setArtworks(prev => prev.map(art => art.id === artworkId ? {
       ...art, isDisliked: nextDisliked,
-      dislikes: Math.max(0, nextDisliked ? art.dislikes + 1 : (art.dislikes ?? 0) - 1),
+      dislikes: Math.max(0, nextDisliked ? (art.dislikes ?? 0) + 1 : (art.dislikes ?? 0) - 1),
       isLiked: nextDisliked ? false : art.isLiked,
       likes: nextDisliked && art.isLiked ? Math.max(0, art.likes - 1) : art.likes,
       eligibleInteractions: Math.max(0, nextDisliked ? art.eligibleInteractions : art.eligibleInteractions),
