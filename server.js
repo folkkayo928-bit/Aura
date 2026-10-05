@@ -7,6 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json({ limit: '64kb' }));
 
+// Lightweight readiness endpoint for Render and uptime monitors.
+app.get('/health', (_req, res) => {
+  res.status(200).json({ ok: true, service: 'aura', uptimeSeconds: Math.floor(process.uptime()) });
+});
+
 const PORT = Number(process.env.PORT || 8080);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
