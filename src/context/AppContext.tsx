@@ -831,7 +831,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })();
   };
   const toggleCollectionWatchlist = (collectionId: string) => {
-    if (!user) { openAuth('signin'); return; }
+    if (!user) { openAuth('signin'); return false; }
     const collection = collections.find(col => col.id === collectionId);
     if (!collection) return;
     const nextWatched = !collection.isWatched;
@@ -943,7 +943,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification('Invalid Offer', 'Enter a positive USDT offer amount.', 'p2p');
       return false;
     }
-
     const { error } = await supabase.rpc('create_artwork_offer', {
       p_artwork_id: artworkId,
       p_offer_amount_usdt: offerAmount,
@@ -953,30 +952,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setArtworks(prev => prev.map(art => art.id === artworkId ? { ...art, topOfferUSDT: offerAmount } : art));
-    addNotification(
-      '🤝 Offer Submitted',
-      `Your ${offerAmount.toFixed(2)} USDT offer on "${artwork.title}" was sent to the owner.`,
-      'p2p'
-    );
+    addNotification('🤝 Offer Submitted', `Your $${offerAmount.toFixed(2)} USDT offer on "${artwork.title}" was sent to the owner.`, 'p2p');
     return true;
-
-    /*
-      const { error } = await supabase.rpc('create_artwork_offer', {
-        p_artwork_id: artworkId,
-        p_offer_amount_usdt: offerAmount,
-      });
-      if (error) {
-        addNotification('Offer Failed', error.message, 'p2p');
-        return;
-      }
-      setArtworks(prev => prev.map(art => art.id === artworkId ? { ...art, topOfferUSDT: offerAmount } : art));
-      addNotification(
-        '🤝 Offer Submitted',
-        `Your $${offerAmount.toFixed(2)} USDT offer on "${artwork.title}" was sent to the owner.`,
-        'p2p'
-      );
-    })();
   };
+
   const convertArtwork = async (artwork: Artwork, fee: number): Promise<{ success: boolean; netPayout: number }> => {
     if (!user) { openAuth('signin'); return { success: false, netPayout: 0 }; }
     if (!isBackendArtworkId(artwork.id) || !artwork.isOwned) {
@@ -1438,7 +1417,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return uiOrder;
   };
 
-  const markP2PPaymentSent = async (orderId: string) => {
+  const markP2PPaymentSent = async (orderId: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return; }
     const { data, error } = await supabase.rpc('mark_p2p_payment', { p_order_id: orderId });
     if (error || !data) {
@@ -1449,9 +1428,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const current = activeP2POrder;
     setActiveP2POrder(current ? { ...current, status: 'payment_marked' } : backendP2POrderToUi(row));
     addNotification('⏳ Payment Status Recorded', 'The counterparty can now review the payment and release the held USDT.', 'p2p');
+    return true;
   };
 
-  const completeP2POrder = async (orderId: string) => {
+  const completeP2POrder = async (orderId: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return; }
     const { data, error } = await supabase.rpc('settle_p2p_order', { p_order_id: orderId });
     if (error || !data) {
@@ -1488,7 +1468,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('✅ P2P Trade Completed', `${row.crypto_amount} USDT was released to the buyer.`, 'p2p');
   };
 
-  const cancelP2POrder = async (orderId: string) => {
+  const cancelP2POrder = async (orderId: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return; }
     const { data, error } = await supabase.rpc('cancel_p2p_order', { p_order_id: orderId });
     if (error || !data) {
@@ -1527,7 +1507,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('P2P Order Cancelled', 'Held USDT was returned to the seller balance.', 'p2p');
   };
 
-  const raiseP2PDispute = async (orderId: string) => {
+  const raiseP2PDispute = async (orderId: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return; }
     const { data, error } = await supabase.rpc('raise_p2p_dispute', { p_order_id: orderId });
     if (error || !data) {
@@ -1536,9 +1516,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setActiveP2POrder((current) => current ? { ...current, status: 'in_dispute', protectionFundActive: false } : null);
     addNotification('⚠️ P2P Dispute Opened', 'The trade is locked in dispute. Keep all payment evidence inside the trade record.', 'p2p');
+    return true;
   };
 
-  const createP2POffer = async (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => {
+  const createP2POffer = async (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>): Promise<boolean> => {
     if (!user) { openAuth('signin'); return; }
     const { data, error } = await supabase.rpc('create_p2p_offer', {
       p_type: offerData.type,
@@ -1564,6 +1545,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setP2pOffers(prev => [localOffer, ...prev]);
     addNotification('📣 P2P Offer Published', 'Your live offer was saved to the AURA order book.', 'p2p');
+    return true;
   };
 
   return (
