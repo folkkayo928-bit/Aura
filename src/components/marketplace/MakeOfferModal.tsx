@@ -14,7 +14,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ artwork, onClose
   const [offerPrice, setOfferPrice] = useState(
     ((artwork?.currentValue ?? 50) * 0.95).toFixed(2)
   );
-  const [expirationDays, setExpirationDays] = useState('3');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
