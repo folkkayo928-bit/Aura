@@ -288,7 +288,7 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
     name: row.profiles?.display_name || 'AURA Creator',
     handle: row.profiles?.handle || '@creator',
     avatar: row.profiles?.avatar_url || '',
-    verified: true,
+    verified: false,
     bio: row.profiles?.bio || '',
     totalPieces: 0,
     totalCollectors: Number(row.collectors_count || 0),
