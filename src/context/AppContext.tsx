@@ -572,12 +572,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      const [profileRes, walletRes, ledgerRes, ownedRes, interactionsRes, artworkRes, extWalletsRes, p2pOffersRes, activeOrderRes] = await Promise.all([
+      const [profileRes, walletRes, ledgerRes, ownedRes, interactionsRes, collectionWatchlistRes, artworkRes, extWalletsRes, p2pOffersRes, activeOrderRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
         supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
         supabase.from('artwork_ownership').select('artwork_id,purchase_price_usdt').eq('owner_id', user.id),
         supabase.from('artwork_interactions').select('artwork_id,liked,disliked,loved,saved,watched').eq('user_id', user.id),
+        supabase.from('collection_watchlist').select('collection_id').eq('user_id', user.id),
         supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
         supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
@@ -622,6 +623,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       for (const row of (ownedRes.data || []) as any[]) owned.set(row.artwork_id, Number(row.purchase_price_usdt || 0));
       const interactions = new Map<string, any>();
       for (const row of (interactionsRes.data || []) as any[]) interactions.set(row.artwork_id, row);
+
+      const watchedCollectionIds = new Set(((collectionWatchlistRes.data || []) as any[]).map(row => row.collection_id));
+      setCollections(prev => prev.map(col => ({ ...col, isWatched: watchedCollectionIds.has(col.id) })));
 
       if (artworkRes.data) {
         const mapped = (artworkRes.data as any[]).map(row => backendArtworkToUi(row, owned.has(row.id), owned.get(row.id), interactions.get(row.id)));
@@ -769,20 +773,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleCollectionWatchlist = (collectionId: string) => {
-    setCollections((prev) =>
-      prev.map((col) => {
-        if (col.id === collectionId) {
-          const isWatched = !col.isWatched;
-          addNotification(
-            isWatched ? '⭐ Collection Watchlisted' : 'Collection Removed',
-            `${col.name} floor price alerts are ${isWatched ? 'enabled' : 'disabled'}.`,
-            'community'
-          );
-          return { ...col, isWatched };
-        }
-        return col;
-      })
-    );
+    if (!user) { openAuth('signin'); return; }
+    const collection = collections.find(col => col.id === collectionId);
+    if (!collection) return;
+    const nextWatched = !collection.isWatched;
+
+    // Keep the UI responsive, but persist the watchlist in the existing backend table.
+    setCollections(prev => prev.map(col => col.id === collectionId ? { ...col, isWatched: nextWatched } : col));
+
+    void (async () => {
+      const result = nextWatched
+        ? await supabase.from('collection_watchlist').insert({ collection_id: collectionId, user_id: user.id })
+        : await supabase.from('collection_watchlist').delete().eq('collection_id', collectionId).eq('user_id', user.id);
+
+      if (result.error) {
+        setCollections(prev => prev.map(col => col.id === collectionId ? { ...col, isWatched: !nextWatched } : col));
+        addNotification('Watchlist Update Failed', result.error.message, 'community');
+        return;
+      }
+
+      addNotification(
+        nextWatched ? '⭐ Collection Watchlisted' : 'Collection Removed',
+        `${collection.name} is ${nextWatched ? 'now saved to your collection watchlist' : 'removed from your collection watchlist'}.`,
+        'community'
+      );
+    })();
   };
 
   const toggleDropReminder = (dropId: string) => {
