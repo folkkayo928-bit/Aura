@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit -p tsconfig.web.json
       - name: Build
         env:
           VITE_SUPABASE_URL: https://rtqcistkoomzmzxzasxc.supabase.co
