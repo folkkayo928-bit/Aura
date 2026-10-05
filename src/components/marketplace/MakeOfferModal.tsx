@@ -108,20 +108,6 @@ export const MakeOfferModal: React.FC<MakeOfferModalProps> = ({ artwork, onClose
               </div>
             </div>
 
-            {/* Expiration */}
-            <div>
-              <label className="text-xs text-stone-400 block mb-1.5 font-medium">Offer Duration</label>
-              <select
-                value={expirationDays}
-                onChange={(e) => setExpirationDays(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-200 focus:outline-none focus:border-blue-500/60"
-              >
-                <option value="1" className="bg-[#12121a]">1 Day</option>
-                <option value="3" className="bg-[#12121a]">3 Days</option>
-                <option value="7" className="bg-[#12121a]">7 Days</option>
-              </select>
-            </div>
-
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-stone-400 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>Funds are only deducted if the owner accepts your offer. You can cancel at any time.</span>
