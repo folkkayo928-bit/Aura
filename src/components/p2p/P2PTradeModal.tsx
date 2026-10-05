@@ -594,7 +594,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
               )}
             </div>
 
-            {/* Escrow safety callout */}
+            {/* Trade state callout */}
             <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-stone-300 leading-relaxed">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
               <span>
