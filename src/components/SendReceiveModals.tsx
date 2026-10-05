@@ -46,12 +46,12 @@ export const SendModal: React.FC = () => {
   const numAmount = parseFloat(amount) || 0;
   const totalCost = numAmount + currentGas;
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recipient.trim() || numAmount <= 0) return;
 
     if (mode === 'internal') {
-      const ok = sendInternalFunds(recipient.trim(), numAmount);
+      const ok = await sendInternalFunds(recipient.trim(), numAmount);
       if (ok) {
         setSentSuccessTxHash('internal');
         setTimeout(() => {
