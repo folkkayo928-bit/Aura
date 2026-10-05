@@ -19,13 +19,6 @@ import {
   NFTTrait,
   TelegramViewMode,
 } from '../types';
-import { INITIAL_ARTWORKS } from '../data/mockArtworks';
-import { INITIAL_P2P_OFFERS } from '../data/mockP2P';
-import {
-  INITIAL_COLLECTIONS,
-  INITIAL_UPCOMING_DROPS,
-  EXTENDED_MARKETPLACE_ARTWORKS,
-} from '../data/mockNFTMarketplace';
 
 export interface UserProfile {
   name: string;
@@ -178,81 +171,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY_ARTWORKS = 'aura_artworks_v4';
-const STORAGE_KEY_COLLECTIONS = 'aura_collections_v4';
-const STORAGE_KEY_DROPS = 'aura_drops_v4';
-const STORAGE_KEY_WALLET = 'aura_wallet_v4';
-const STORAGE_KEY_TXS = 'aura_txs_v4';
-const STORAGE_KEY_PROFILE = 'aura_profile_v4';
-const STORAGE_KEY_P2P = 'aura_p2p_offers_v4';
-const STORAGE_KEY_WALLETS = 'aura_connected_wallets_v4';
-
-const COMBINED_INITIAL_ARTWORKS: Artwork[] = [
-  ...EXTENDED_MARKETPLACE_ARTWORKS,
-  ...INITIAL_ARTWORKS,
-];
-
-const sanitizeArtwork = (art: any): Artwork => ({
-  ...art,
-  eligibleInteractions: typeof art.eligibleInteractions === 'number' ? art.eligibleInteractions : 0,
-  currentValue: typeof art.currentValue === 'number' ? art.currentValue : 0,
-  originalPrice: typeof art.originalPrice === 'number' ? art.originalPrice : 0,
-  likes: typeof art.likes === 'number' ? art.likes : 0,
-  dislikes: typeof art.dislikes === 'number' ? art.dislikes : 0,
-  loves: typeof art.loves === 'number' ? art.loves : 0,
-  saves: typeof art.saves === 'number' ? art.saves : 0,
-  collectorsCount: typeof art.collectorsCount === 'number' ? art.collectorsCount : 0,
-  interestLevel: art.interestLevel || 'Not available',
-  isWatched: art.isWatched ?? false,
-  conversionEligible: Boolean(art.conversionEligible),
-  traits: Array.isArray(art.traits) ? art.traits : [],
-  comments: Array.isArray(art.comments) ? art.comments : [],
-  collectors: Array.isArray(art.collectors) ? art.collectors : [],
-});
-
-const sanitizeCollection = (col: any): NFTCollection => ({
-  ...col,
-  floorPriceUSDT: typeof col.floorPriceUSDT === 'number' ? col.floorPriceUSDT : 0,
-  totalVolumeUSDT: typeof col.totalVolumeUSDT === 'number' ? col.totalVolumeUSDT : 0,
-  itemsCount: typeof col.itemsCount === 'number' ? col.itemsCount : 0,
-  ownersCount: typeof col.ownersCount === 'number' ? col.ownersCount : 0,
-  isWatched: Boolean(col.isWatched),
-});
-
-const sanitizeDrop = (drop: any): UpcomingDrop => ({
-  ...drop,
-  mintPriceUSDT: typeof drop.mintPriceUSDT === 'number' ? drop.mintPriceUSDT : 0,
-  supply: typeof drop.supply === 'number' ? drop.supply : 0,
-  mintedSoFar: typeof drop.mintedSoFar === 'number' ? drop.mintedSoFar : 0,
-  mintTimestamp: typeof drop.mintTimestamp === 'number' ? drop.mintTimestamp : 0,
-  perks: Array.isArray(drop.perks) ? drop.perks : [],
-});
-
-const sanitizeP2POffer = (offer: any): P2POffer => ({
-  ...offer,
-  availableCrypto: typeof offer.availableCrypto === 'number' ? offer.availableCrypto : 0,
-  minLimitFiat: typeof offer.minLimitFiat === 'number' ? offer.minLimitFiat : 0,
-  maxLimitFiat: typeof offer.maxLimitFiat === 'number' ? offer.maxLimitFiat : 0,
-  pricePerUnit: typeof offer.pricePerUnit === 'number' ? offer.pricePerUnit : 0,
-  merchant: {
-    ...offer.merchant,
-    name: offer.merchant?.name || 'AURA Merchant',
-    legalName: offer.merchant?.legalName || offer.merchant?.name || 'AURA Merchant',
-    depositBondUSDT: typeof offer.merchant?.depositBondUSDT === 'number' ? offer.merchant.depositBondUSDT : 0,
-    ordersCompleted: typeof offer.merchant?.ordersCompleted === 'number' ? offer.merchant.ordersCompleted : 0,
-    completionRate: typeof offer.merchant?.completionRate === 'number' ? offer.merchant.completionRate : 0,
-    avgReleaseTimeMinutes: typeof offer.merchant?.avgReleaseTimeMinutes === 'number' ? offer.merchant.avgReleaseTimeMinutes : 0,
-    verifiedMerchant: offer.merchant?.verifiedMerchant === true,
-    kycVerified: offer.merchant?.kycVerified === true,
-    positiveFeedbackPercent: typeof offer.merchant?.positiveFeedbackPercent === 'number' ? offer.merchant.positiveFeedbackPercent : 0,
-    telegramHandle: offer.merchant?.telegramHandle || '',
-  },
-  paymentMethods: Array.isArray(offer.paymentMethods) ? offer.paymentMethods : [],
-  isSmartEscrowLocked: offer.isSmartEscrowLocked === true,
-  isBuyerProtected: offer.isBuyerProtected === true,
-});
-
 const isBackendArtworkId = (id: string) => /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id);
+
 
 const mapLedgerToTransaction = (row: any): Transaction => {
   const amount = Number(row.amount_usdt || 0);
@@ -282,7 +202,7 @@ const mapLedgerToTransaction = (row: any): Transaction => {
 const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, interaction?: any): Artwork => ({
   id: row.id,
   title: row.title,
-  edition: row.edition || '1 of 1 · Genesis',
+  edition: row.edition || 'Edition not reported',
   creator: {
     id: row.creator_id,
     name: row.profiles?.display_name || 'AURA Creator',
@@ -306,7 +226,7 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   purchasePrice: purchasePrice,
   isOwned: owned,
   eligibleInteractions: Number(row.eligible_interactions || 0),
-  interestLevel: row.interest_level || 'Rising',
+  interestLevel: row.interest_level || 'Not reported',
   interestScore: Number(row.interest_score || 0),
   likes: Number(row.likes || 0),
   loves: Number(row.loves || 0),
@@ -325,7 +245,7 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   collectionName: row.collection_name || undefined,
   traits: Array.isArray(row.traits) ? row.traits : [],
   conversionEligible: Boolean(row.conversion_eligible),
-  conversionLiquidity: row.conversion_liquidity || 'Ample',
+  conversionLiquidity: row.conversion_liquidity || 'Not reported',
   isListedOnP2P: Boolean(row.is_listed_on_p2p),
   p2pPriceFiat: row.p2p_price_fiat ? Number(row.p2p_price_fiat) : undefined,
   p2pCurrency: row.p2p_currency || undefined,
@@ -418,32 +338,10 @@ const backendP2POrderToUi = (row: any): P2POrder => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, openAuth } = useAuth();
-  const [artworks, setArtworks] = useState<Artwork[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_ARTWORKS);
-      return saved ? JSON.parse(saved).map(sanitizeArtwork) : COMBINED_INITIAL_ARTWORKS;
-    } catch {
-      return COMBINED_INITIAL_ARTWORKS;
-    }
-  });
-
-  const [collections, setCollections] = useState<NFTCollection[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_COLLECTIONS);
-      return saved ? JSON.parse(saved).map(sanitizeCollection) : INITIAL_COLLECTIONS;
-    } catch {
-      return INITIAL_COLLECTIONS;
-    }
-  });
-
-  const [upcomingDrops, setUpcomingDrops] = useState<UpcomingDrop[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_DROPS);
-      return saved ? JSON.parse(saved).map(sanitizeDrop) : INITIAL_UPCOMING_DROPS;
-    } catch {
-      return INITIAL_UPCOMING_DROPS;
-    }
-  });
+  // Marketplace and wallet state are server-authoritative. Do not hydrate from localStorage.
+  const [artworks, setArtworks] = useState<Artwork[]>([]);
+  const [collections, setCollections] = useState<NFTCollection[]>([]);
+  const [upcomingDrops, setUpcomingDrops] = useState<UpcomingDrop[]>([]);
 
   const [walletBalance, setWalletBalance] = useState<number>(0);
 
@@ -501,38 +399,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [notifications, setNotifications] = useState<TelegramNotification[]>([]);
 
-  // Persist
+  // Remove legacy client-side caches from older releases. They are never used as authoritative state.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ARTWORKS, JSON.stringify(artworks));
-  }, [artworks]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_COLLECTIONS, JSON.stringify(collections));
-  }, [collections]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_DROPS, JSON.stringify(upcomingDrops));
-  }, [upcomingDrops]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_WALLET, walletBalance.toString());
-  }, [walletBalance]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_TXS, JSON.stringify(transactions));
-  }, [transactions]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(userProfile));
-  }, [userProfile]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_P2P, JSON.stringify(p2pOffers));
-  }, [p2pOffers]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_WALLETS, JSON.stringify(connectedWallets));
-  }, [connectedWallets]);
+    for (const key of [
+      'aura_artworks_v4','aura_collections_v4','aura_drops_v4','aura_wallet_v4',
+      'aura_txs_v4','aura_profile_v4','aura_p2p_offers_v4','aura_connected_wallets_v4',
+    ]) localStorage.removeItem(key);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -666,7 +539,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user]);
 
   const updateUserProfile = async (updates: Partial<UserProfile>): Promise<boolean> => {
-    if (user) {
+    if (!user) {
+      openAuth('signin');
+      return false;
+    }
+    {
       const patch: Record<string, unknown> = {};
       if (updates.name !== undefined) patch.display_name = updates.name.trim();
       if (updates.telegramHandle !== undefined) patch.handle = updates.telegramHandle.trim();
