@@ -10,7 +10,7 @@ interface CollectModalProps {
 }
 
 export const CollectModal: React.FC<CollectModalProps> = ({ artwork, onClose }) => {
-  const { walletBalance, collectArtwork, topUpBalance } = useApp();
+  const { walletBalance, collectArtwork, setReceiveModalOpen } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -18,18 +18,17 @@ export const CollectModal: React.FC<CollectModalProps> = ({ artwork, onClose }) 
   const hasSufficientBalance = walletBalance >= price;
   const balanceAfter = Math.max(0, walletBalance - price);
 
-  const handleConfirmCollect = () => {
+  const handleConfirmCollect = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
-      const ok = collectArtwork(artwork);
-      setIsProcessing(false);
+    try {
+      const ok = await collectArtwork(artwork);
       if (ok) {
         setIsSuccess(true);
-        setTimeout(() => {
-          onClose();
-        }, 1500);
+        setTimeout(() => onClose(), 1500);
       }
-    }, 600);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -63,7 +62,7 @@ export const CollectModal: React.FC<CollectModalProps> = ({ artwork, onClose }) 
             <div>
               <h3 className="font-serif text-2xl text-stone-100">Welcome to Ownership</h3>
               <p className="text-xs text-stone-400 mt-1 max-w-xs mx-auto">
-                "{artwork.title}" has been transferred to your private digital vault. Telegram receipt delivered!
+                "{artwork.title}" has been transferred to your private digital vault. The ownership transfer was confirmed by the AURA backend.
               </p>
             </div>
           </div>
@@ -122,7 +121,7 @@ export const CollectModal: React.FC<CollectModalProps> = ({ artwork, onClose }) 
             {/* Telegram Mini App & Vault Guarantee */}
             <div className="flex items-center gap-2 text-[11px] text-stone-300 mb-6 bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Cryptographic ownership recorded directly to your Telegram vault address.</span>
+              <span>Ownership is recorded by the AURA backend after the transaction is confirmed.</span>
             </div>
 
             {/* Action Buttons */}
@@ -144,11 +143,12 @@ export const CollectModal: React.FC<CollectModalProps> = ({ artwork, onClose }) 
                 </div>
                 <button
                   onClick={() => {
-                    topUpBalance(50);
+                    onClose();
+                    setReceiveModalOpen(true);
                   }}
                   className="w-full py-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-stone-950 font-semibold text-sm transition-colors"
                 >
-                  Quick Deposit +$50 USDT
+                  Open Deposit Options
                 </button>
               </div>
             )}
