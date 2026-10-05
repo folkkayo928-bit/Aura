@@ -209,7 +209,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
           <button
             onClick={() => {
               if (activeP2POrder) {
-                if (window.confirm('Leave active escrow view? Your trade remains protected in the background.')) {
+                if (window.confirm('Leave active trade view? Your trade remains active in the background.')) {
                   onClose();
                 }
               } else {
@@ -232,7 +232,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 <span className="font-mono text-stone-200">{activeP2POrder.id}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-stone-400">Escrow Security:</span>
+                <span className="text-stone-400">Trade Security:</span>
                 <span className="font-mono text-emerald-400 flex items-center gap-1">
                   <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
                   {activeP2POrder.artwork
