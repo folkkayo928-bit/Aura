@@ -107,8 +107,8 @@ export const CollectModal: React.FC<CollectModalProps> = ({ artwork, onClose }) 
                 </span>
               </div>
               <div className="flex justify-between text-stone-400">
-                <span>Network Protocol Fee</span>
-                <span className="font-mono text-emerald-400">Sponsored ($0.00)</span>
+                <span>Network Fee</span>
+                <span className="font-mono text-emerald-400">Not applicable · AURA ledger</span>
               </div>
               <div className="pt-2 border-t border-white/5 flex justify-between font-medium text-stone-200">
                 <span>Remaining Balance</span>
