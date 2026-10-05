@@ -120,26 +120,29 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const currentOffer = offer || {
     id: activeP2POrder?.offerId || '',
     type: activeP2POrder?.type || 'buy',
-    merchant: activeP2POrder?.merchant,
-    pricePerUnit: 1.0,
+    merchant: activeP2POrder?.merchant!,
+    pricePerUnit: activeP2POrder && activeP2POrder.cryptoAmount > 0
+      ? activeP2POrder.fiatAmount / activeP2POrder.cryptoAmount
+      : 0,
     fiatCurrency: activeP2POrder?.fiatCurrency || 'USD',
-    availableCrypto: 500,
-    minLimitFiat: 10,
-    maxLimitFiat: 1000,
-    paymentMethods: [activeP2POrder?.paymentMethod || 'telegram_pay'],
-    paymentInstructions: 'Auto escrow release upon payment verification.',
-    isSmartEscrowLocked: true,
-    isBuyerProtected: true,
+    availableCrypto: 0,
+    minLimitFiat: 0,
+    maxLimitFiat: 0,
+    paymentMethods: activeP2POrder ? [activeP2POrder.paymentMethod] : [],
+    paymentInstructions: '',
+    isSmartEscrowLocked: activeP2POrder?.status === 'escrow_locked',
+    isBuyerProtected: Boolean(activeP2POrder),
   };
 
   const typedOffer = currentOffer as P2POffer;
+  const hasUsableOffer = Boolean(offer && offer.pricePerUnit > 0 && offer.paymentMethods.length > 0);
   const isArtworkOffer = Boolean(typedOffer.artworkId);
   const numCrypto = isArtworkOffer ? 1 : (parseFloat(cryptoAmount) || 0);
   const fiatTotal = numCrypto * currentOffer.pricePerUnit;
 
   const handleStartTrade = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!offer || numCrypto <= 0) return;
+    if (!offer || !hasUsableOffer || numCrypto <= 0) return;
     if (!isArtworkOffer && offer.type === 'buy' && !receiveAccount.trim()) {
       alert('Add the account or handle where the buyer should send your fiat payment.');
       return;
