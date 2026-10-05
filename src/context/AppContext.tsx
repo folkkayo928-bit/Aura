@@ -330,6 +330,26 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   comments: [],
 });
 
+const backendCollectionToUi = (row: any): NFTCollection => ({
+  id: row.id,
+  name: row.name || 'AURA Collection',
+  slug: row.slug || row.id,
+  avatar: row.avatar_url || row.creator?.avatar_url || '',
+  banner: row.banner_url || '',
+  verified: Boolean(row.verified),
+  floorPriceUSDT: 0,
+  totalVolumeUSDT: 0,
+  ownersCount: 0,
+  itemsCount: 0,
+  totalVolumeUSDT: 0,
+  description: row.description || '',
+  category: row.category || 'generative',
+  isWatched: false,
+  websiteUrl: row.website_url || undefined,
+  discordUrl: row.discord_url || undefined,
+  telegramUrl: row.telegram_url || undefined,
+});
+
 const backendMerchantToUi = (row: any): P2PMerchant => ({
   id: row?.id || '',
   name: row?.display_name || 'AURA Member',
