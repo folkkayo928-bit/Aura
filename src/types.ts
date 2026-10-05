@@ -138,7 +138,7 @@ export interface TelegramNotification {
   title: string;
   message: string;
   timestamp: string;
-  type: 'collect' | 'convert' | 'value_surge' | 'community' | 'p2p' | 'external_tx' | 'drop_alert';
+  type: 'collect' | 'convert' | 'value_surge' | 'community' | 'p2p' | 'external_tx' | 'drop_alert' | 'wallet';
 }
 
 // Trusted P2P Protection Types
