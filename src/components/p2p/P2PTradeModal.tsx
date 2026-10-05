@@ -203,7 +203,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             <span className="text-xs uppercase tracking-widest font-mono text-stone-300">
               {activeP2POrder
                 ? (activeP2POrder.artwork ? 'Artwork P2P Order' : 'USDT P2P Order')
-                : (isArtworkOffer ? 'Buy Artwork through AURA P2P' : `${currentOffer.type === 'sell' ? 'Buy' : 'Sell'} USDT with AURA Ledger Protection`)}
+                : (isArtworkOffer ? 'Buy Artwork through AURA P2P' : `${currentOffer.type === 'sell' ? 'Buy' : 'Sell'} USDT with AURA Ledger Hold`)}
             </span>
           </div>
           <button
@@ -232,12 +232,12 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 <span className="font-mono text-stone-200">{activeP2POrder.id}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-stone-400">Trade Security:</span>
+                <span className="text-stone-400">Trade State:</span>
                 <span className="font-mono text-emerald-400 flex items-center gap-1">
                   <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
                   {activeP2POrder.artwork
-                    ? `AURA ownership transfer · Reference ${activeP2POrder.escrowTxHash}`
-                    : `AURA ledger hold · Reference ${activeP2POrder.escrowTxHash}`}
+                    ? `AURA ownership transfer · Order reference ${activeP2POrder.escrowTxHash}`
+                    : `AURA ledger hold · Order reference ${activeP2POrder.escrowTxHash}`}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
