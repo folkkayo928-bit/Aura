@@ -87,7 +87,7 @@ interface AppContextType {
   toggleDropReminder: (dropId: string) => void;
   addComment: (artworkId: string, text: string) => void;
   collectArtwork: (artwork: Artwork) => Promise<boolean>;
-  quickBuyArtwork: (artwork: Artwork) => boolean;
+  quickBuyArtwork: (artwork: Artwork) => Promise<boolean>;
   makeOfferOnArtwork: (artworkId: string, offerAmount: number) => void;
   convertArtwork: (artwork: Artwork, fee: number) => { success: boolean; netPayout: number };
   listArtworkOnP2P: (params: {
@@ -926,9 +926,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Quick Buy (like in the photo!)
-  const quickBuyArtwork = (artwork: Artwork): boolean => {
-    return collectArtwork(artwork);
-  };
+  const quickBuyArtwork = (artwork: Artwork): Promise<boolean> => collectArtwork(artwork);
 
   const makeOfferOnArtwork = (artworkId: string, offerAmount: number) => {
     if (!user) { openAuth('signin'); return; }
