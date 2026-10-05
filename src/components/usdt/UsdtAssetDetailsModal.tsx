@@ -84,7 +84,7 @@ export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ is
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <span className="text-[10px] text-stone-400 font-mono block">
-                Official Digital Dollar Peg 1:1
+                USDT reference · 1 USDT targets 1 USD
               </span>
             </div>
           </div>
@@ -113,7 +113,7 @@ export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ is
 
           <div className="flex items-center gap-2 pt-3 mt-3 border-t border-emerald-500/20 text-[11px] text-stone-300">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>Fully collateralized reserves audited by top accounting firms.</span>
+            <span>Your displayed balance is an AURA platform-ledger balance. The token contracts below identify external USDT assets; they do not represent AURA proof-of-reserves.</span>
           </div>
         </div>
 
