@@ -13,7 +13,6 @@ import {
   DollarSign,
   Plus,
   Trash2,
-  Lock,
   ArrowUpDown,
   Check,
   CheckCircle2,
