@@ -866,25 +866,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addComment = (artworkId: string, text: string) => {
     if (!user) { openAuth('signin'); return; }
-    if (!text.trim()) return;
-    setArtworks(prev => prev.map(art => art.id === artworkId ? {
-      ...art,
-      comments: [{
-        id: `cmt-${Date.now()}`,
-        userName: userProfile.name,
-        userAvatar: userProfile.avatar,
-        text: text.trim(),
-        timestamp: 'Just now',
-      }, ...art.comments],
-      eligibleInteractions: art.eligibleInteractions + 3,
-    } : art));
-    if (isBackendArtworkId(artworkId)) {
-      void supabase.rpc('add_artwork_comment', { p_artwork_id: artworkId, p_text: text.trim() });
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const artwork = artworks.find(art => art.id === artworkId);
+    if (!artwork || !isBackendArtworkId(artworkId)) {
+      addNotification('Live Artwork Required', 'Comments are available on verified AURA artwork listings.', 'community');
+      return;
     }
-    const artwork = artworks.find((art) => art.id === artworkId);
-    if (artwork) addNotification('💬 Comment Posted', `Your comment was added to "${artwork.title}".`, 'community');
+    void (async () => {
+      const { data, error } = await supabase.rpc('add_artwork_comment', { p_artwork_id: artworkId, p_text: trimmed });
+      if (error || !data) {
+        addNotification('Comment Failed', error?.message || 'Your comment could not be posted.', 'community');
+        return;
+      }
+      const row = data as any;
+      setArtworks(prev => prev.map(art => art.id === artworkId ? {
+        ...art,
+        comments: [{
+          id: row.id,
+          userName: userProfile.name,
+          userAvatar: userProfile.avatar,
+          text: row.text || trimmed,
+          timestamp: 'Just now',
+        }, ...art.comments],
+        eligibleInteractions: art.eligibleInteractions + 3,
+      } : art));
+      addNotification('💬 Comment Posted', `Your comment was added to "${artwork.title}".`, 'community');
+    })();
   };
-
   const collectArtwork = (artwork: Artwork): boolean => {
     if (!user) { openAuth('signin'); return false; }
     if (!isBackendArtworkId(artwork.id)) {
