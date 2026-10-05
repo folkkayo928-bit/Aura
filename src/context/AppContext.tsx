@@ -719,7 +719,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       likes: Math.max(0, nextLiked ? art.likes + 1 : art.likes - 1),
       eligibleInteractions: Math.max(0, nextLiked ? art.eligibleInteractions + 1 : art.eligibleInteractions - 1),
       isDisliked: nextLiked ? false : art.isDisliked,
-      dislikes: nextLiked && art.isDisliked ? Math.max(0, (art.dislikes ?? 0) - 1) : art.dislikes ?? 0,
+      dislikes: nextLiked && art.isDisliked ? Math.max(0, Math.max(0, (art.dislikes ?? 0) - 1)) : art.dislikes ?? 0,
     } : art));
     void (async () => {
       if (!(await persistArtworkInteraction(artworkId, 'liked'))) {
