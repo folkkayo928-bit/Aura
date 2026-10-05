@@ -58,13 +58,9 @@ const TelegramWebAppBridge: React.FC = () => {
       });
     }
 
-    if (tg.initData) {
-      fetch('/api/telegram/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData: tg.initData }),
-      }).catch(() => undefined);
-    }
+    // Telegram initData is available to the Mini App, but Aura does not currently
+    // expose a server-side /api/telegram/auth endpoint. Do not call a missing
+    // endpoint or silently treat an unverified Telegram identity as authenticated.
   // The Telegram SDK object is stable for the lifetime of the Mini App.
   }, []);
 
