@@ -568,7 +568,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setWalletBalance(0);
         setTransactions([]);
         setConnectedWallets([]);
-        setP2pOffers([]);
         setActiveP2POrder(null);
         return;
       }
