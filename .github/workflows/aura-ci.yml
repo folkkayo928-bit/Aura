@@ -24,5 +24,6 @@ jobs:
       - name: Build
         env:
           VITE_SUPABASE_URL: https://rtqcistkoomzmzxzasxc.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          # This is a Supabase publishable browser key, not a private service-role secret.
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_T1aovxbvntCIMc2o91wfrg_rVHBxePq
         run: npm run build
