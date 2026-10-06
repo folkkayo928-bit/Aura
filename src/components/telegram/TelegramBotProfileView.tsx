@@ -45,7 +45,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
       nextState ? 'Notifications Muted' : 'Notifications Unmuted',
       nextState
         ? 'You will not receive instant alerts from @myaura1_bot.'
-        : 'Live drops, P2P escrow matches, and vault alerts are enabled.',
+        : 'Live AURA account, marketplace, wallet, and P2P features are available from the Mini App.',
       'community'
     );
   };
@@ -64,7 +64,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
   const handleStopBot = () => {
     addNotification(
       'Bot Status: Active',
-      '@myaura1_bot is running with smart contract escrow and verified TON identity.',
+      '@myaura1_bot provides access to the AURA Mini App and connected account services.',
       'community'
     );
   };
@@ -115,7 +115,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
     {
       id: 2,
       title: 'Certified P2P Desk',
-      tag: '100% Escrow',
+      tag: 'Internal Hold',
       duration: '0:18',
       accent: 'from-emerald-500/20 to-teal-500/20',
       actionTab: 'discover' as const,
@@ -124,7 +124,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[9px] text-stone-400 font-mono">
               <span className="text-emerald-400 font-bold flex items-center gap-0.5">
-                <ShieldCheck className="w-2.5 h-2.5" /> ESCROW DESK
+                <ShieldCheck className="w-2.5 h-2.5" /> P2P DESK
               </span>
               <span className="text-cyan-300">$250k Pool</span>
             </div>
@@ -219,7 +219,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
     {
       name: 'TON Dating',
       handle: '@tondating',
-      users: '69,951 monthly users',
+      users: 'User count not reported',
       category: 'Social & Dating',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
       verified: true,
@@ -227,7 +227,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
     {
       name: 'Epic Gift',
       handle: '@epicgift_bot',
-      users: '919,442 monthly users',
+      users: 'User count not reported',
       category: 'Gifts & Gaming',
       avatar: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=100&auto=format&fit=crop&q=80',
       verified: true,
@@ -235,7 +235,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
     {
       name: 'Major',
       handle: '@major',
-      users: '14,280,000 monthly users',
+      users: 'User count not reported',
       category: 'TON Stars & Tasks',
       avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
       verified: true,
@@ -243,7 +243,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
     {
       name: 'Blum Crypto',
       handle: '@blumcrypto',
-      users: '28,500,000 monthly users',
+      users: 'User count not reported',
       category: 'DeFi & Exchange',
       avatar: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=100&auto=format&fit=crop&q=80',
       verified: true,
@@ -315,7 +315,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
 
           {/* Monthly Users Counter */}
           <p className="text-xs text-stone-400 italic font-normal tracking-wide">
-            849,210 monthly users
+            User count not reported
           </p>
         </div>
 
