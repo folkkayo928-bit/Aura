@@ -3,11 +3,12 @@ import { ArrowRight, CheckCircle2, KeyRound, Loader2, Mail, ShieldCheck, UserRou
 import { useAuth } from '../../context/AuthContext';
 
 export const AuthModal: React.FC = () => {
-  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signUp, resetPassword } = useAuth();
+  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signUp, resetPassword, updatePassword } = useAuth();
   const [mode, setMode] = useState(authMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +44,17 @@ export const AuthModal: React.FC = () => {
         } else closeAuth();
         return;
       }
+      if (mode === 'reset') {
+        if (password.length < 6) { setError('Use a password with at least 6 characters.'); return; }
+        if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
+        const result = await updatePassword(password);
+        if (result.error) { setError(result.error); return; }
+        setPassword('');
+        setConfirmPassword('');
+        setMessage('Your password has been updated. You can now continue using AURA.');
+        setMode('signin');
+        return;
+      }
       const result = await resetPassword(email);
       if (result.error) { setError(result.error); return; }
       setMessage('Password reset instructions were sent to your email.');
@@ -62,7 +74,7 @@ export const AuthModal: React.FC = () => {
             <div>
               <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-amber-300">AURA ACCOUNT</span>
               <h2 className="mt-2 font-serif text-3xl font-light text-stone-100">
-                {mode === 'signup' ? 'Create your Vault' : mode === 'forgot' ? 'Reset access' : 'Welcome back'}
+                {mode === 'signup' ? 'Create your Vault' : mode === 'forgot' ? 'Reset access' : mode === 'reset' ? 'Choose a new password' : 'Welcome back'}
               </h2>
               <p className="mt-1 text-xs leading-5 text-stone-500">One account for collecting, creating, holding and P2P activity.</p>
             </div>
@@ -85,29 +97,40 @@ export const AuthModal: React.FC = () => {
               </div>
             </label>
           )}
-          <label className="block">
-            <span className="mb-1.5 block text-[11px] font-medium text-stone-400">Email</span>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-600" />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" required className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 pl-10 pr-3 text-sm text-stone-100 outline-none focus:border-amber-400/60" placeholder="you@example.com" />
-            </div>
-          </label>
+          {mode !== 'reset' && (
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-medium text-stone-400">Email</span>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-600" />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" required className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 pl-10 pr-3 text-sm text-stone-100 outline-none focus:border-amber-400/60" placeholder="you@example.com" />
+              </div>
+            </label>
+          )}
           {mode !== 'forgot' && (
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-medium text-stone-400">Password</span>
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-600" />
-                <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 pl-10 pr-3 text-sm text-stone-100 outline-none focus:border-amber-400/60" placeholder="••••••••" />
+                <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete={mode === 'signup' || mode === 'reset' ? 'new-password' : 'current-password'} required className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 pl-10 pr-3 text-sm text-stone-100 outline-none focus:border-amber-400/60" placeholder="••••••••" />
+              </div>
+            </label>
+          )}
+          {mode === 'reset' && (
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-medium text-stone-400">Confirm new password</span>
+              <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-600" />
+                <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" autoComplete="new-password" required className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 pl-10 pr-3 text-sm text-stone-100 outline-none focus:border-amber-400/60" placeholder="••••••••" />
               </div>
             </label>
           )}
           {error && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-3.5 py-3 text-xs leading-5 text-rose-200">{error}</div>}
           {message && <div className="flex gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-3 text-xs leading-5 text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>{message}</span></div>}
           <button disabled={submitting} className="w-full rounded-2xl bg-amber-400 py-3.5 text-sm font-bold text-stone-950 shadow-lg shadow-amber-500/10 transition hover:bg-amber-300 disabled:opacity-50">
-            {submitting ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : mode === 'signup' ? 'Create AURA Account' : mode === 'forgot' ? 'Send Reset Link' : 'Sign In'}
+            {submitting ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : mode === 'signup' ? 'Create AURA Account' : mode === 'forgot' ? 'Send Reset Link' : mode === 'reset' ? 'Update Password' : 'Sign In'}
           </button>
           <div className="flex items-center justify-between text-[11px]">
-            {mode !== 'forgot' ? (
+            {mode !== 'forgot' && mode !== 'reset' ? (
               <>
                 <button type="button" onClick={() => openAuth(mode === 'signup' ? 'signin' : 'signup')} className="text-amber-300 hover:text-amber-200">{mode === 'signup' ? 'Already have an account? Sign in' : 'New to AURA? Create account'}</button>
                 {mode === 'signin' && <button type="button" onClick={() => { setMode('forgot'); setError(''); setMessage(''); }} className="text-stone-500 hover:text-stone-300">Forgot password?</button>}
