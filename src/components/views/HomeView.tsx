@@ -128,7 +128,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail }) => {
                     )}
                   </div>
                   <div className="text-[10px] text-stone-400 font-mono">
-                    Floor: <span className="text-stone-200 font-bold">${(col.floorPriceUSDT ?? 0).toLocaleString()}</span>
+                    Floor: <span className="text-stone-200 font-bold">{col.floorPriceUSDT > 0 ? `${col.floorPriceUSDT.toLocaleString()}` : 'Not reported'}</span>
                   </div>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-stone-500 group-hover:text-stone-300 ml-1" />
