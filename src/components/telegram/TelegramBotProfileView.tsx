@@ -222,7 +222,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
       users: 'User count not reported',
       category: 'Social & Dating',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-      verified: true,
+      verified: false,
     },
     {
       name: 'Epic Gift',
@@ -230,7 +230,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
       users: 'User count not reported',
       category: 'Gifts & Gaming',
       avatar: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=100&auto=format&fit=crop&q=80',
-      verified: true,
+      verified: false,
     },
     {
       name: 'Major',
@@ -238,7 +238,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
       users: 'User count not reported',
       category: 'TON Stars & Tasks',
       avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',
-      verified: true,
+      verified: false,
     },
     {
       name: 'Blum Crypto',
@@ -246,7 +246,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
       users: 'User count not reported',
       category: 'DeFi & Exchange',
       avatar: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=100&auto=format&fit=crop&q=80',
-      verified: true,
+      verified: false,
     },
   ];
 
