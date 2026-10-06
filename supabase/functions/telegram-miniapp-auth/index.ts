@@ -80,15 +80,10 @@ Deno.serve(async (req) => {
       if (existingUser.user) targetUser = { id: existingUser.user.id, email: existingUser.user.email };
     }
 
-    if (!targetUser) {
-      const { data: existingSynthetic } = await admin.auth.admin.getUserByEmail(syntheticEmail);
-      if (existingSynthetic.user) {
-        targetUser = {
-          id: existingSynthetic.user.id, email: existingSynthetic.user.email,
-        };
-      }
-    }
-
+    // Supabase Admin JS does not expose getUserByEmail. For a returning
+    // Telegram account we resolve through profiles.telegram_user_id above.
+    // A first-time Telegram account is created below; duplicate-email races
+    // are handled by a bounded user-list fallback.
     if (!targetUser) {
       const { data: created, error: createError } = await admin.auth.admin.createUser({
         email: syntheticEmail,
