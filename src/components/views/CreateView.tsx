@@ -75,17 +75,17 @@ export const CreateView: React.FC = () => {
   // Preset templates matching user prompt: Nike, GIF, UI Design, Anime PFP, Art
   const presets = [
     {
-      label: 'Nike Digital Sneaker',
+      label: 'Digital Sneaker',
       category: 'brand_streetwear' as ArtworkCategory,
       mediaType: 'brand_streetwear' as MediaType,
       url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
       title: 'Nike Dunk Genesis: Electric Blue',
-      collection: 'Nike Virtual Studios x RTFKT',
-      desc: 'Official virtual sneaker with pneumatic air pods and reactive AR shaders.',
+      collection: 'Digital Streetwear',
+      desc: 'Digital sneaker artwork with reactive lighting and virtual streetwear styling.',
       price: '450',
       traits: [
-        { trait_type: 'Brand', value: 'Nike x RTFKT', rarityPercent: 100 },
-        { trait_type: 'Edition', value: 'Genesis 2099', rarityPercent: 10 },
+        { trait_type: 'Asset Type', value: 'Digital Streetwear' },
+        { trait_type: 'Style', value: 'Virtual Sneaker' },
       ],
     },
     {
@@ -303,7 +303,7 @@ export const CreateView: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. Azuki, Nike Virtual Studios, Tokyo Neon"
+              placeholder="e.g. Digital Streetwear, Generative Art, Tokyo Neon"
               value={collectionName}
               onChange={(e) => setCollectionName(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
