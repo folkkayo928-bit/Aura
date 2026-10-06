@@ -308,7 +308,7 @@ export const CollectionHubModal: React.FC<CollectionHubModalProps> = ({
             <div className="font-mono text-stone-300 uppercase tracking-widest text-[10px] mb-2">Live Activity</div>
             <p>Live collection activity is not reported by the current backend feed.</p>
           </div>
-        )
+        )}
 
         {/* TAB 5: ANALYTICS */}
         {activeTab === 'analytics' && (
