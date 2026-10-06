@@ -185,10 +185,11 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       return;
     }
 
+    const senderProfile = Array.isArray(data.sender) ? data.sender[0] : data.sender;
     setMessages((prev) => [...prev, {
       id: data.id,
       sender: data.sender_role === 'seller' ? 'merchant' : 'buyer',
-      senderName: data.sender?.display_name || data.sender?.handle || 'You',
+      senderName: senderProfile?.display_name || senderProfile?.handle || 'You',
       text: data.text,
       timestamp: new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }]);
