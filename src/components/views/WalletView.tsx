@@ -241,7 +241,7 @@ export const WalletView: React.FC = () => {
           {activeP2POrder && (
             <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs">
               <span className="text-emerald-300 font-semibold flex items-center gap-1.5 animate-pulse">
-                <Lock className="w-3.5 h-3.5" /> Escrow Protected: {activeP2POrder.cryptoAmount} USDT
+                <Lock className="w-3.5 h-3.5" /> Internal Hold: {activeP2POrder.cryptoAmount} USDT
               </span>
               <span className="text-stone-400 font-mono text-[11px]">View Order →</span>
             </div>
@@ -320,7 +320,7 @@ export const WalletView: React.FC = () => {
                 </div>
 
                 <div className="text-right font-mono">
-                  <span className="text-emerald-400 font-medium">{w.balance} USDT</span>
+                  <span className="text-emerald-400 font-medium">{w.balance > 0 ? `${w.balance} USDT` : 'Balance unavailable'}</span>
                   <span className="text-[10px] text-stone-500 block uppercase">{w.network}</span>
                 </div>
               </div>
