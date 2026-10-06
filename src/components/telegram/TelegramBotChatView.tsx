@@ -51,7 +51,7 @@ export const TelegramBotChatView: React.FC<TelegramBotChatViewProps> = ({ onOpen
 🆓 Open the Free24 Box every day and win rare digital art gifts!
 🚀 Play Rocket Mode for big wins & certified rare drops
 ⚔️ Trade through the live AURA P2P desk
-🎁 Open cases, mint photos, and collect 1 of 1 editions
+🎁 Create, collect, and explore digital art
 💳 Custom Payment Rails: Alex's Wire, Revolut, Zelle, PayPal
 🏆 Climb the collector leaderboard and win valuable TON prizes
 
