@@ -310,7 +310,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           </button>
         </div>
 
-        {/* Internal trade-control notice */
+        {/* Internal trade-control notice */}
         <div className="p-4 rounded-3xl bg-gradient-to-r from-[#0d1d17] via-[#101918] to-[#0c1218] border border-emerald-500/30 text-xs text-stone-300 space-y-2 shadow-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
