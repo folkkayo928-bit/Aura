@@ -177,12 +177,13 @@ const isBackendArtworkId = (id: string) => /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(
 const mapLedgerToTransaction = (row: any): Transaction => {
   const amount = Number(row.amount_usdt || 0);
   let type: Transaction['type'] = 'receive';
-  if (String(row.kind).includes('collect')) type = 'collect';
-  else if (String(row.kind).includes('convert')) type = 'convert';
-  else if (String(row.kind).includes('send') || String(row.kind).includes('transfer')) type = 'send';
-  else if (String(row.kind).includes('create')) type = 'create';
-  else if (String(row.kind).includes('p2p_buy')) type = 'p2p_buy';
-  else if (String(row.kind).includes('p2p_sell')) type = 'p2p_sell';
+  const kind = String(row.kind || '').toLowerCase();
+  if (kind.includes('collect')) type = 'collect';
+  else if (kind.includes('convert')) type = 'convert';
+  else if (kind.includes('send') || kind.includes('transfer') || kind.includes('withdrawal')) type = 'send';
+  else if (kind.includes('create')) type = 'create';
+  else if (kind.includes('p2p_buy')) type = 'p2p_buy';
+  else if (kind.includes('p2p_sell')) type = 'p2p_sell';
   const rawStatus = String(row.status || row.transaction_status || '').toLowerCase();
   const status: Transaction['status'] =
     rawStatus === 'pending' || rawStatus === 'processing' ? 'pending' :
@@ -424,7 +425,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .limit(100),
         supabase
           .from('p2p_offers')
-          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)')
+          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(100),
@@ -463,7 +464,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('collection_watchlist').select('collection_id').eq('user_id', user.id),
         supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
-        supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('p2p_orders').select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
 
@@ -842,8 +843,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification('Offer Failed', error.message, 'p2p');
       return false;
     }
-    setArtworks(prev => prev.map(art => art.id === artworkId ? { ...art, topOfferUSDT: offerAmount } : art));
-    addNotification('🤝 Offer Submitted', `Your $${offerAmount.toFixed(2)} USDT offer on "${artwork.title}" was sent to the owner.`, 'p2p');
+    addNotification('🤝 Offer Submitted', `Your ${offerAmount.toFixed(2)} USDT offer on "${artwork.title}" was sent to the owner.`, 'p2p');
     return true;
   };
 
@@ -1452,7 +1452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
     if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
-    addNotification('P2P Order Cancelled', 'Held USDT was returned to the seller balance.', 'p2p');
+    addNotification('P2P Order Cancelled', 'The order was cancelled and any AURA-held funds were returned according to the trade state.', 'p2p');
     return true;
   };
 
