@@ -53,6 +53,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!mounted) return;
       setSession(nextSession);
       setLoading(false);
+
+      const provider = nextSession?.user?.app_metadata?.provider;
+      const telegramSub = nextSession?.user?.user_metadata?.sub;
+      if (event === 'SIGNED_IN' && provider === 'custom:telegram' && telegramSub) {
+        void supabase.rpc('set_my_telegram_identity', {
+          p_telegram_id: String(telegramSub),
+        });
+      }
+
       if (event === 'PASSWORD_RECOVERY') {
         setAuthMode('reset');
         setAuthModalOpen(true);
@@ -83,9 +92,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
 
     signInWithTelegram: async () => {
+      const telegramWebApp = (window as any).Telegram?.WebApp;
+      const initData = String(telegramWebApp?.initData || '').trim();
+
+      // Inside the Telegram Mini App, do not bounce the user to
+      // oauth.telegram.org. The Mini App already gives us signed initData.
+      // The Edge Function verifies it server-side and returns a one-time
+      // Supabase token hash that this client exchanges for a real session.
+      if (initData) {
+        try {
+          const { data, error } = await supabase.functions.invoke('telegram-miniapp-auth', {
+            body: { initData },
+          });
+
+          if (error) {
+            return { error: 'Telegram sign-in is temporarily unavailable. Please try again.' };
+          }
+
+          const tokenHash = String(data?.token_hash || '').trim();
+          if (!tokenHash) {
+            return { error: 'Telegram sign-in could not create a secure session.' };
+          }
+
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'email',
+          });
+
+          if (verifyError) {
+            return { error: humanizeAuthError(verifyError.message) };
+          }
+
+          return {};
+        } catch {
+          return { error: 'Telegram sign-in is temporarily unavailable. Please try again.' };
+        }
+      }
+
+      const redirectTo =
+        window.location.origin.startsWith('http://localhost') ||
+        window.location.origin.startsWith('http://127.0.0.1')
+          ? AURA_PRODUCTION_URL
+          : window.location.origin;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'custom:telegram',
-        options: { redirectTo: window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1') ? AURA_PRODUCTION_URL : window.location.origin },
+        options: { redirectTo },
       });
       return error ? { error: humanizeAuthError(error.message) } : {};
     },
