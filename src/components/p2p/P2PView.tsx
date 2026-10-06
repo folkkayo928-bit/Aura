@@ -641,7 +641,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                         <span>{offer.merchant?.ordersCompleted ?? 0} trades</span>
                         <span>·</span>
                         <span className="text-emerald-400 font-medium">
-                          {offer.merchant?.completionRate ? (offer.merchant.completionRate + '% completion') : 'New trader'}
+                          {offer.merchant?.completionRate > 0 ? `${offer.merchant.completionRate.toFixed(1)}% completion` : 'Completion not reported'}
                         </span>
                         {offer.merchant?.depositBondUSDT > 0 && <>
                           <span>·</span>
