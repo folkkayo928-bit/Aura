@@ -22,42 +22,27 @@ const corsHeaders = {
 
 function adminClient() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   });
 }
 
 function json(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: corsHeaders,
-  });
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
-  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    return json({ error: "AUTH_BACKEND_UNAVAILABLE" }, 503);
-  }
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ error: "AUTH_BACKEND_UNAVAILABLE" }, 503);
 
   let body: { initData?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: "INVALID_JSON" }, 400);
-  }
-
+  try { body = await req.json(); } catch { return json({ error: "INVALID_JSON" }, 400); }
   const initData = String(body?.initData || "").trim();
   if (!initData) return json({ error: "MISSING_TELEGRAM_INIT_DATA" }, 400);
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
-
     let telegramResponse: Response;
     try {
       telegramResponse = await fetch(RENDER_TELEGRAM_AUTH_URL, {
@@ -70,81 +55,92 @@ Deno.serve(async (req) => {
       clearTimeout(timeout);
     }
 
-    if (!telegramResponse.ok) {
-      return json({ error: "INVALID_TELEGRAM_SESSION" }, 401);
-    }
-
+    if (!telegramResponse.ok) return json({ error: "INVALID_TELEGRAM_SESSION" }, 401);
     const telegramPayload = await telegramResponse.json();
     const telegramUser = telegramPayload?.user;
     if (!telegramUser?.id) return json({ error: "INVALID_TELEGRAM_USER" }, 401);
 
     const telegramId = String(telegramUser.id);
-    if (!/^\d{1,20}$/.test(telegramId)) {
-      return json({ error: "INVALID_TELEGRAM_USER" }, 401);
-    }
+    if (!/^\d{1,20}$/.test(telegramId)) return json({ error: "INVALID_TELEGRAM_USER" }, 401);
 
     const name =
-      [telegramUser.first_name, telegramUser.last_name]
-        .filter(Boolean)
-        .join(" ")
-        .trim() || "AURA Collector";
+      [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(" ").trim() ||
+      "AURA Collector";
     const username = String(telegramUser.username || "").trim();
     const syntheticEmail = `telegram_${telegramId}@users.aura`;
-
     const admin = adminClient();
+
     let targetUser: { id: string; email?: string | null } | null = null;
 
     const { data: profile } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("telegram_user_id", telegramId)
-      .maybeSingle();
+      .from("profiles").select("id").eq("telegram_user_id", telegramId).maybeSingle();
 
     if (profile?.id) {
       const { data: existingUser } = await admin.auth.admin.getUserById(profile.id);
-      if (existingUser.user) {
+      if (existingUser.user) targetUser = { id: existingUser.user.id, email: existingUser.user.email };
+    }
+
+    if (!targetUser) {
+      const { data: existingSynthetic } = await admin.auth.admin.getUserByEmail(syntheticEmail);
+      if (existingSynthetic.user) {
         targetUser = {
-          id: existingUser.user.id,
-          email: existingUser.user.email,
+          id: existingSynthetic.user.id, email: existingSynthetic.user.email,
         };
       }
     }
 
     if (!targetUser) {
-      const { data: existingSynthetic } =
-        await admin.auth.admin.getUserByEmail(syntheticEmail);
-      if (existingSynthetic.user) {
-        targetUser = {
-          id: existingSynthetic.user.id,
-          email: existingSynthetic.user.email,
-        };
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email: syntheticEmail,
+        email_confirm: true,
+        user_metadata: {
+          name,
+          telegram_id: telegramId,
+          ...(username ? { telegram_username: username } : {}),
+          auth_provider: "telegram_miniapp",
+        },
+      });
+      if (createError || !created.user) {
+        console.error("failed to create Telegram user", createError);
+        return json({ error: "TELEGRAM_ACCOUNT_SETUP_FAILED" }, 500);
       }
-    }
-
-    if (targetUser && !targetUser.email) {
+      targetUser = { id: created.user.id, email: created.user.email };
+    } else {
       const { data: updated, error: updateError } =
         await admin.auth.admin.updateUserById(targetUser.id, {
-          email: syntheticEmail,
-          email_confirm: true,
           user_metadata: {
             name,
             telegram_id: telegramId,
             ...(username ? { telegram_username: username } : {}),
             auth_provider: "telegram_miniapp",
           },
+          ...(targetUser.email ? {} : { email: syntheticEmail, email_confirm: true }),
         });
 
       if (updateError || !updated.user) {
-        console.error("failed to finish Telegram user provisioning", updateError);
+        console.error("failed to refresh Telegram user metadata", updateError);
         return json({ error: "TELEGRAM_ACCOUNT_SETUP_FAILED" }, 500);
       }
-
       targetUser = { id: updated.user.id, email: updated.user.email };
+    }
+
+    const { error: profileLinkError } = await admin
+      .from("profiles")
+      .update({
+        telegram_user_id: telegramId,
+        display_name: name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", targetUser.id);
+
+    if (profileLinkError) {
+      console.error("failed to link Telegram profile", profileLinkError);
+      return json({ error: "TELEGRAM_ACCOUNT_SETUP_FAILED" }, 500);
     }
 
     const { data, error } = await admin.auth.admin.generateLink({
       type: "magiclink",
-      email: targetUser?.email || syntheticEmail,
+      email: targetUser.email || syntheticEmail,
       options: {
         redirectTo: REDIRECT_URL,
         data: {
