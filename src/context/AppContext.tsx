@@ -1166,7 +1166,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
           }
           if (!win.ethereum?.request) {
-            addNotification('MetaMask Not Found', 'Open Aura in a browser with MetaMask installed, then try again.', 'community');
+            const dappUrl = encodeURIComponent(window.location.href);
+            window.location.href = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}${window.location.search}`;
+            addNotification('Opening MetaMask', `Open AURA inside MetaMask to approve the connection.`, 'community');
             return;
           }
 
@@ -1205,7 +1207,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
           }
           if (!win.solana?.connect || !win.solana?.signMessage) {
-            addNotification('Phantom Not Found', 'Open Aura in a browser with Phantom installed, then try again.', 'community');
+            const browseUrl = encodeURIComponent(window.location.href);
+            const ref = encodeURIComponent(window.location.origin);
+            window.location.href = `https://phantom.app/ul/browse/${browseUrl}?ref=${ref}`;
+            addNotification('Opening Phantom', 'Open AURA inside Phantom to approve the connection.', 'community');
             return;
           }
 
