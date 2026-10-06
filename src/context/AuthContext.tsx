@@ -20,6 +20,8 @@ interface AuthContextValue {
   updatePassword: (password: string) => Promise<{ error?: string }>;
 }
 
+const AURA_PRODUCTION_URL = 'https://aura-8bom.onrender.com';
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const humanizeAuthError = (message: string) => {
@@ -83,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithTelegram: async () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'custom:telegram',
-        options: { redirectTo: window.location.origin },
+        options: { redirectTo: window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1') ? AURA_PRODUCTION_URL : window.location.origin },
       });
       return error ? { error: humanizeAuthError(error.message) } : {};
     },
@@ -94,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
         options: {
           data: { name: name.trim() },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1') ? AURA_PRODUCTION_URL : window.location.origin,
         },
       });
       if (error) return { error: humanizeAuthError(error.message) };
@@ -103,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     resetPassword: async (email) => {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: window.location.origin,
+        redirectTo: window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1') ? AURA_PRODUCTION_URL : window.location.origin,
       });
       return error ? { error: humanizeAuthError(error.message) } : {};
     },
