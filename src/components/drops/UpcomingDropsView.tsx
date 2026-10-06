@@ -45,13 +45,21 @@ export const UpcomingDropsView: React.FC = () => {
           What Is Coming
         </h2>
         <p className="text-xs text-stone-400 mt-1">
-          Exclusive upcoming generative art, anime drops, and virtual brand streetwear. Set Telegram alerts before minting opens.
+          Published schedules and verified launch details will appear here when they are available from the AURA backend.
         </p>
       </div>
 
       {/* Drops Cards List */}
       <div className="space-y-5 px-1">
-        {upcomingDrops.map((drop) => {
+        {upcomingDrops.length === 0 ? (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-center">
+            <Calendar className="mx-auto h-8 w-8 text-cyan-400/70" />
+            <h3 className="mt-3 font-serif text-xl text-stone-100">No scheduled drops published</h3>
+            <p className="mt-2 text-xs leading-relaxed text-stone-500">
+              AURA will show a drop here only when a real schedule is published by the backend.
+            </p>
+          </div>
+        ) : upcomingDrops.map((drop) => {
           const countdownStr = formatCountdown(drop.mintTimestamp);
 
           return (
