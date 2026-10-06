@@ -444,7 +444,7 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
             onClick={() =>
               addNotification(
                 'Telegram Bot Integration',
-                '@myaura1_bot can be added to your channels for automatic escrow alerts and community art drops.',
+                '@myaura1_bot can be used to open the AURA Mini App when Telegram integration is configured.',
                 'community'
               )
             }
