@@ -80,10 +80,27 @@ Deno.serve(async (req) => {
       if (existingUser.user) targetUser = { id: existingUser.user.id, email: existingUser.user.email };
     }
 
-    // Supabase Admin JS does not expose getUserByEmail. For a returning
-    // Telegram account we resolve through profiles.telegram_user_id above.
-    // A first-time Telegram account is created below; duplicate-email races
-    // are handled by a bounded user-list fallback.
+    // A previous attempt can create the Auth user before profile linking
+    // finishes. generateLink resolves that existing user without scanning
+    // the entire auth.users table.
+    let sessionLink: any = null;
+
+    if (!targetUser) {
+      const existingLink = await admin.auth.admin.generateLink({
+        type: "magiclink",
+        email: syntheticEmail,
+        options: { redirectTo: REDIRECT_URL },
+      });
+
+      if (!existingLink.error && existingLink.data?.user) {
+        targetUser = {
+          id: existingLink.data.user.id,
+          email: existingLink.data.user.email,
+        };
+        sessionLink = existingLink.data;
+      }
+    }
+
     if (!targetUser) {
       const { data: created, error: createError } = await admin.auth.admin.createUser({
         email: syntheticEmail,
@@ -133,28 +150,31 @@ Deno.serve(async (req) => {
       return json({ error: "TELEGRAM_ACCOUNT_SETUP_FAILED" }, 500);
     }
 
-    const { data, error } = await admin.auth.admin.generateLink({
-      type: "magiclink",
-      email: targetUser.email || syntheticEmail,
-      options: {
-        redirectTo: REDIRECT_URL,
-        data: {
-          name,
-          telegram_id: telegramId,
-          ...(username ? { telegram_username: username } : {}),
-          auth_provider: "telegram_miniapp",
+    if (!sessionLink?.properties?.hashed_token) {
+      const { data, error } = await admin.auth.admin.generateLink({
+        type: "magiclink",
+        email: targetUser.email || syntheticEmail,
+        options: {
+          redirectTo: REDIRECT_URL,
+          data: {
+            name,
+            telegram_id: telegramId,
+            ...(username ? { telegram_username: username } : {}),
+            auth_provider: "telegram_miniapp",
+          },
         },
-      },
-    });
+      });
 
-    if (error || !data?.properties?.hashed_token) {
-      console.error("failed to mint Telegram session", error);
-      return json({ error: "TELEGRAM_SESSION_CREATION_FAILED" }, 500);
+      if (error || !data?.properties?.hashed_token) {
+        console.error("failed to mint Telegram session", error);
+        return json({ error: "TELEGRAM_SESSION_CREATION_FAILED" }, 500);
+      }
+      sessionLink = data;
     }
 
     return json({
       ok: true,
-      token_hash: data.properties.hashed_token,
+      token_hash: sessionLink.properties.hashed_token,
       user: { id: telegramId, name, username },
     });
   } catch (error) {
