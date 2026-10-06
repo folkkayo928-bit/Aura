@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
 import { P2POffer } from './types';
 import { Header } from './components/Header';
@@ -36,6 +36,7 @@ import { X } from 'lucide-react';
 
 const TelegramWebAppBridge: React.FC = () => {
   const { setIsTelegramShellMode, setTelegramViewMode, updateUserProfile } = useApp();
+  const { user } = useAuth();
 
   React.useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -49,18 +50,18 @@ const TelegramWebAppBridge: React.FC = () => {
     setIsTelegramShellMode(true);
     setTelegramViewMode('miniapp');
 
-    const user = tg.initDataUnsafe?.user;
-    if (user) {
-      const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+    // Telegram initData is available to the Mini App, but it is not a Supabase
+    // session. Only sync Telegram profile details when the user is already
+    // authenticated with AURA; never turn unverified Telegram initData into an
+    // authenticated account implicitly.
+    const tgUser = tg.initDataUnsafe?.user;
+    if (user && tgUser) {
+      const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ').trim();
       void updateUserProfile({
         ...(fullName ? { name: fullName } : {}),
-        ...(user.username ? { telegramHandle: `@${user.username}` } : {}),
+        ...(tgUser.username ? { telegramHandle: `@${tgUser.username}` } : {}),
       });
     }
-
-    // Telegram initData is available to the Mini App, but Aura does not currently
-    // expose a server-side /api/telegram/auth endpoint. Do not call a missing
-    // endpoint or silently treat an unverified Telegram identity as authenticated.
   // The Telegram SDK object is stable for the lifetime of the Mini App.
   }, []);
 
