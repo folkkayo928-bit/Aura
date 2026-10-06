@@ -83,9 +83,6 @@ export const CollectionHubModal: React.FC<CollectionHubModalProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1">
               <h2 className="text-sm font-bold text-stone-100 truncate">{collection.name}</h2>
-              {collection.verified && (
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 fill-blue-400/20 shrink-0" />
-              )}
             </div>
             <span className="text-[11px] font-mono text-stone-400 block tabular-nums">
               ${(collection.floorPriceUSDT ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -260,11 +257,11 @@ export const CollectionHubModal: React.FC<CollectionHubModalProps> = ({
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
                 <span className="text-stone-500 text-[10px] block">Items in Circulation</span>
-                <span className="font-serif text-base text-stone-100 font-bold">{(collection.itemsCount ?? 0).toLocaleString()}</span>
+                <span className="font-serif text-base text-stone-100 font-bold">{collection.itemsCount > 0 ? collection.itemsCount.toLocaleString() : 'Not reported'}</span>
               </div>
               <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/5">
                 <span className="text-stone-500 text-[10px] block">Patron Holders</span>
-                <span className="font-serif text-base text-stone-100 font-bold">{(collection.ownersCount ?? 0).toLocaleString()}</span>
+                <span className="font-serif text-base text-stone-100 font-bold">{collection.ownersCount > 0 ? collection.ownersCount.toLocaleString() : 'Not reported'}</span>
               </div>
             </div>
           </div>
