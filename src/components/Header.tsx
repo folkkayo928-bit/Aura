@@ -25,7 +25,7 @@ export const Header: React.FC = () => {
           title="P2P Desk"
         >
           <ArrowLeftRight className="w-3 h-3 text-emerald-400" />
-          <span>{activeP2POrder ? 'Escrow' : 'P2P'}</span>
+          <span>{activeP2POrder ? 'P2P Hold' : 'P2P'}</span>
         </button>
 
         <button
