@@ -87,15 +87,18 @@ Deno.serve(async (req) => {
       for (const row of rows) byChain.set(row.chain, row);
     }
 
+    const chains = CHAINS.map((chain) => ({
+      chain,
+      address: byChain.get(chain)?.address || null,
+      address_type: byChain.get(chain)?.address_type || null,
+    }));
     return Response.json({
       ok: true,
+      success: true,
       provider: "aura_hd_wallet",
       custody: "server_side",
-      chains: CHAINS.map((chain) => ({
-        chain,
-        address: byChain.get(chain)?.address || null,
-        address_type: byChain.get(chain)?.address_type || null,
-      })),
+      chains,
+      addresses: Object.fromEntries(chains.map((item) => [item.chain, item.address])),
     });
   } catch (error) {
     console.error("deposit address provisioning failed", error);
