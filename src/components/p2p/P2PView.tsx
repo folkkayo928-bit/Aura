@@ -289,7 +289,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
 
   return (
     <div className="space-y-5 pb-24">
-      {/* Header & Escrow Protection Guarantee */}
+      {/* Header & AURA internal trade controls */}
       <div className="pt-2 px-1">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -310,7 +310,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           </button>
         </div>
 
-        {/* 100% Protection & Safety Fund Guarantee Callout */}
+        {/* Internal trade-control notice */
         <div className="p-4 rounded-3xl bg-gradient-to-r from-[#0d1d17] via-[#101918] to-[#0c1218] border border-emerald-500/30 text-xs text-stone-300 space-y-2 shadow-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
