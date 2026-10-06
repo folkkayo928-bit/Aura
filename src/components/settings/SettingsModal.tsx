@@ -363,15 +363,15 @@ export const SettingsModal: React.FC = () => {
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
                 <div>
-                  <span className="text-xs font-medium text-stone-200 block">Two-Step Transfer Protection</span>
-                  <span className="text-[11px] text-stone-500 block">Extra confirmation for sensitive account actions</span>
+                  <span className="text-xs font-medium text-stone-200 block">Two-Step Protection Preference</span>
+                  <span className="text-[11px] text-stone-500 block">Stored as an account preference; extra confirmation is not yet enforced on transfers.</span>
                 </div>
                 <input type="checkbox" checked={twoFactorEnabled} onChange={(e) => setTwoFactorEnabled(e.target.checked)} className="w-4 h-4 accent-amber-400" />
               </div>
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
                 <div>
-                  <span className="text-xs font-medium text-stone-200 block">Biometric Unlock</span>
-                  <span className="text-[11px] text-stone-500 block">Use your device biometric prompt when supported</span>
+                  <span className="text-xs font-medium text-stone-200 block">Biometric Preference</span>
+                  <span className="text-[11px] text-stone-500 block">Stored as an account preference; biometric sign-in is not yet enforced by the current web app.</span>
                 </div>
                 <input type="checkbox" checked={biometricAuth} onChange={(e) => setBiometricAuth(e.target.checked)} className="w-4 h-4 accent-amber-400" />
               </div>
@@ -405,8 +405,8 @@ export const SettingsModal: React.FC = () => {
 
             <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
               <div>
-                <span className="text-xs font-medium text-stone-200 block">Telegram Bot In-Chat Alerts</span>
-                <span className="text-[11px] text-stone-500 block">Real-time alerts directly in Telegram chat</span>
+                <span className="text-xs font-medium text-stone-200 block">Telegram Alerts Preference</span>
+                <span className="text-[11px] text-stone-500 block">Stored as an account preference; real-time alert delivery is not yet connected to every event.</span>
               </div>
               <input
                 type="checkbox"
