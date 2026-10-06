@@ -308,9 +308,6 @@ export const TelegramBotProfileView: React.FC<TelegramBotProfileViewProps> = ({ 
             <h1 className="text-xl font-bold tracking-tight text-white">
               AURA Vault
             </h1>
-            <div className="w-4 h-4 rounded-full bg-[#2481cc] flex items-center justify-center text-white" title="Verified Bot">
-              <Check className="w-2.5 h-2.5 stroke-[3]" />
-            </div>
           </div>
 
           {/* Monthly Users Counter */}
