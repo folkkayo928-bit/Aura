@@ -50,7 +50,7 @@ export const TelegramBotChatView: React.FC<TelegramBotChatViewProps> = ({ onOpen
 
 🆓 Open the Free24 Box every day and win rare digital art gifts!
 🚀 Play Rocket Mode for big wins & certified rare drops
-⚔️ Trade on Certified P2P with 100% smart contract escrow
+⚔️ Trade through the live AURA P2P desk
 🎁 Open cases, mint photos, and collect 1 of 1 editions
 💳 Custom Payment Rails: Alex's Wire, Revolut, Zelle, PayPal
 🏆 Climb the collector leaderboard and win valuable TON prizes
@@ -90,7 +90,7 @@ export const TelegramBotChatView: React.FC<TelegramBotChatViewProps> = ({ onOpen
         text: `🎉 Welcome back to AURA Vault!
 
 Your Web3 TON Vault is active with $${walletBalance.toFixed(2)} USDT liquid test funds.
-Certified P2P Escrow order book is open.
+The AURA P2P order book is available in the Mini App.
 Tap below to launch into the mini app!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         showInlineStartButton: true,
@@ -133,7 +133,7 @@ Tap below to launch into the mini app!`,
       const botMsg = {
         id: (Date.now() + 1).toString(),
         sender: 'bot' as const,
-        text: `I received your command "${trimmed}". AURA Mini App is fully loaded with live marketplace items, certified P2P escrow trading, and instant liquidity conversion. Tap "🚀 Start" to enter!`,
+        text: `I received your command "${trimmed}". Open the AURA Mini App for live account, marketplace, wallet, and P2P features. Tap "🚀 Start" to enter!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         showInlineStartButton: true,
       };
@@ -172,7 +172,7 @@ Tap below to launch into the mini app!`,
                 </div>
               </div>
               <span className="text-[10px] text-stone-400 block font-normal">
-                919,442 monthly users
+                User count not reported
               </span>
             </div>
           </div>
@@ -207,7 +207,7 @@ Tap below to launch into the mini app!`,
         <div className="flex items-center justify-center gap-1.5 text-[11px] text-stone-400 bg-white/[0.03] border border-white/5 py-1.5 px-3 rounded-2xl mx-auto text-center">
           <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span>
-            This bot was verified by the organization "The Open Network".
+            Telegram verification status is not reported by AURA.
           </span>
         </div>
 
@@ -243,7 +243,7 @@ Tap below to launch into the mini app!`,
                 AURA DIGITAL VAULT
               </div>
               <span className="text-[10px] text-stone-300 font-mono bg-black/60 px-2 py-0.5 rounded-full border border-white/10">
-                Certified P2P · $250,000 Escrow Protection
+                AURA P2P · Internal ledger hold
               </span>
             </div>
 
@@ -263,7 +263,7 @@ Tap below to launch into the mini app!`,
               Open the Free24 Box every day and win gifts for free!
             </p>
             <p className="text-xs text-stone-400 leading-relaxed font-normal">
-              Play Rocket, battle in PvP, upgrade or combine items, open cases, climb the leaderboard, and win valuable Telegram Gifts and USDT cashout.
+              Use AURA to create, collect, and trade digital art through the connected backend.
             </p>
           </div>
         </div>
@@ -337,7 +337,7 @@ Tap below to launch into the mini app!`,
             onClick={() =>
               addNotification(
                 'Telegram Community',
-                'Joining official AURA Telegram Group with 42,800 active collectors...',
+                'Opening AURA Telegram community link when configured...',
                 'community'
               )
             }
@@ -354,7 +354,7 @@ Tap below to launch into the mini app!`,
             onClick={() =>
               addNotification(
                 'VIP Support Concierge',
-                'Connecting to verified Telegram Support specialist @aurasupport...',
+                'Telegram support connection is not configured in this preview...',
                 'community'
               )
             }
@@ -417,7 +417,7 @@ Tap below to launch into the mini app!`,
               onClick={() =>
                 addNotification(
                   'Voice Note',
-                  'Recording voice message for AURA Telegram Concierge...',
+                  'Voice messaging is not connected to the AURA backend in this preview...',
                   'community'
                 )
               }
