@@ -164,26 +164,35 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
-    const newMsg: P2PChatMessage = {
-      id: `chat-${Date.now()}`,
-      sender: activeP2POrder?.sellerId === user?.id ? 'merchant' : 'buyer',
-      senderName: 'You',
-      text: chatInput.trim(),
-      timestamp: 'Just now',
-    };
-    setMessages((prev) => [...prev, newMsg]);
-    setChatInput('');
-    if (user && activeP2POrder) {
-      void supabase.from('p2p_messages').insert({
+    const textValue = chatInput.trim();
+    if (!textValue || !user || !activeP2POrder) return;
+
+    const { data, error } = await supabase
+      .from('p2p_messages')
+      .insert({
         order_id: activeP2POrder.id,
         sender_id: user.id,
         sender_role: user.id === activeP2POrder.sellerId ? 'seller' : 'buyer',
-        text: chatInput.trim(),
-      });
+        text: textValue,
+      })
+      .select('id,text,created_at,sender_id,sender_role,sender:sender_id(display_name,handle)')
+      .single();
+
+    if (error || !data) {
+      alert(error?.message || 'Could not send the message.');
+      return;
     }
+
+    setMessages((prev) => [...prev, {
+      id: data.id,
+      sender: data.sender_role === 'seller' ? 'merchant' : 'buyer',
+      senderName: data.sender?.display_name || data.sender?.handle || 'You',
+      text: data.text,
+      timestamp: new Date(data.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }]);
+    setChatInput('');
   };
 
   const minutes = Math.floor(timeLeftSeconds / 60);
