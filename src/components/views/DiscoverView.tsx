@@ -43,30 +43,22 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
     return matchesCategory && matchesSearch;
   });
 
-  // Featured Curators list
-  const featuredCurators = [
-    {
-      name: 'Elena Rostova',
-      handle: '@erostova',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-      focus: 'Obsidian & Glass Dynamics',
-      works: 28,
-    },
-    {
-      name: 'Kai Takahashi',
-      handle: '@takahashikai',
-      avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&auto=format&fit=crop&q=80',
-      focus: 'Cellular Automata & Flora',
-      works: 19,
-    },
-    {
-      name: 'Vesper Hale',
-      handle: '@vesperhale',
-      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80',
-      focus: 'Volumetric Brutalism',
-      works: 14,
-    },
-  ];
+  const spotlightCurators = React.useMemo(() => {
+    const byCreator = new Map<string, { id: string; name: string; handle: string; avatar: string; works: number }>();
+    for (const artwork of artworks) {
+      const key = artwork.creator.id || artwork.creator.handle;
+      const existing = byCreator.get(key);
+      if (existing) existing.works += 1;
+      else byCreator.set(key, {
+        id: key,
+        name: artwork.creator.name,
+        handle: artwork.creator.handle,
+        avatar: artwork.creator.avatar,
+        works: 1,
+      });
+    }
+    return Array.from(byCreator.values()).sort((a, b) => b.works - a.works).slice(0, 3);
+  }, [artworks]);
 
   return (
     <div className="space-y-6 pb-24">
@@ -107,7 +99,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
         <div className="flex items-center justify-between text-xs px-1">
           <span className="font-mono text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
             <ShoppingBag className="w-3.5 h-3.5 text-blue-400" />
-            Verified Collections & Hubs
+            Collections & Hubs
           </span>
           <span className="text-stone-400 font-mono text-[11px]">Photo Hub</span>
         </div>
@@ -133,7 +125,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
                     )}
                   </div>
                   <span className="text-[11px] text-stone-400 font-mono block">
-                    {(col.itemsCount ?? 0).toLocaleString()} items · {(col.ownersCount ?? 0).toLocaleString()} owners
+                    {col.itemsCount > 0 ? `${col.itemsCount.toLocaleString()} items` : 'Items not reported'} · {col.ownersCount > 0 ? `${col.ownersCount.toLocaleString()} owners` : 'Owners not reported'}
                   </span>
                 </div>
               </div>
@@ -142,7 +134,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
                 <div className="text-right">
                   <span className="text-[10px] text-stone-500 font-mono block">Floor</span>
                   <span className="font-serif font-bold text-xs text-stone-200 tabular-nums">
-                    ${(col.floorPriceUSDT ?? 0).toLocaleString()}
+                    {col.floorPriceUSDT > 0 ? `${col.floorPriceUSDT.toLocaleString()}` : 'Not reported'}
                   </span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-stone-500 group-hover:text-blue-400 transition-colors" />
@@ -163,9 +155,9 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          {featuredCurators.map((c, i) => (
+          {spotlightCurators.map((c) => (
             <div
-              key={i}
+              key={c.id}
               className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/15 transition-all text-center flex flex-col items-center group cursor-pointer"
             >
               <img
@@ -181,7 +173,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
                 {c.handle}
               </span>
               <span className="text-[10px] text-amber-400/80 font-mono mt-1">
-                {c.works} Works
+                {c.works} Live Works
               </span>
             </div>
           ))}
