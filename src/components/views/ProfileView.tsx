@@ -104,7 +104,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-serif text-3xl text-stone-50 leading-none">{userProfile.name}</h2>
                 <span className="text-[9px] font-mono uppercase tracking-wider text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-1 rounded-full">Curator</span>
-                <span className="text-[9px] font-mono uppercase tracking-wider text-cyan-300 bg-cyan-400/10 border border-cyan-400/20 px-2 py-1 rounded-full">Verified</span>
               </div>
               <span className="text-xs text-stone-500 font-mono block mt-1">{userProfile.telegramHandle}</span>
               <p className="text-sm text-stone-300 mt-3 leading-6 max-w-xl">{userProfile.bio}</p>
@@ -168,7 +167,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
             <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300"><Trophy className="w-3.5 h-3.5" /> AURA reputation</div>
             <p className="mt-1 text-xs text-stone-500">A transparent signal built from your AURA activity.</p>
           </div>
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-mono text-emerald-300">Verified</span>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Award className="mx-auto h-4 w-4 text-amber-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{ownedArtworks.length + connectedWallets.length}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Signals</div></div>
