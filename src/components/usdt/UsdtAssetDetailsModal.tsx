@@ -196,7 +196,7 @@ export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ is
           </div>
         </div>
 
-        {/* Protection & Legitimacy Guarantee */}
+        {/* Wallet Security Flow */}
         <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-400 leading-relaxed mb-5">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
           <span>
