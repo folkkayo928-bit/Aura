@@ -273,20 +273,26 @@ const backendCollectionToUi = (row: any): NFTCollection => ({
   telegramUrl: row.telegram_url || undefined,
 });
 
-const backendMerchantToUi = (row: any): P2PMerchant => ({
-  id: row?.id || '',
-  name: row?.display_name || 'AURA Member',
-  legalName: row?.display_name || 'AURA Member',
-  avatar: row?.avatar_url || '',
-  ordersCompleted: Number(row?.p2p_stats?.completed_orders || 0),
-  completionRate: Number(row?.p2p_stats?.completion_rate || 0),
-  avgReleaseTimeMinutes: Number(row?.p2p_stats?.avg_release_minutes || 0),
-  verifiedMerchant: Boolean(row?.p2p_stats?.verified_merchant),
-  kycVerified: Boolean(row?.p2p_stats?.kyc_verified),
-  depositBondUSDT: Number(row?.p2p_stats?.deposit_bond_usdt || 0),
-  telegramHandle: row?.handle || '',
-  positiveFeedbackPercent: Number(row?.p2p_stats?.positive_feedback_percent || 0),
-});
+const backendMerchantToUi = (row: any): P2PMerchant => {
+  const stats = row?.p2p_stats;
+  const completed = Number(stats?.completed_orders || 0);
+  const cancelled = Number(stats?.cancelled_orders || 0);
+  const total = completed + cancelled;
+  return {
+    id: row?.id || '',
+    name: row?.display_name || 'AURA Member',
+    legalName: row?.display_name || 'AURA Member',
+    avatar: row?.avatar_url || '',
+    ordersCompleted: completed,
+    completionRate: total > 0 ? (completed / total) * 100 : 0,
+    avgReleaseTimeMinutes: 0,
+    verifiedMerchant: false,
+    kycVerified: false,
+    depositBondUSDT: 0,
+    telegramHandle: row?.handle || '',
+    positiveFeedbackPercent: 0,
+  };
+};
 
 const backendP2POfferToUi = (row: any): P2POffer => ({
   id: row.id,
