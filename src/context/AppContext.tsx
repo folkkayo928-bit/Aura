@@ -186,6 +186,7 @@ const mapLedgerToTransaction = (row: any): Transaction => {
   else if (kind.includes('p2p_sell')) type = 'p2p_sell';
   const rawStatus = String(row.status || row.transaction_status || '').toLowerCase();
   const status: Transaction['status'] =
+    kind === 'withdrawal_reserve' || kind === 'p2p_escrow_lock' ||
     rawStatus === 'pending' || rawStatus === 'processing' ? 'pending' :
     rawStatus === 'failed' || rawStatus === 'rejected' || rawStatus === 'cancelled' ? 'failed' :
     'confirmed';
