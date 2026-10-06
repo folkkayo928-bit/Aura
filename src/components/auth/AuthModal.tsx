@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, KeyRound, Loader2, Mail, ShieldCheck, UserRound, X } from 'lucide-react';
+import { ArrowRight, CheckCircle2, KeyRound, Loader2, Mail, Send, ShieldCheck, UserRound, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const AuthModal: React.FC = () => {
-  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signUp, resetPassword, updatePassword } = useAuth();
+  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signInWithTelegram, signUp, resetPassword, updatePassword } = useAuth();
   const [mode, setMode] = useState(authMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,6 +20,18 @@ export const AuthModal: React.FC = () => {
   }, [authMode, authModalOpen]);
 
   if (!authModalOpen) return null;
+
+  const continueWithTelegram = async () => {
+    setError('');
+    setMessage('');
+    setSubmitting(true);
+    try {
+      const result = await signInWithTelegram();
+      if (result.error) setError(result.error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -88,6 +100,24 @@ export const AuthModal: React.FC = () => {
         </div>
 
         <form onSubmit={submit} className="relative space-y-4 p-6">
+          {mode !== 'forgot' && mode !== 'reset' && (
+            <>
+              <button
+                type="button"
+                onClick={continueWithTelegram}
+                disabled={submitting}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-400/10 py-3.5 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/15 disabled:opacity-50"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Continue with Telegram
+              </button>
+              <div className="flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-stone-600">or email</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+            </>
+          )}
           {mode === 'signup' && (
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-medium text-stone-400">Display name</span>
