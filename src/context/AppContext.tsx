@@ -1166,7 +1166,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
           }
           if (!win.ethereum?.request) {
-            const dappUrl = encodeURIComponent(window.location.href);
             window.location.href = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}${window.location.search}`;
             addNotification('Opening MetaMask', `Open AURA inside MetaMask to approve the connection.`, 'community');
             return;
