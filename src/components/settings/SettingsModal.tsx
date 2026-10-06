@@ -229,17 +229,7 @@ export const SettingsModal: React.FC = () => {
             {connectWalletPickerOpen && (
               <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-amber-400/30 space-y-2 animate-in fade-in-50">
                 <span className="text-[11px] text-amber-300 font-semibold block">Select Web3 Provider to Connect</span>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => {
-                      connectExternalWallet('Tonkeeper', 'ton');
-                      setConnectWalletPickerOpen(false);
-                    }}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 text-center transition-colors"
-                  >
-                    <span className="text-xs font-semibold block text-stone-200">Tonkeeper</span>
-                    <span className="text-[9px] text-cyan-300 font-mono">TON Network</span>
-                  </button>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => {
                       connectExternalWallet('MetaMask', 'polygon');
@@ -267,7 +257,7 @@ export const SettingsModal: React.FC = () => {
             <div className="space-y-2">
               {connectedWallets.length === 0 ? (
                 <div className="p-6 text-center rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-500">
-                  No external Web3 wallets linked yet. Click "+ Link Wallet" above to connect Tonkeeper, MetaMask, or Phantom.
+                  No external Web3 wallets linked yet. Click "+ Link Wallet" above to connect MetaMask or Phantom.
                 </div>
               ) : (
                 connectedWallets.map((wallet) => (
