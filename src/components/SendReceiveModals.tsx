@@ -265,10 +265,17 @@ export const ReceiveModal: React.FC = () => {
             : (data?.error || error?.message || 'Could not load an AURA deposit address.'),
         );
       } else {
+        const fromLegacyShape = data.addresses || {};
+        const fromCurrentShape = Object.fromEntries(
+          (Array.isArray(data.chains) ? data.chains : [])
+            .filter((item: any) => item?.chain)
+            .map((item: any) => [item.chain, item.address || '']),
+        );
+        const addresses = Object.keys(fromLegacyShape).length ? fromLegacyShape : fromCurrentShape;
         setDepositAddresses({
-          ethereum: data.addresses?.ethereum || '',
-          polygon: data.addresses?.polygon || '',
-          arbitrum: data.addresses?.arbitrum || '',
+          ethereum: addresses.ethereum || '',
+          polygon: addresses.polygon || '',
+          arbitrum: addresses.arbitrum || '',
         });
       }
       setDepositLoading(false);
