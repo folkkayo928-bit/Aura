@@ -36,6 +36,7 @@ export const WalletView: React.FC = () => {
     activeP2POrder,
     userProfile,
     requestWalletWithdrawal,
+    connectExternalWallet,
   } = useApp();
 
 
@@ -296,10 +297,29 @@ export const WalletView: React.FC = () => {
           </button>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => connectExternalWallet('MetaMask', 'polygon')}
+            className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-3 text-left hover:bg-amber-400/10 transition-colors"
+          >
+            <div className="text-xs font-semibold text-stone-100">MetaMask</div>
+            <div className="mt-1 text-[10px] font-mono text-amber-300">Polygon / EVM</div>
+            <div className="mt-2 text-[10px] text-stone-500">Connect or open MetaMask</div>
+          </button>
+          <button
+            onClick={() => connectExternalWallet('Phantom', 'solana')}
+            className="rounded-2xl border border-purple-400/20 bg-purple-400/[0.05] p-3 text-left hover:bg-purple-400/10 transition-colors"
+          >
+            <div className="text-xs font-semibold text-stone-100">Phantom</div>
+            <div className="mt-1 text-[10px] font-mono text-purple-300">Solana</div>
+            <div className="mt-2 text-[10px] text-stone-500">Connect or open Phantom</div>
+          </button>
+        </div>
+
         <div className="space-y-2">
           {connectedWallets.length === 0 ? (
             <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-500 text-center">
-              No external wallet connected. You can link Tonkeeper or MetaMask in Settings.
+              No external wallet connected. Use MetaMask or Phantom above, or manage verified wallets in Settings.
             </div>
           ) : (
             connectedWallets.map((w) => (
