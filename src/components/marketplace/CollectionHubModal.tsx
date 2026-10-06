@@ -304,25 +304,11 @@ export const CollectionHubModal: React.FC<CollectionHubModalProps> = ({
 
         {/* TAB 4: ACTIVITY */}
         {activeTab === 'activity' && (
-          <div className="space-y-2 p-2">
-            {[
-              { type: 'Sale', item: `${collection.name} #8781`, price: '$1,752.03', from: '0x8b3...1a', to: 'Julian Vance', time: '12m ago' },
-              { type: 'Transfer', item: `${collection.name} #6145`, price: '$1,764.59', from: 'Azuki Vault', to: 'WhaleVault', time: '45m ago' },
-              { type: 'Bid', item: `${collection.name} #9257`, price: '$1,700.00', from: 'Kenji_X', to: '-', time: '2h ago' },
-            ].map((act, i) => (
-              <div key={i} className="p-3 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-bold text-stone-200 block">{act.item}</span>
-                  <span className="text-[10px] text-stone-500 font-mono">{act.type} · {act.from} → {act.to}</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-serif text-sm font-bold text-emerald-400">{act.price}</span>
-                  <span className="text-[10px] text-stone-500 block font-mono">{act.time}</span>
-                </div>
-              </div>
-            ))}
+          <div className="p-4 rounded-3xl bg-[#12121a] border border-white/5 text-xs text-stone-400">
+            <div className="font-mono text-stone-300 uppercase tracking-widest text-[10px] mb-2">Live Activity</div>
+            <p>Live collection activity is not reported by the current backend feed.</p>
           </div>
-        )}
+        )
 
         {/* TAB 5: ANALYTICS */}
         {activeTab === 'analytics' && (
@@ -331,11 +317,11 @@ export const CollectionHubModal: React.FC<CollectionHubModalProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <span className="text-stone-500 block text-[10px]">Floor Price</span>
-                <span className="font-serif text-2xl text-stone-100 font-bold">${(collection.floorPriceUSDT ?? 0).toLocaleString()}</span>
+                <span className="font-serif text-2xl text-stone-100 font-bold">{collection.floorPriceUSDT > 0 ? `${collection.floorPriceUSDT.toLocaleString()}` : 'Not reported'}</span>
               </div>
               <div>
                 <span className="text-stone-500 block text-[10px]">24h Volume</span>
-                <span className="font-serif text-2xl text-emerald-400 font-bold">${(collection.totalVolumeUSDT ?? 0).toLocaleString()}</span>
+                <span className="font-serif text-2xl text-emerald-400 font-bold">{collection.totalVolumeUSDT > 0 ? `${collection.totalVolumeUSDT.toLocaleString()}` : 'Not reported'}</span>
               </div>
             </div>
           </div>
