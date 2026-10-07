@@ -64,10 +64,12 @@ Deno.serve(async (req) => {
   const xprv = Deno.env.get("AURA_EVM_DEPOSIT_XPRV") || "";
   if (!xprv) {
     return json({
-      ok: false,
-      error: "DEPOSIT_SWEEP_CUSTODY_NOT_CONFIGURED",
-      message: "Set the server-only EVM deposit extended private key before enabling automatic sweeps.",
-    }, 503);
+      ok: true,
+      ready: false,
+      skipped: true,
+      reason: "DEPOSIT_SWEEP_CUSTODY_NOT_CONFIGURED",
+      message: "Automatic sweeps are installed and scheduled, but remain idle until server-only EVM custody is configured.",
+    });
   }
 
   const summaries: Array<Record<string, unknown>> = [];
