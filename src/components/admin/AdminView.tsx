@@ -28,7 +28,7 @@ const money = (n: any) => Number(n || 0).toLocaleString(undefined, { minimumFrac
 export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { user } = useAuth();
   const [role, setRole] = useState<'operator' | 'finance' | 'owner'>('operator');
-  const [tab, setTab] = useState<'overview' | 'wallets' | 'withdrawals' | 'drops' | 'health'>('overview');
+  const [tab, setTab] = useState<'overview' | 'wallets' | 'withdrawals' | 'drops' | 'p2p' | 'health'>('overview');
   const [dashboard, setDashboard] = useState<Dashboard>({});
   const [wallets, setWallets] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
