@@ -83,6 +83,7 @@ export interface Artwork {
 
 export interface NFTCollection {
   id: string;
+  creatorId?: string;
   name: string;
   slug: string;
   avatar: string;

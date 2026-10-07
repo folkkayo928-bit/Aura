@@ -77,6 +77,9 @@ interface AppContextType {
   toggleSave: (artworkId: string) => void;
   toggleWatchlist: (artworkId: string) => void;
   toggleCollectionWatchlist: (collectionId: string) => void;
+  createCollection: (params: { name: string; slug?: string; avatarUrl?: string; bannerUrl?: string; description?: string; category?: ArtworkCategory; websiteUrl?: string; telegramUrl?: string; discordUrl?: string }) => Promise<boolean>;
+  updateCollection: (collectionId: string, params: { name: string; slug: string; avatarUrl?: string; bannerUrl?: string; description?: string; category?: ArtworkCategory; websiteUrl?: string; telegramUrl?: string; discordUrl?: string }) => Promise<boolean>;
+  deleteCollection: (collectionId: string) => Promise<boolean>;
   toggleDropReminder: (dropId: string) => void;
   addComment: (artworkId: string, text: string) => void;
   collectArtwork: (artwork: Artwork) => Promise<boolean>;
@@ -260,6 +263,7 @@ const backendCollectionToUi = (
   metrics?: { floorPriceUSDT?: number; itemsCount?: number; ownersCount?: number; totalVolumeUSDT?: number },
 ): NFTCollection => ({
   id: row.id,
+  creatorId: row.creator_id || row.creator?.id || undefined,
   name: row.name || 'AURA Collection',
   slug: row.slug || row.id,
   avatar: row.avatar_url || row.creator?.avatar_url || '',
@@ -796,6 +800,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'community'
       );
     })();
+  };
+
+  const createCollection = async (params: { name: string; slug?: string; avatarUrl?: string; bannerUrl?: string; description?: string; category?: ArtworkCategory; websiteUrl?: string; telegramUrl?: string; discordUrl?: string }): Promise<boolean> => {
+    if (!user) { openAuth('signin'); return false; }
+    const { data, error } = await supabase.rpc('create_my_collection', {
+      p_name: params.name.trim(),
+      p_slug: params.slug?.trim() || null,
+      p_avatar_url: params.avatarUrl?.trim() || null,
+      p_banner_url: params.bannerUrl?.trim() || null,
+      p_description: params.description?.trim() || '',
+      p_category: params.category || 'generative',
+      p_website_url: params.websiteUrl?.trim() || null,
+      p_telegram_url: params.telegramUrl?.trim() || null,
+      p_discord_url: params.discordUrl?.trim() || null,
+    });
+    if (error || !data) {
+      addNotification('Collection Failed', error?.message || 'Could not create your collection.', 'community');
+      return false;
+    }
+    const collection = backendCollectionToUi(data);
+    setCollections(prev => [collection, ...prev.filter(item => item.id !== collection.id)]);
+    addNotification('Collection Created', `“${collection.name}” is now part of your creator profile.`, 'community');
+    return true;
+  };
+
+  const updateCollection = async (collectionId: string, params: { name: string; slug: string; avatarUrl?: string; bannerUrl?: string; description?: string; category?: ArtworkCategory; websiteUrl?: string; telegramUrl?: string; discordUrl?: string }): Promise<boolean> => {
+    if (!user) { openAuth('signin'); return false; }
+    const existing = collections.find(item => item.id === collectionId);
+    const { data, error } = await supabase.rpc('update_my_collection', {
+      p_collection_id: collectionId,
+      p_name: params.name.trim(),
+      p_slug: params.slug.trim(),
+      p_avatar_url: params.avatarUrl?.trim() || null,
+      p_banner_url: params.bannerUrl?.trim() || null,
+      p_description: params.description?.trim() || '',
+      p_category: params.category || 'generative',
+      p_website_url: params.websiteUrl?.trim() || null,
+      p_telegram_url: params.telegramUrl?.trim() || null,
+      p_discord_url: params.discordUrl?.trim() || null,
+    });
+    if (error || !data) {
+      addNotification('Collection Update Failed', error?.message || 'Could not update your collection.', 'community');
+      return false;
+    }
+    const collection = backendCollectionToUi(data, existing ? {
+      floorPriceUSDT: existing.floorPriceUSDT,
+      totalVolumeUSDT: existing.totalVolumeUSDT,
+      itemsCount: existing.itemsCount,
+      ownersCount: existing.ownersCount,
+    } : undefined);
+    setCollections(prev => prev.map(item => item.id === collectionId ? { ...item, ...collection, isWatched: item.isWatched } : item));
+    addNotification('Collection Updated', `“${collection.name}” was updated.`, 'community');
+    return true;
+  };
+
+  const deleteCollection = async (collectionId: string): Promise<boolean> => {
+    if (!user) { openAuth('signin'); return false; }
+    const existing = collections.find(item => item.id === collectionId);
+    const { error } = await supabase.rpc('delete_my_collection', { p_collection_id: collectionId });
+    if (error) {
+      addNotification('Collection Delete Failed', error.message || 'Could not delete your collection.', 'community');
+      return false;
+    }
+    setCollections(prev => prev.filter(item => item.id !== collectionId));
+    if (selectedCollection?.id === collectionId) setSelectedCollection(null);
+    addNotification('Collection Deleted', existing ? `“${existing.name}” was deleted.` : 'Collection deleted.', 'community');
+    return true;
   };
 
   const toggleDropReminder = (dropId: string) => {
@@ -1608,6 +1679,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleSave,
         toggleWatchlist,
         toggleCollectionWatchlist,
+        createCollection,
+        updateCollection,
+        deleteCollection,
         toggleDropReminder,
         addComment,
         collectArtwork,

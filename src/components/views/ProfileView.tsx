@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Artwork } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { Artwork, NFTCollection } from '../../types';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import {
   ShieldCheck,
@@ -32,6 +33,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
   const {
     userProfile,
     artworks,
+    collections,
+    createCollection,
+    updateCollection,
+    deleteCollection,
     setConvertModalArtwork,
     setSellArtworkP2PModal,
     setActiveTab,
@@ -40,11 +45,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
     connectedWallets,
     transactions,
   } = useApp();
+  const { user } = useAuth();
   const [selectedCertArtwork, setSelectedCertArtwork] = useState<Artwork | null>(null);
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [profileMode, setProfileMode] = useState<'private' | 'public'>('private');
-  const [profileSection, setProfileSection] = useState<'collection' | 'created' | 'activity'>('collection');
+  const [profileSection, setProfileSection] = useState<'collection' | 'created' | 'collections' | 'activity'>('collection');
+  const [collectionModalOpen, setCollectionModalOpen] = useState(false);
+  const [editingCollection, setEditingCollection] = useState<NFTCollection | null>(null);
+  const [collectionForm, setCollectionForm] = useState({ name: '', slug: '', description: '', category: 'generative' as NFTCollection['category'], avatarUrl: '', bannerUrl: '', websiteUrl: '', telegramUrl: '', discordUrl: '' });
+
+  const creatorCollections = collections.filter((collection) => collection.creatorId === user?.id);
 
   const ownedArtworks = artworks.filter((a) => a.isOwned);
 
@@ -177,11 +188,47 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
       {/* PROFILE CONTENT TABS */}
       <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.02] p-1">
-        {[['collection', 'Collection'], ['created', 'Created'], ['activity', 'Activity']].map(([id, label]) => (
+        {[['collection', 'Collection'], ['created', 'Created'], ['collections', 'Collections'], ['activity', 'Activity']].map(([id, label]) => (
           <button key={id} onClick={() => setProfileSection(id as typeof profileSection)} className={profileSection === id ? 'flex-1 rounded-xl bg-white/10 py-2.5 text-[10px] font-semibold text-stone-100' : 'flex-1 rounded-xl py-2.5 text-[10px] text-stone-500'}>{label}</button>
         ))}
       </div>
       {profileMode === 'public' && <div className="rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.04] px-4 py-3 text-xs text-stone-400"><span className="font-semibold text-cyan-300">Public preview.</span> Private vault performance, connected wallets and security controls are hidden.</div>}
+
+      {profileSection === 'collections' && (
+        <div className="space-y-4 px-1">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-cyan-300">Creator collections</div>
+              <p className="mt-1 text-xs text-stone-500">Build, edit and organize public collection hubs without changing ownership records.</p>
+            </div>
+            {profileMode === 'private' && <button onClick={() => { setEditingCollection(null); setCollectionForm({ name: '', slug: '', description: '', category: 'generative', avatarUrl: '', bannerUrl: '', websiteUrl: '', telegramUrl: '', discordUrl: '' }); setCollectionModalOpen(true); }} className="shrink-0 rounded-xl bg-amber-400 px-3 py-2 text-[10px] font-bold text-stone-950">New collection</button>}
+          </div>
+
+          {creatorCollections.length === 0 ? (
+            <div className="rounded-3xl border border-white/5 bg-white/[0.02] p-8 text-center">
+              <Sparkles className="mx-auto h-8 w-8 text-stone-600" />
+              <p className="mt-3 text-xs text-stone-500">You have not created a standalone collection yet.</p>
+              {profileMode === 'private' && <button onClick={() => { setEditingCollection(null); setCollectionForm({ name: '', slug: '', description: '', category: 'generative', avatarUrl: '', bannerUrl: '', websiteUrl: '', telegramUrl: '', discordUrl: '' }); setCollectionModalOpen(true); }} className="mt-4 rounded-xl bg-white/10 px-4 py-2.5 text-xs font-semibold text-stone-200">Create one</button>}
+            </div>
+          ) : creatorCollections.map((collection) => (
+            <div key={collection.id} className="overflow-hidden rounded-3xl border border-white/10 bg-[#111118]">
+              <div className="relative h-28 bg-black">
+                {collection.banner && <img src={collection.banner} alt="" className="h-full w-full object-cover opacity-80" />}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111118] via-transparent to-black/20" />
+                <div className="absolute bottom-3 left-4 flex items-center gap-3">
+                  <div className="h-12 w-12 overflow-hidden rounded-2xl border-2 border-[#111118] bg-[#1b1b25]">{collection.avatar ? <img src={collection.avatar} alt="" className="h-full w-full object-cover" /> : null}</div>
+                  <div><div className="font-serif text-lg text-stone-100">{collection.name}</div><div className="text-[9px] uppercase tracking-widest text-stone-500">/{collection.slug}</div></div>
+                </div>
+              </div>
+              <div className="p-4">
+                <p className="text-xs leading-relaxed text-stone-400">{collection.description || 'No collection description yet.'}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-stone-500"><div className="rounded-xl bg-white/[0.03] p-2">Items <b className="float-right text-stone-200">{collection.itemsCount}</b></div><div className="rounded-xl bg-white/[0.03] p-2">Holders <b className="float-right text-stone-200">{collection.ownersCount}</b></div></div>
+                {profileMode === 'private' && <div className="mt-3 flex gap-2"><button onClick={() => { setEditingCollection(collection); setCollectionForm({ name: collection.name, slug: collection.slug, description: collection.description, category: collection.category, avatarUrl: collection.avatar, bannerUrl: collection.banner, websiteUrl: collection.websiteUrl || '', telegramUrl: collection.telegramUrl || '', discordUrl: collection.discordUrl || '' }); setCollectionModalOpen(true); }} className="flex-1 rounded-xl border border-white/10 px-3 py-2 text-[10px] text-stone-200">Edit</button><button onClick={async () => { if (window.confirm(`Delete “${collection.name}”? This does not delete your artwork.`)) await deleteCollection(collection.id); }} className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[10px] text-rose-300">Delete</button></div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* OWNED COLLECTION GALLERY */}
       <div className="space-y-4 px-1">
@@ -255,6 +302,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
             )}
           </div>
         )}
+      {collectionModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-3">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-[#15151d] p-5 shadow-2xl">
+            <div className="flex items-center justify-between"><div><div className="font-serif text-xl text-stone-100">{editingCollection ? 'Edit collection' : 'Create collection'}</div><div className="mt-1 text-[10px] text-stone-500">Verified status is controlled by AURA operations.</div></div><button onClick={() => setCollectionModalOpen(false)}><X className="text-stone-400" /></button></div>
+            <div className="mt-4 space-y-3">
+              <input value={collectionForm.name} onChange={e => setCollectionForm(v => ({ ...v, name: e.target.value }))} placeholder="Collection name" className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" />
+              <input value={collectionForm.slug} onChange={e => setCollectionForm(v => ({ ...v, slug: e.target.value }))} placeholder="Slug" className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" />
+              <textarea value={collectionForm.description} onChange={e => setCollectionForm(v => ({ ...v, description: e.target.value }))} placeholder="Description" rows={4} className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" />
+              <select value={collectionForm.category} onChange={e => setCollectionForm(v => ({ ...v, category: e.target.value as NFTCollection['category'] }))} className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100"><option value="generative">Generative</option><option value="sculpture">Sculpture</option><option value="minimalist">Minimalist</option><option value="kinetic">Kinetic</option><option value="botanical">Botanical</option><option value="cyber">Cyber</option><option value="anime_pfp">Anime / PFP</option><option value="brand_streetwear">Brand / Streetwear</option><option value="ui_design">UI Design</option><option value="gif_animation">GIF / Animation</option></select>
+              <input value={collectionForm.avatarUrl} onChange={e => setCollectionForm(v => ({ ...v, avatarUrl: e.target.value }))} placeholder="Avatar image URL (optional)" className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" />
+              <input value={collectionForm.bannerUrl} onChange={e => setCollectionForm(v => ({ ...v, bannerUrl: e.target.value }))} placeholder="Banner image URL (optional)" className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" />
+              <input value={collectionForm.websiteUrl} onChange={e => setCollectionForm(v => ({ ...v, websiteUrl: e.target.value }))} placeholder="Website URL" className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" />
+              <div className="grid grid-cols-2 gap-2"><input value={collectionForm.telegramUrl} onChange={e => setCollectionForm(v => ({ ...v, telegramUrl: e.target.value }))} placeholder="Telegram URL" className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" /><input value={collectionForm.discordUrl} onChange={e => setCollectionForm(v => ({ ...v, discordUrl: e.target.value }))} placeholder="Discord URL" className="w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" /></div>
+              <button disabled={!collectionForm.name.trim() || !collectionForm.slug.trim()} onClick={async () => { const payload = { name: collectionForm.name, slug: collectionForm.slug, description: collectionForm.description, category: collectionForm.category, avatarUrl: collectionForm.avatarUrl, bannerUrl: collectionForm.bannerUrl, websiteUrl: collectionForm.websiteUrl, telegramUrl: collectionForm.telegramUrl, discordUrl: collectionForm.discordUrl }; const ok = editingCollection ? await updateCollection(editingCollection.id, payload) : await createCollection(payload); if (ok) setCollectionModalOpen(false); }} className="w-full rounded-2xl bg-amber-400 p-3 text-xs font-bold text-stone-950 disabled:opacity-40">{editingCollection ? 'Save changes' : 'Create collection'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
         {profileSection === 'activity' && (
           <div className="space-y-2">
             {transactions.length === 0 ? (
