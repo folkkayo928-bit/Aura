@@ -131,7 +131,7 @@ export const WalletView: React.FC = () => {
                 <BadgeCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
               </div>
               <p className="text-[11px] text-stone-400 mt-0.5">
-                TON (Jetton) · Polygon · Ethereum · Arbitrum · Solana
+                Polygon · Ethereum · Arbitrum
               </p>
             </div>
           </div>
