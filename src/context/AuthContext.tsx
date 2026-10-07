@@ -22,6 +22,8 @@ interface AuthContextValue {
 
 const AURA_PRODUCTION_URL = 'https://aura-8bom.onrender.com';
 
+const getAuthRedirectUrl = () => AURA_PRODUCTION_URL;
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const humanizeAuthError = (message: string) => {
@@ -143,23 +145,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
 
     signUp: async ({ name, email, password }) => {
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: { name: name.trim() },
-          emailRedirectTo: window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1') ? AURA_PRODUCTION_URL : window.location.origin,
-        },
-      });
-      if (error) return { error: humanizeAuthError(error.message) };
-      return { needsConfirmation: !data.session };
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: { name: name.trim() },
+            // Keep confirmation links on the real AURA production app. This
+            // avoids preview/localhost redirect mismatches in Supabase Auth.
+            emailRedirectTo: getAuthRedirectUrl(),
+          },
+        });
+        if (error) return { error: humanizeAuthError(error.message) };
+        return { needsConfirmation: !data.session };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '');
+        return { error: humanizeAuthError(message || 'Unable to reach AURA authentication. Please try again.') };
+      }
     },
 
     resetPassword: async (email) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: window.location.origin.startsWith('http://localhost') || window.location.origin.startsWith('http://127.0.0.1') ? AURA_PRODUCTION_URL : window.location.origin,
-      });
-      return error ? { error: humanizeAuthError(error.message) } : {};
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: getAuthRedirectUrl(),
+        });
+        return error ? { error: humanizeAuthError(error.message) } : {};
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '');
+        return { error: humanizeAuthError(message || 'Unable to reach AURA authentication. Please try again.') };
+      }
     },
 
     signOut: async () => {
