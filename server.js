@@ -17,6 +17,7 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
 const WEBAPP_URL = (process.env.TELEGRAM_WEBAPP_URL || PUBLIC_APP_URL).replace(/\/$/, '');
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+const TELEGRAM_NOTIFY_SECRET = process.env.AURA_TELEGRAM_NOTIFY_SECRET || '';
 
 async function telegram(method, body) {
   if (!BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is not configured');
@@ -107,6 +108,45 @@ app.post('/api/telegram/auth', (req, res) => {
       language_code: session.user.language_code || '',
     },
   });
+});
+
+app.post('/api/internal/telegram/drop-notify', async (req, res) => {
+  if (!TELEGRAM_NOTIFY_SECRET || req.get('x-aura-telegram-notify-secret') !== TELEGRAM_NOTIFY_SECRET) {
+    return res.sendStatus(403);
+  }
+
+  if (!BOT_TOKEN) return res.status(503).json({ ok: false, error: 'TELEGRAM_BOT_NOT_CONFIGURED' });
+
+  const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 100) : [];
+  if (!items.length) return res.json({ ok: true, sent: 0, failed: 0 });
+
+  let sent = 0;
+  let failed = 0;
+  const sentIds = [];
+  for (const item of items) {
+    const chatId = String(item?.telegram_user_id || '').trim();
+    const title = String(item?.title || '').trim();
+    const message = String(item?.message || '').trim();
+    if (!/^\d{1,20}$/.test(chatId) || !title || !message) {
+      failed++;
+      continue;
+    }
+
+    try {
+      await telegram('sendMessage', {
+        chat_id: chatId,
+        text: `✨ AURA\n${title}\n\n${message}`,
+        disable_web_page_preview: true,
+      });
+      sent++;
+      if (item?.id) sentIds.push(String(item.id));
+    } catch (error) {
+      failed++;
+      console.error('Telegram drop notification failed', { chatId, error: error?.message || String(error) });
+    }
+  }
+
+  return res.json({ ok: true, sent, failed, sent_ids: sentIds });
 });
 
 app.post('/api/telegram/webhook', async (req, res) => {
