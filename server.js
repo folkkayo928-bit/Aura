@@ -122,6 +122,7 @@ app.post('/api/internal/telegram/drop-notify', async (req, res) => {
 
   let sent = 0;
   let failed = 0;
+  const sentIds = [];
   for (const item of items) {
     const chatId = String(item?.telegram_user_id || '').trim();
     const title = String(item?.title || '').trim();
@@ -138,13 +139,14 @@ app.post('/api/internal/telegram/drop-notify', async (req, res) => {
         disable_web_page_preview: true,
       });
       sent++;
+      if (item?.id) sentIds.push(String(item.id));
     } catch (error) {
       failed++;
       console.error('Telegram drop notification failed', { chatId, error: error?.message || String(error) });
     }
   }
 
-  return res.json({ ok: true, sent, failed });
+  return res.json({ ok: true, sent, failed, sent_ids: sentIds });
 });
 
 app.post('/api/telegram/webhook', async (req, res) => {
