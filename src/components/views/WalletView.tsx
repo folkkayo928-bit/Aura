@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
+import { TransactionHistoryModal } from '../wallet/TransactionHistoryModal';
 import {
   Send,
   QrCode,
@@ -54,6 +55,7 @@ export const WalletView: React.FC = () => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [withdrawMessage, setWithdrawMessage] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
 
 
   return (
@@ -399,6 +401,19 @@ export const WalletView: React.FC = () => {
         </div>
       )}
 
+      <div className="px-1">
+        <button
+          onClick={() => setHistoryOpen(true)}
+          className="w-full p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-cyan-400/30 transition-all flex items-center justify-between"
+        >
+          <div className="text-left">
+            <div className="text-xs font-semibold text-stone-100">Full transaction history</div>
+            <div className="text-[10px] text-stone-500 mt-0.5">Deposits · withdrawals · AURA ledger · blockchain hashes</div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-stone-500" />
+        </button>
+      </div>
+
       {/* RECENT VAULT ACTIVITY (With on-chain tags) */}
       <div className="space-y-3 px-1">
         <div className="flex items-center justify-between text-xs">
@@ -555,6 +570,8 @@ export const WalletView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <TransactionHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
 
       {/* Tether USDT Token Details Modal */}
       <UsdtAssetDetailsModal
