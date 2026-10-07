@@ -286,7 +286,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-amber-300">
-                Official Provenance
+                AURA Ownership Record
               </span>
               <button
                 onClick={() => setSelectedCertArtwork(null)}
@@ -297,9 +297,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
             </div>
 
             <div className="text-center pt-2">
-              <h3 className="font-serif text-2xl text-stone-100">Certificate of Authenticity</h3>
+              <h3 className="font-serif text-2xl text-stone-100">AURA Ownership Record</h3>
               <p className="text-[11px] text-stone-400 font-mono mt-1">
-                AURA PROTOCOL · REGISTRY № {selectedCertArtwork.id.toUpperCase()}
+                AURA REGISTRY · RECORD № {selectedCertArtwork.id.toUpperCase()}
               </p>
             </div>
 
@@ -317,7 +317,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
                 <span className="font-mono text-amber-300">{selectedCertArtwork.edition}</span>
               </div>
               <div className="flex justify-between text-stone-400">
-                <span>Custodian:</span>
+                <span>Owner:</span>
                 <span className="font-mono text-cyan-300">{userProfile.telegramHandle}</span>
               </div>
               <div className="flex justify-between text-stone-400">
@@ -328,7 +328,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
             <div className="flex items-center justify-center gap-2 text-emerald-400 text-xs pt-2">
               <ShieldCheck className="w-4 h-4" />
-              <span className="font-mono">Cryptographically Inscribed</span>
+              <span className="font-mono">Recorded in the AURA registry</span>
             </div>
 
             <button
