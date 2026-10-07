@@ -486,7 +486,10 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 )}
                 <button
                   type="button"
-                  onClick={() => raiseP2PDispute(activeP2POrder.id)}
+                  onClick={() => {
+                    const reason = window.prompt('Briefly tell AURA what happened. Keep payment evidence inside the trade.');
+                    if (reason && reason.trim().length >= 5) void raiseP2PDispute(activeP2POrder.id, reason.trim());
+                  }}
                   className="w-full py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-300 text-xs font-semibold"
                 >
                   Report an issue / Open dispute

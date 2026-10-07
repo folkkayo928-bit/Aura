@@ -17,7 +17,6 @@ import {
   Check,
   CheckCircle2,
   FileCode,
-  Zap,
 } from 'lucide-react';
 
 export const CreateView: React.FC = () => {
@@ -70,78 +69,6 @@ export const CreateView: React.FC = () => {
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  // Optional starter templates using neutral AURA examples.
-  const presets = [
-    {
-      label: 'Digital Sneaker',
-      category: 'brand_streetwear' as ArtworkCategory,
-      mediaType: 'brand_streetwear' as MediaType,
-      url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
-      title: 'Electric Blue Virtual Sneaker',
-      collection: 'Digital Streetwear',
-      desc: 'Digital sneaker artwork with reactive lighting and virtual streetwear styling.',
-      price: '450',
-      traits: [
-        { trait_type: 'Asset Type', value: 'Digital Streetwear' },
-        { trait_type: 'Style', value: 'Virtual Sneaker' },
-      ],
-    },
-    {
-      label: 'Tokyo Cyberpunk GIF',
-      category: 'gif_animation' as ArtworkCategory,
-      mediaType: 'gif' as MediaType,
-      url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&fit=crop&q=80',
-      title: 'Shibuya Neon Rain Loop',
-      collection: 'Tokyo Neon Glitch Loops',
-      desc: 'Seamless 60fps infinite animated GIF capturing neon Shibuya in holographic rain.',
-      price: '95',
-      traits: [
-        { trait_type: 'Format', value: 'Animated GIF 60FPS', rarityPercent: 100 },
-        { trait_type: 'Loop', value: 'Seamless Infinite', rarityPercent: 25 },
-      ],
-    },
-    {
-      label: 'UI Design Kit',
-      category: 'ui_design' as ArtworkCategory,
-      mediaType: 'ui_design' as MediaType,
-      url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
-      title: 'AURA Web3 Design Tokens & UI Kit',
-      collection: 'Figma Web3 Design System Tokens',
-      desc: 'Production-ready dark glassmorphic Figma components with React Tailwind source exports.',
-      price: '60',
-      traits: [
-        { trait_type: 'Asset Type', value: 'Figma .fig & React Source', rarityPercent: 100 },
-        { trait_type: 'License', value: 'Commercial Unlimited', rarityPercent: 100 },
-      ],
-    },
-    {
-      label: 'Anime Avatar',
-      category: 'anime_pfp' as ArtworkCategory,
-      mediaType: 'image' as MediaType,
-      url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
-      title: 'Ronin Avatar #4412',
-      collection: 'Azuki',
-      desc: 'Anime samurai warrior with ruby glow eyes and customized martial robes.',
-      price: '1750',
-      traits: [
-        { trait_type: 'Type', value: 'Human', rarityPercent: 78 },
-        { trait_type: 'Hair', value: 'Crimson Spikes', rarityPercent: 5.5 },
-      ],
-    },
-  ];
-
-  const handleApplyPreset = (p: typeof presets[0]) => {
-    setTitle(p.title);
-    setDescription(p.desc);
-    setPrice(p.price);
-    setP2pPrice(p.price);
-    setCategory(p.category);
-    setMediaType(p.mediaType);
-    setCollectionName(p.collection);
-    setCustomMediaUrl(p.url);
-    setTraits(p.traits);
   };
 
   const handleAddTrait = (e: React.FormEvent) => {
@@ -211,24 +138,8 @@ export const CreateView: React.FC = () => {
         </p>
       </div>
 
-      {/* QUICK PRESET TEMPLATES */}
-      <div className="space-y-2 px-1">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 block">
-          Starter Templates:
-        </span>
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-          {presets.map((preset, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleApplyPreset(preset)}
-              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-xs text-stone-300 hover:text-white whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0"
-            >
-              <Zap className="w-3 h-3 text-amber-400" />
-              <span>{preset.label}</span>
-            </button>
-          ))}
-        </div>
+      <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 text-[11px] text-stone-400">
+        <span className="text-stone-200 font-semibold">Your creation, your ownership.</span> Upload an original digital item and build its AURA ownership record from your own media and metadata.
       </div>
 
       <form onSubmit={handlePublish} className="space-y-5 px-1">

@@ -161,7 +161,7 @@ interface AppContextType {
   markP2PPaymentSent: (orderId: string) => Promise<boolean>;
   completeP2POrder: (orderId: string) => Promise<boolean>;
   cancelP2POrder: (orderId: string) => Promise<boolean>;
-  raiseP2PDispute: (orderId: string) => Promise<boolean>;
+  raiseP2PDispute: (orderId: string, reason?: string) => Promise<boolean>;
   createP2POffer: (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => Promise<boolean>;
   // Telegram Bot Homepage & Chat integration
   telegramViewMode: TelegramViewMode;
@@ -1603,9 +1603,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const raiseP2PDispute = async (orderId: string): Promise<boolean> => {
+  const raiseP2PDispute = async (orderId: string, reason = ''): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
-    const { data, error } = await supabase.rpc('raise_p2p_dispute', { p_order_id: orderId });
+    const { data, error } = await supabase.rpc('raise_p2p_dispute', { p_order_id: orderId, p_reason: reason.trim() });
     if (error || !data) {
       addNotification('Dispute Could Not Open', error?.message || 'Could not open a dispute for this order.', 'p2p');
       return false;

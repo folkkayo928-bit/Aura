@@ -24,10 +24,10 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
 
   const categories: { id: ArtworkCategory | 'all'; label: string }[] = [
     { id: 'all', label: 'All Curations' },
-    { id: 'brand_streetwear', label: 'Nike & Streetwear' },
+    { id: 'brand_streetwear', label: 'Digital Fashion' },
     { id: 'gif_animation', label: 'Animated GIFs' },
     { id: 'ui_design', label: 'UI Design Kits' },
-    { id: 'anime_pfp', label: 'Anime Avatars' },
+    { id: 'anime_pfp', label: 'Character Art' },
     { id: 'sculpture', label: '3D Sculptures' },
     { id: 'generative', label: 'Generative Code' },
     { id: 'botanical', label: 'Bio-Generative' },
@@ -67,7 +67,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
         <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
         <input
           type="text"
-          placeholder="Search by title, Nike, Azuki, GIF, UI design, artist..."
+          placeholder="Search by title, collection, format, or creator..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-[#12121a] border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-xs text-stone-200 placeholder:text-stone-400 focus:outline-none focus:border-amber-400/50 transition-colors shadow-sm"
