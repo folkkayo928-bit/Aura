@@ -1,0 +1,59 @@
+name: AURA Contract Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: "EVM network to deploy to"
+        required: true
+        type: choice
+        options:
+          - ethereum
+          - polygon
+          - arbitrum
+      confirm:
+        description: "Type DEPLOY-AURA-OWNERSHIP to authorize this deployment"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirm == 'DEPLOY-AURA-OWNERSHIP' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge install OpenZeppelin/openzeppelin-contracts --no-commit
+      - run: forge install foundry-rs/forge-std --no-commit
+      - name: Validate deployment configuration
+        env:
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.AURA_DEPLOYER_PRIVATE_KEY }}
+          CONTRACT_ADMIN: ${{ secrets.AURA_CONTRACT_ADMIN }}
+          NFT_BASE_URI: ${{ secrets.AURA_NFT_BASE_URI }}
+          ROYALTY_RECEIVER: ${{ secrets.AURA_ROYALTY_RECEIVER }}
+          ROYALTY_BPS: ${{ secrets.AURA_ROYALTY_BPS }}
+          RPC_URL: ${{ secrets.AURA_RPC_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYER_PRIVATE_KEY"
+          test -n "$CONTRACT_ADMIN"
+          test -n "$NFT_BASE_URI"
+          test -n "$ROYALTY_RECEIVER"
+          test -n "$ROYALTY_BPS"
+          test -n "$RPC_URL"
+          test "$ROYALTY_BPS" -ge 0
+          test "$ROYALTY_BPS" -le 1000
+      - name: Test contracts before broadcast
+        run: forge test -vv
+      - name: Deploy
+        env:
+          AURA_DEPLOYER_PRIVATE_KEY: ${{ secrets.AURA_DEPLOYER_PRIVATE_KEY }}
+          AURA_CONTRACT_ADMIN: ${{ secrets.AURA_CONTRACT_ADMIN }}
+          AURA_NFT_BASE_URI: ${{ secrets.AURA_NFT_BASE_URI }}
+          AURA_ROYALTY_RECEIVER: ${{ secrets.AURA_ROYALTY_RECEIVER }}
+          AURA_ROYALTY_BPS: ${{ secrets.AURA_ROYALTY_BPS }}
+        run: forge script contracts/script/DeployAuraOwnership.s.sol:DeployAuraOwnership --rpc-url "${{ secrets.AURA_RPC_URL }}" --broadcast
