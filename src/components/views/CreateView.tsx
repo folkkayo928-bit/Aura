@@ -17,7 +17,6 @@ import {
   Check,
   CheckCircle2,
   FileCode,
-  Zap,
 } from 'lucide-react';
 
 export const CreateView: React.FC = () => {
