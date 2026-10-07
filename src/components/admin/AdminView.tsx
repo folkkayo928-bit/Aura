@@ -38,6 +38,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [disputeAction, setDisputeAction] = useState<{ orderId: string; resolution: 'release_to_buyer' | 'refund_seller' } | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
   const [health, setHealth] = useState<any>({});
+  const [foundation, setFoundation] = useState<any>({});
   const [audit, setAudit] = useState<any[]>([]);
   const [financial, setFinancial] = useState<FinancialPoint[]>([]);
   const [busy, setBusy] = useState(false);
@@ -48,7 +49,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const load = async () => {
     if (!user) return;
     setBusy(true);
-    const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
+    const [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
       supabase.rpc('aura_can', { p_min_role: 'operator' }),
       supabase.rpc('admin_dashboard_snapshot'),
       supabase.rpc('admin_list_wallets', { p_limit: 100 }),
@@ -58,6 +59,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       supabase.rpc('admin_system_health'),
       supabase.rpc('admin_financial_timeseries', { p_days: 14 }),
       supabase.rpc('admin_list_p2p_disputes', { p_limit: 100 }),
+      supabase.rpc('admin_foundation_readiness'),
     ]);
 
     if (!r0.error && r0.data === true) {
@@ -75,6 +77,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setHealth((r6.data || [])[0] || r6.data || {});
       if (!r7.error) setFinancial((r7.data || []) as FinancialPoint[]);
       if (!r8.error) setP2pDisputes(r8.data || []);
+      if (!r9.error) setFoundation((r9.data || {}) as Record<string, unknown>);
       if (!rf.error && rf.data) setRole('finance');
       if (!ro.error && ro.data) setRole('owner');
     }
@@ -187,6 +190,31 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 })}
               </div>
               {financial.length > 0 && <div className="mt-4 flex justify-between text-[9px] uppercase tracking-widest text-stone-600"><span>inflow</span><span>outflow</span></div>}
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-[#111118] p-5">
+              <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-cyan-300" /><div><div className="font-semibold">Foundation readiness</div><div className="text-xs text-stone-500">Operational building blocks are live; custody secrets stay server-side.</div></div></div>
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {[
+                  ['Owner access', foundation.ownerClaimed],
+                  ['Worker secret', foundation.workerSecretConfigured],
+                  ['Vault wiring', foundation.projectVaultConfigured],
+                  ['Deposit cron', foundation.depositIndexerScheduleReady],
+                  ['Sweep cron', foundation.depositSweepScheduleReady],
+                  ['Drop alerts', foundation.dropNotificationQueueReady],
+                ].map(([label, ready]) => (
+                  <div key={String(label)} className="rounded-2xl bg-white/[.03] p-3">
+                    <div className={ready ? 'text-[9px] uppercase tracking-widest text-emerald-300' : 'text-[9px] uppercase tracking-widest text-amber-300'}>{ready ? 'READY' : 'WAITING'}</div>
+                    <div className="mt-1 text-[11px] text-stone-300">{String(label)}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+                <div className="rounded-xl bg-white/[.02] p-2">Custodial addresses <b className="float-right text-stone-200">{Number(foundation.depositCustodyAddresses || 0)}</b></div>
+                <div className="rounded-xl bg-white/[.02] p-2">Sweep pending <b className="float-right text-stone-200">{Number(foundation.depositSweepPending || 0)}</b></div>
+                <div className="rounded-xl bg-white/[.02] p-2">Sweep failed <b className="float-right text-rose-300">{Number(foundation.depositSweepFailed || 0)}</b></div>
+                <div className="rounded-xl bg-white/[.02] p-2">Drop reminders <b className="float-right text-stone-200">{Number(foundation.dropReminders || 0)}</b></div>
+              </div>
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-[#111118] p-5">
