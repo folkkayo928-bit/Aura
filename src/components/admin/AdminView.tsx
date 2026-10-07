@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import {
   ArrowDownToLine, ArrowUpFromLine, BarChart3, CheckCircle2, ChevronLeft,
-  CircleDollarSign, Clock3, Lock, Plus, RefreshCw, Shield, ShieldCheck,
+  CircleDollarSign, Clock3, Lock, Plus, X, RefreshCw, Shield, ShieldCheck,
   Sparkles, Users, WalletCards, XCircle
 } from 'lucide-react';
 
