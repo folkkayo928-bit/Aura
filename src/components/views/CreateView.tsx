@@ -72,14 +72,14 @@ export const CreateView: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  // Preset templates matching user prompt: Nike, GIF, UI Design, Anime PFP, Art
+  // Optional starter templates using neutral AURA examples.
   const presets = [
     {
       label: 'Digital Sneaker',
       category: 'brand_streetwear' as ArtworkCategory,
       mediaType: 'brand_streetwear' as MediaType,
       url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
-      title: 'Nike Dunk Genesis: Electric Blue',
+      title: 'Electric Blue Virtual Sneaker',
       collection: 'Digital Streetwear',
       desc: 'Digital sneaker artwork with reactive lighting and virtual streetwear styling.',
       price: '450',
@@ -103,11 +103,11 @@ export const CreateView: React.FC = () => {
       ],
     },
     {
-      label: 'Figma UI Design Kit',
+      label: 'UI Design Kit',
       category: 'ui_design' as ArtworkCategory,
       mediaType: 'ui_design' as MediaType,
       url: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&auto=format&fit=crop&q=80',
-      title: 'Aura Web3 Design Tokens & Figma Kit',
+      title: 'AURA Web3 Design Tokens & UI Kit',
       collection: 'Figma Web3 Design System Tokens',
       desc: 'Production-ready dark glassmorphic Figma components with React Tailwind source exports.',
       price: '60',
@@ -117,11 +117,11 @@ export const CreateView: React.FC = () => {
       ],
     },
     {
-      label: 'Azuki Anime Avatar',
+      label: 'Anime Avatar',
       category: 'anime_pfp' as ArtworkCategory,
       mediaType: 'image' as MediaType,
       url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80',
-      title: 'Azuki Ronin #4412',
+      title: 'Ronin Avatar #4412',
       collection: 'Azuki',
       desc: 'Anime samurai warrior with ruby glow eyes and customized martial robes.',
       price: '1750',
@@ -204,17 +204,17 @@ export const CreateView: React.FC = () => {
           <span>Universal Digital Asset Studio</span>
         </div>
         <h2 className="font-serif text-3xl text-stone-100 font-light">
-          Mint & Sell Digital Items
+          Create & Sell Digital Items
         </h2>
         <p className="text-xs text-stone-400 mt-1">
-          Upload any format like top NFT marketplaces: <strong>Photos, 60fps GIFs, UI Design Systems, Brand Streetwear (Nike/RTFKT)</strong>, and digital art.
+          Create a digital item, publish its AURA ownership record, and optionally list it on the protected P2P desk.
         </p>
       </div>
 
       {/* QUICK PRESET TEMPLATES */}
       <div className="space-y-2 px-1">
         <span className="text-[10px] font-mono uppercase tracking-wider text-stone-400 block">
-          One-Click Marketplace Presets:
+          Starter Templates:
         </span>
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
           {presets.map((preset, idx) => (
@@ -235,7 +235,7 @@ export const CreateView: React.FC = () => {
         {/* MEDIA UPLOADER & PREVIEW */}
         <div className="space-y-2">
           <label className="text-xs font-mono uppercase tracking-wider text-stone-300 block">
-            1. File Upload (Photo, Animated GIF, UI Design, Video, Wearable)
+            1. Upload Your Digital Item (Photo, GIF, UI Design, Video, Wearable)
           </label>
 
           <input
@@ -370,12 +370,12 @@ export const CreateView: React.FC = () => {
           </div>
         </div>
 
-        {/* TRAITS & PROPERTIES BUILDER (Like OpenSea / Magic Eden!) */}
+        {/* PROPERTIES BUILDER */}
         <div className="p-4 rounded-3xl bg-[#12121a] border border-white/5 space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-mono text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
               <Tag className="w-3.5 h-3.5 text-cyan-400" />
-              NFT Properties & Traits ({traits.length})
+              Item Properties & Traits ({traits.length})
             </span>
           </div>
 
@@ -514,7 +514,7 @@ export const CreateView: React.FC = () => {
           disabled={isPublishing || !title.trim()}
           className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold text-sm transition-all shadow-xl shadow-amber-500/10 active:scale-[0.98] disabled:opacity-50"
         >
-          {isPublishing ? 'Publishing to AURA...' : `Publish & List for Sale · ${parseFloat(price) || 0} USDT`}
+          {isPublishing ? 'Publishing to AURA...' : `Publish & List · ${parseFloat(price) || 0} USDT`}
         </button>
       </form>
     </div>
