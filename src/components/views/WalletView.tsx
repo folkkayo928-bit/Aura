@@ -540,7 +540,7 @@ export const WalletView: React.FC = () => {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-lg font-semibold text-stone-100">Withdraw USDT</h3>
-                <p className="text-[11px] text-stone-400 mt-1">Funds are reserved until email confirmation. No blockchain broadcast happens yet.</p>
+                <p className="text-[11px] text-stone-400 mt-1">Funds are reserved until email confirmation. If you enabled Google Authenticator, AURA will also require your current 6-digit authenticator code before the request can continue.</p>
               </div>
               <button onClick={() => setWithdrawOpen(false)} className="text-stone-400 text-sm">Close</button>
             </div>
@@ -591,7 +591,7 @@ export const WalletView: React.FC = () => {
                     setWithdrawMessage(result.error || 'Withdrawal request failed.');
                     return;
                   }
-                  setWithdrawMessage('Request created. Your balance is reserved pending email confirmation.');
+                  setWithdrawMessage('Request created. Your balance is reserved. Check your email to confirm; if Authenticator is enabled, complete the 6-digit step-up first.');
                   setWithdrawAmount('');
                   setWithdrawAddress('');
                 }}
