@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { Wallet, Settings, ArrowLeftRight, LogIn } from 'lucide-react';
+import { Wallet, Settings, ArrowLeftRight, Send } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { walletBalance, setActiveTab, activeTab, setSettingsModalOpen, setP2pModalOpen, activeP2POrder } = useApp();
@@ -47,8 +47,13 @@ export const Header: React.FC = () => {
             <Settings className="w-4 h-4" />
           </button>
         ) : (
-          <button onClick={() => openAuth('signin')} className="p-2 rounded-full bg-amber-400 text-stone-950 hover:bg-amber-300" title="Sign in">
-            <LogIn className="w-4 h-4" />
+          <button
+            onClick={() => openAuth('signin')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-sky-400 text-slate-950 hover:bg-sky-300 transition-colors"
+            title="Connect with Telegram"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span className="text-[10px] sm:text-[11px] font-bold">Connect with Telegram</span>
           </button>
         )}
       </div>
