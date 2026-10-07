@@ -1,11 +1,21 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { Wallet, Settings, ArrowLeftRight, Send } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import React from 'react';
+import { Wallet, Settings, ArrowLeftRight, Send, ShieldCheck } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { walletBalance, setActiveTab, activeTab, setSettingsModalOpen, setP2pModalOpen, activeP2POrder } = useApp();
   const { user, openAuth } = useAuth();
+  const [isAdmin, setIsAdmin] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!user) { setIsAdmin(false); return; }
+    void supabase.rpc('aura_can', { p_min_role: 'operator' }).then(({ data }) => { if (!cancelled) setIsAdmin(data === true); });
+    return () => { cancelled = true; };
+  }, [user]);
 
   return (
     <header className="sticky top-0 z-30 bg-[#09090d]/88 backdrop-blur-xl border-b border-white/5 px-4 h-14 flex items-center justify-between">
@@ -43,6 +53,7 @@ export const Header: React.FC = () => {
         </button>
 
         {user ? (
+          {isAdmin && <button onClick={() => window.dispatchEvent(new Event('aura-admin-open'))} className="p-2 rounded-full bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 text-amber-300" title="AURA Operations"><ShieldCheck className="w-4 h-4" /></button>}
           <button onClick={() => setSettingsModalOpen(true)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-stone-400 hover:text-stone-100" title="Account settings">
             <Settings className="w-4 h-4" />
           </button>
