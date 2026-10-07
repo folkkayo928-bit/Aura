@@ -1,0 +1,2 @@
+-- Admin operations intentionally execute with elevated database privileges,
+-- but every exposed function is protected by the active-admin guard and has a pinned search_path.
