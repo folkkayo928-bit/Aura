@@ -26,8 +26,8 @@ export const CreateView: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('150');
-  const [category, setCategory] = useState<ArtworkCategory>('brand_streetwear');
-  const [mediaType, setMediaType] = useState<MediaType>('brand_streetwear');
+  const [category, setCategory] = useState<ArtworkCategory>('generative');
+  const [mediaType, setMediaType] = useState<MediaType>('image');
   const [collectionName, setCollectionName] = useState('');
   const [customMediaUrl, setCustomMediaUrl] = useState<string>('');
   const [traits, setTraits] = useState<NFTTrait[]>([]);
@@ -200,7 +200,7 @@ export const CreateView: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. Nike Dunk Genesis #1044 or Cyber Shibuya GIF"
+              placeholder="e.g. Aurora Study #1044 or a looping visual"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-stone-100 focus:outline-none focus:border-amber-400/60"
@@ -214,7 +214,7 @@ export const CreateView: React.FC = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. Digital Streetwear, Generative Art, Tokyo Neon"
+              placeholder="e.g. Generative Visions, Motion Studies, Digital Worlds"
               value={collectionName}
               onChange={(e) => setCollectionName(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
@@ -245,15 +245,15 @@ export const CreateView: React.FC = () => {
                   const cat = e.target.value as ArtworkCategory;
                   setCategory(cat);
                   if (cat === 'gif_animation') setMediaType('gif');
-                  if (cat === 'brand_streetwear') setMediaType('brand_streetwear');
+                  if (cat === 'ui_design') setMediaType('ui_design');
                   if (cat === 'ui_design') setMediaType('ui_design');
                 }}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-200 focus:outline-none focus:border-amber-400/60"
               >
-                <option value="brand_streetwear" className="bg-[#12121a]">Brand Streetwear (Nike/RTFKT)</option>
-                <option value="gif_animation" className="bg-[#12121a]">Animated GIF (60FPS Loop)</option>
-                <option value="ui_design" className="bg-[#12121a]">UI Design System / Figma</option>
-                <option value="anime_pfp" className="bg-[#12121a]">Anime PFP / Avatar (Azuki)</option>
+                <option value="generative" className="bg-[#12121a]">Generative Art</option>
+                <option value="gif_animation" className="bg-[#12121a]">Animated Visual / GIF</option>
+                <option value="ui_design" className="bg-[#12121a]">UI Design System</option>
+                <option value="anime_pfp" className="bg-[#12121a]">Character / Avatar Art</option>
                 <option value="sculpture" className="bg-[#12121a]">3D Digital Sculpture</option>
                 <option value="generative" className="bg-[#12121a]">Generative Code Art</option>
               </select>
@@ -315,14 +315,14 @@ export const CreateView: React.FC = () => {
           <div className="flex gap-2 pt-1">
             <input
               type="text"
-              placeholder="Trait (e.g. Brand, Soles, Rarity)"
+              placeholder="Trait (e.g. Material, Style, Rarity)"
               value={newTraitKey}
               onChange={(e) => setNewTraitKey(e.target.value)}
               className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-200 focus:outline-none"
             />
             <input
               type="text"
-              placeholder="Value (e.g. Nike, Cyan Air, Mythic)"
+              placeholder="Value (e.g. Chrome, Cyan, Mythic)"
               value={newTraitVal}
               onChange={(e) => setNewTraitVal(e.target.value)}
               className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-200 focus:outline-none"
