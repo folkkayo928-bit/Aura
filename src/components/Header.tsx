@@ -52,11 +52,12 @@ export const Header: React.FC = () => {
           </span>
         </button>
 
-        {user ? (
+        {user ? (<React.Fragment>
           {isAdmin && <button onClick={() => window.dispatchEvent(new Event('aura-admin-open'))} className="p-2 rounded-full bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/20 text-amber-300" title="AURA Operations"><ShieldCheck className="w-4 h-4" /></button>}
           <button onClick={() => setSettingsModalOpen(true)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-stone-400 hover:text-stone-100" title="Account settings">
             <Settings className="w-4 h-4" />
           </button>
+          </React.Fragment>
         ) : (
           <button
             onClick={() => openAuth('signin')}
