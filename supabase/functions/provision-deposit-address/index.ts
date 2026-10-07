@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { HDNodeWallet, getAddress } from "npm:ethers@6";
 
-const CHAINS = ["ethereum", "polygon", "arbitrum"] as const;
+const CHAINS = ["ethereum", "polygon", "arbitrum", "bsc"] as const;
 
 function secretKey() {
   const raw = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
@@ -18,31 +18,43 @@ function db() {
   return createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
 }
 
+async function custodyXpub(client: ReturnType<typeof db>) {
+  const envXpub = Deno.env.get("AURA_EVM_DEPOSIT_XPUB")?.trim();
+  if (envXpub) return envXpub;
+  const { data, error } = await client.rpc("get_aura_evm_deposit_xpub");
+  if (error) throw new Error("CUSTODY_XPUB_UNAVAILABLE");
+  return String(data || "").trim();
+}
+
+function validEvmXpub(value: string) {
+  return /^(xpub|ypub|zpub|tpub|upub|vpub)[1-9A-HJ-NP-Za-km-z]+$/.test(value);
+}
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return Response.json({ error: "METHOD_NOT_ALLOWED" }, { status: 405, headers: corsHeaders });
 
-  if (req.method !== "POST") {
-    return Response.json({ error: "METHOD_NOT_ALLOWED" }, { status: 405, headers: corsHeaders });
-  }
-
-  const token = (req.headers.get("Authorization") || "")
-    .replace(/^Bearer\s+/i, "")
-    .trim();
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return Response.json({ error: "UNAUTHORIZED" }, { status: 401, headers: corsHeaders });
 
   const client = db();
   const { data: authData, error: authError } = await client.auth.getUser(token);
-  if (authError || !authData.user) {
-    return Response.json({ error: "UNAUTHORIZED" }, { status: 401, headers: corsHeaders });
-  }
+  if (authError || !authData.user) return Response.json({ error: "UNAUTHORIZED" }, { status: 401, headers: corsHeaders });
 
-  const xpub = Deno.env.get("AURA_EVM_DEPOSIT_XPUB") || "";
-  if (!xpub) {
+  let xpub = "";
+  try {
+    xpub = await custodyXpub(client);
+  } catch {
     return Response.json({
       error: "DEPOSIT_ADDRESS_PROVISIONING_UNAVAILABLE",
-      message: "Secure Aura deposit custody is not configured yet. No deposit address was created.",
+      message: "Secure AURA deposit custody is not configured yet. No deposit address was created.",
+    }, { status: 503, headers: corsHeaders });
+  }
+
+  if (!validEvmXpub(xpub)) {
+    return Response.json({
+      error: "DEPOSIT_CUSTODY_XPUB_INVALID",
+      message: "The server-side EVM deposit xpub is invalid. No address was created.",
     }, { status: 503, headers: corsHeaders });
   }
 
@@ -52,27 +64,36 @@ Deno.serve(async (req) => {
       .select("chain,address,provider,address_type,is_primary,verified_at,derivation_index")
       .eq("user_id", authData.user.id)
       .in("chain", CHAINS);
-
     if (existingError) throw existingError;
 
     const byChain = new Map((existing || []).map((row) => [String(row.chain), row]));
-    const missing = CHAINS.filter((chain) => !byChain.has(chain));
+    const existingEvm = (existing || []).find(
+      (row) => row.provider === "aura_hd_wallet" &&
+        row.address_type === "custodial_deposit" &&
+        Number.isSafeInteger(Number(row.derivation_index)) &&
+        Number(row.derivation_index) >= 0 &&
+        /^0x[0-9a-fA-F]{40}$/.test(String(row.address || "")),
+    );
 
-    if (missing.length > 0) {
-      const { data: index, error: indexError } = await client.rpc(
-        "reserve_evm_deposit_derivation_index",
-      );
+    let derivationIndex: number;
+    let address: string;
+
+    if (existingEvm) {
+      derivationIndex = Number(existingEvm.derivation_index);
+      address = getAddress(String(existingEvm.address));
+    } else {
+      const { data: index, error: indexError } = await client.rpc("reserve_evm_deposit_derivation_index");
       if (indexError) throw indexError;
-
-      const derivationIndex = Number(index);
-      if (!Number.isSafeInteger(derivationIndex) || derivationIndex < 0) {
-        throw new Error("INVALID_DERIVATION_INDEX");
-      }
+      derivationIndex = Number(index);
+      if (!Number.isSafeInteger(derivationIndex) || derivationIndex < 0) throw new Error("INVALID_DERIVATION_INDEX");
 
       const root = HDNodeWallet.fromExtendedKey(xpub);
       const child = root.derivePath(`0/${derivationIndex}`);
-      const address = getAddress(child.address);
+      address = getAddress(child.address);
+    }
 
+    const missing = CHAINS.filter((chain) => !byChain.has(chain));
+    if (missing.length > 0) {
       const rows = missing.map((chain) => ({
         user_id: authData.user.id,
         chain,
@@ -84,24 +105,24 @@ Deno.serve(async (req) => {
         derivation_index: derivationIndex,
       }));
 
-      const { error: insertError } = await client
-        .from("onchain_wallets")
-        .insert(rows);
+      const { error: insertError } = await client.from("onchain_wallets").insert(rows);
       if (insertError) throw insertError;
-
       for (const row of rows) byChain.set(row.chain, row);
     }
 
     const chains = CHAINS.map((chain) => ({
       chain,
-      address: byChain.get(chain)?.address || null,
-      address_type: byChain.get(chain)?.address_type || null,
+      address: byChain.get(chain)?.address || address,
+      address_type: byChain.get(chain)?.address_type || "custodial_deposit",
+      derivation_index: byChain.get(chain)?.derivation_index ?? derivationIndex,
     }));
+
     return Response.json({
       ok: true,
       success: true,
       provider: "aura_hd_wallet",
       custody: "server_side",
+      derivation_index: derivationIndex,
       chains,
       addresses: Object.fromEntries(chains.map((item) => [item.chain, item.address])),
     }, { headers: corsHeaders });
