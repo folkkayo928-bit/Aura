@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
 
       if (drop.status === "live" && !reminder.telegram_live_sent_at) {
         live.push({
+          id: `${reminder.drop_id}:${reminder.user_id}:live`,
           user_id: reminder.user_id,
           drop_id: reminder.drop_id,
           telegram_user_id: telegramUserId,
@@ -64,6 +65,7 @@ Deno.serve(async (req) => {
         const scheduled = new Date(drop.scheduled_at).getTime();
         if (Number.isFinite(scheduled) && scheduled > now && scheduled <= now + 15 * 60 * 1000) {
           prealert.push({
+            id: `${reminder.drop_id}:${reminder.user_id}:pre`,
             user_id: reminder.user_id,
             drop_id: reminder.drop_id,
             telegram_user_id: telegramUserId,
@@ -84,6 +86,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           items: items.map((item) => ({
+            id: item.id,
             telegram_user_id: item.telegram_user_id,
             title: item.title,
             message: item.message,
@@ -91,20 +94,22 @@ Deno.serve(async (req) => {
         }),
       });
       if (!response.ok) throw new Error("TELEGRAM_TRANSPORT_HTTP_" + response.status);
-      return await response.json() as { sent?: number; failed?: number };
+      return await response.json() as { sent?: number; failed?: number; sent_ids?: string[] };
     };
 
     const preResult = await deliver(prealert);
     const liveResult = await deliver(live);
     const successfulPre = preResult.sent || 0;
     const successfulLive = liveResult.sent || 0;
+    const preSentIds = new Set(preResult.sent_ids || []);
+    const liveSentIds = new Set(liveResult.sent_ids || []);
 
-    for (const item of prealert.slice(0, successfulPre)) {
+    for (const item of prealert.filter((item) => preSentIds.has(item.id))) {
       await client.from("aura_drop_reminders")
         .update({ telegram_prealert_sent_at: new Date().toISOString() })
         .eq("drop_id", item.drop_id).eq("user_id", item.user_id).is("telegram_prealert_sent_at", null);
     }
-    for (const item of live.slice(0, successfulLive)) {
+    for (const item of live.filter((item) => liveSentIds.has(item.id))) {
       await client.from("aura_drop_reminders")
         .update({ telegram_live_sent_at: new Date().toISOString() })
         .eq("drop_id", item.drop_id).eq("user_id", item.user_id).is("telegram_live_sent_at", null);
