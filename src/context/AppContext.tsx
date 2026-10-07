@@ -263,6 +263,7 @@ const backendCollectionToUi = (
   metrics?: { floorPriceUSDT?: number; itemsCount?: number; ownersCount?: number; totalVolumeUSDT?: number },
 ): NFTCollection => ({
   id: row.id,
+  creatorId: row.creator_id || row.creator?.id || undefined,
   name: row.name || 'AURA Collection',
   slug: row.slug || row.id,
   avatar: row.avatar_url || row.creator?.avatar_url || '',
