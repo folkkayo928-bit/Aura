@@ -34,6 +34,7 @@ import { SellArtP2PModal } from './components/p2p/SellArtP2PModal';
 import { CollectionHubModal } from './components/marketplace/CollectionHubModal';
 import { MakeOfferModal } from './components/marketplace/MakeOfferModal';
 import { X } from 'lucide-react';
+import { AdminView } from './components/admin/AdminView';
 
 const TelegramWebAppBridge: React.FC = () => {
   const { setIsTelegramShellMode, setTelegramViewMode, updateUserProfile } = useApp();
@@ -97,10 +98,18 @@ const AppContent: React.FC = () => {
   } = useApp();
 
   const [selectedP2POffer, setSelectedP2POffer] = useState<P2POffer | null>(null);
+  const [adminOpen, setAdminOpen] = useState(false);
+
+  React.useEffect(() => {
+    const open = () => setAdminOpen(true);
+    window.addEventListener('aura-admin-open', open);
+    return () => window.removeEventListener('aura-admin-open', open);
+  }, []);
   const [createP2POfferOpen, setCreateP2POfferOpen] = useState(false);
 
   return (
     <MfaSessionGate>
+      {adminOpen && <AdminView onBack={() => setAdminOpen(false)} />}
       <TelegramWebAppBridge />
       <Header />
 
