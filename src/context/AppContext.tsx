@@ -480,7 +480,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      const [profileRes, walletRes, ledgerRes, ownedRes, interactionsRes, collectionWatchlistRes, artworkRes, extWalletsRes, p2pOffersRes, activeOrderRes] = await Promise.all([
+      const [profileRes, walletRes, ledgerRes, ownedRes, interactionsRes, collectionWatchlistRes, artworkRes, extWalletsRes, p2pOffersRes, activeOrderRes, liveDropsRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
         supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
@@ -491,6 +491,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
         supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('p2p_orders').select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.rpc('list_live_aura_drops_v2',{p_limit:50}),
       ]);
 
       if (cancelled) return;
@@ -526,6 +527,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (p2pOffersRes.data) setP2pOffers((p2pOffersRes.data as any[]).map(backendP2POfferToUi));
       if (activeOrderRes.data) setActiveP2POrder(backendP2POrderToUi(activeOrderRes.data));
       else setActiveP2POrder(null);
+
+      if (!liveDropsRes.error) {
+        setUpcomingDrops((liveDropsRes.data || []).map((d:any) => ({
+          id:d.id, title:d.title, collectionName:'AURA Drop',
+          creator:{id:d.creator_id||'',name:'AURA Creator',handle:'@creator',avatar:'',verified:false,bio:'',totalPieces:0,totalCollectors:0},
+          banner:d.banner_url||'', avatar:'', mintDate:d.scheduled_at?new Date(d.scheduled_at).toLocaleString():'Scheduled',
+          mintTimestamp:d.scheduled_at?new Date(d.scheduled_at).getTime():Date.now(), mintPriceUSDT:Number(d.mint_price_usdt||0),
+          supply:Number(d.supply||0), mintedSoFar:Number(d.minted_so_far||0), whitelistOpen:Boolean(d.whitelist_open),
+          category:d.category||'digital', isReminded:false, description:d.description||'', perks:Array.isArray(d.perks)?d.perks.map((p:any)=>String(p)):[]
+        })));
+      } else setUpcomingDrops([]);
 
       const owned = new Map<string, number>();
       for (const row of (ownedRes.data || []) as any[]) owned.set(row.artwork_id, Number(row.purchase_price_usdt || 0));
@@ -787,13 +799,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleDropReminder = (dropId: string) => {
+    if (!user) { openAuth('signin'); return; }
     const drop = upcomingDrops.find(item => item.id === dropId);
     if (!drop) return;
-    addNotification(
-      'Drop Reminder Unavailable',
-      'AURA does not currently persist drop reminders because there is no backend reminder record yet. Your account and wallet data are not changed.',
-      'drop_alert'
-    );
+    void (async () => {
+      const { data, error } = await supabase.rpc('toggle_aura_drop_reminder', { p_drop_id: dropId });
+      if (error) {
+        addNotification('Reminder Failed', error.message || 'Could not update the reminder.', 'drop_alert');
+        return;
+      }
+      const enabled = Boolean(data);
+      setUpcomingDrops(prev => prev.map(d => d.id === dropId ? { ...d, isReminded: enabled } : d));
+      addNotification(enabled ? '🔔 Drop Reminder Set' : 'Reminder Removed', enabled ? 'AURA will keep this drop on your reminder list.' : 'The drop reminder was removed.', 'drop_alert');
+    })();
   };
 
   const addComment = (artworkId: string, text: string) => {
