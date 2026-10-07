@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { HDNodeWallet, getAddress } from "npm:ethers@6";
 
 const CHAINS = ["ethereum", "polygon", "arbitrum"] as const;
@@ -18,19 +19,23 @@ function db() {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
-    return Response.json({ error: "METHOD_NOT_ALLOWED" }, { status: 405 });
+    return Response.json({ error: "METHOD_NOT_ALLOWED" }, { status: 405, headers: corsHeaders });
   }
 
   const token = (req.headers.get("Authorization") || "")
     .replace(/^Bearer\s+/i, "")
     .trim();
-  if (!token) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!token) return Response.json({ error: "UNAUTHORIZED" }, { status: 401, headers: corsHeaders });
 
   const client = db();
   const { data: authData, error: authError } = await client.auth.getUser(token);
   if (authError || !authData.user) {
-    return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return Response.json({ error: "UNAUTHORIZED" }, { status: 401, headers: corsHeaders });
   }
 
   const xpub = Deno.env.get("AURA_EVM_DEPOSIT_XPUB") || "";
@@ -38,7 +43,7 @@ Deno.serve(async (req) => {
     return Response.json({
       error: "DEPOSIT_ADDRESS_PROVISIONING_UNAVAILABLE",
       message: "Secure Aura deposit custody is not configured yet. No deposit address was created.",
-    }, { status: 503 });
+    }, { status: 503, headers: corsHeaders });
   }
 
   try {
@@ -99,9 +104,9 @@ Deno.serve(async (req) => {
       custody: "server_side",
       chains,
       addresses: Object.fromEntries(chains.map((item) => [item.chain, item.address])),
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error("deposit address provisioning failed", error);
-    return Response.json({ error: "DEPOSIT_ADDRESS_PROVISIONING_ERROR" }, { status: 500 });
+    return Response.json({ error: "DEPOSIT_ADDRESS_PROVISIONING_ERROR" }, { status: 500, headers: corsHeaders });
   }
 });
