@@ -246,7 +246,7 @@ export const ReceiveModal: React.FC = () => {
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositMessage, setDepositMessage] = useState<string | null>(null);
   const [receiveTab, setReceiveTab] = useState<'aura' | 'external'>('aura');
-  const [selectedNetwork, setSelectedNetwork] = useState<'polygon' | 'ethereum' | 'arbitrum'>('polygon');
+  const [selectedNetwork, setSelectedNetwork] = useState<'polygon' | 'ethereum' | 'arbitrum' | 'bsc'>('polygon');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   React.useEffect(() => {
@@ -283,6 +283,7 @@ export const ReceiveModal: React.FC = () => {
           ethereum: addresses.ethereum || '',
           polygon: addresses.polygon || '',
           arbitrum: addresses.arbitrum || '',
+          bsc: addresses.bsc || '',
         });
       }
 
