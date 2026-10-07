@@ -4,18 +4,27 @@ import { Contract, HDNodeWallet, JsonRpcProvider, parseUnits, formatUnits } from
 const CHAINS = {
   ethereum: {
     rpc: "AURA_EVM_RPC_ETHEREUM",
+    alchemy: "eth-mainnet",
     token: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     treasury: "AURA_EVM_TREASURY_ETHEREUM",
   },
   polygon: {
     rpc: "AURA_EVM_RPC_POLYGON",
+    alchemy: "polygon-mainnet",
     token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     treasury: "AURA_EVM_TREASURY_POLYGON",
   },
   arbitrum: {
     rpc: "AURA_EVM_RPC_ARBITRUM",
+    alchemy: "arb-mainnet",
     token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     treasury: "AURA_EVM_TREASURY_ARBITRUM",
+  },
+  bsc: {
+    rpc: "AURA_EVM_RPC_BSC",
+    alchemy: "bnb-mainnet",
+    token: "0x55d398326f99059fF775485246999027B3197955",
+    treasury: "AURA_EVM_TREASURY_BSC",
   },
 } as const;
 
@@ -44,6 +53,21 @@ async function authorized(client: ReturnType<typeof db>, req: Request) {
   return !error && !!data && provided.length > 0 && provided === data;
 }
 
+async function custodySecret(client: ReturnType<typeof db>, name: "xprv" | "mnemonic" | "alchemy") {
+  const fn = name === "xprv"
+    ? "get_aura_evm_deposit_xprv"
+    : name === "mnemonic"
+      ? "get_aura_evm_deposit_mnemonic"
+      : "get_aura_alchemy_api_key";
+  const { data } = await client.rpc(fn);
+  return String(data || "").trim();
+}
+function rpcEndpoint(chain: keyof typeof CHAINS, apiKey: string) {
+  const configured = Deno.env.get(CHAINS[chain].rpc)?.trim();
+  if (configured) return configured;
+  if (!apiKey) return "";
+  return `https://${CHAINS[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
+}
 function validAddress(value: string) {
   return /^0x[0-9a-fA-F]{40}$/.test(value);
 }
@@ -61,14 +85,16 @@ Deno.serve(async (req) => {
   const client = db();
   if (!(await authorized(client, req))) return json({ error: "UNAUTHORIZED" }, 401);
 
-  const xprv = Deno.env.get("AURA_EVM_DEPOSIT_XPRV") || "";
-  if (!xprv) {
+  const xprv = Deno.env.get("AURA_EVM_DEPOSIT_XPRV")?.trim() || await custodySecret(client, "xprv");
+  const mnemonic = Deno.env.get("AURA_EVM_DEPOSIT_MNEMONIC")?.trim() || await custodySecret(client, "mnemonic");
+  const alchemy = Deno.env.get("ALCHEMY_API_KEY")?.trim() || await custodySecret(client, "alchemy");
+  if (!xprv && !mnemonic) {
     return json({
       ok: true,
       ready: false,
       skipped: true,
       reason: "DEPOSIT_SWEEP_CUSTODY_NOT_CONFIGURED",
-      message: "Automatic sweeps are installed and scheduled, but remain idle until server-only EVM custody is configured.",
+      message: "Automatic sweeps are installed and scheduled, but remain idle until server-only EVM signing custody is configured.",
     });
   }
 
@@ -79,7 +105,7 @@ Deno.serve(async (req) => {
 
   try {
     for (const [chain, cfg] of Object.entries(CHAINS)) {
-      const rpcUrl = Deno.env.get(cfg.rpc) || "";
+      const rpcUrl = rpcEndpoint(chain as keyof typeof CHAINS, alchemy);
       const treasury = Deno.env.get(cfg.treasury) || "";
       if (!rpcUrl || !treasury) {
         skipped++;
@@ -154,7 +180,9 @@ Deno.serve(async (req) => {
         }
 
         try {
-          const root = HDNodeWallet.fromExtendedKey(xprv);
+          const root = xprv
+            ? HDNodeWallet.fromExtendedKey(xprv)
+            : HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'/0");
           const signer = root.derivePath(`0/${Number(wallet.derivation_index)}`).connect(provider);
           const from = await signer.getAddress();
           const token = new Contract(cfg.token, ERC20_ABI, signer);
