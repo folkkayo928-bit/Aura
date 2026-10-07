@@ -3,9 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55aeb5b6f7e";
 
 const EVM = {
-  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
-  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
-  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" },
+  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", alchemy: "eth-mainnet", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
+  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", alchemy: "polygon-mainnet", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
+  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", alchemy: "arb-mainnet", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", alchemy: "bnb-mainnet", token: "0x55d398326f99059fF775485246999027B3197955" },
 } as const;
 
 function secretKey() {
@@ -19,6 +20,16 @@ async function authorized(client: ReturnType<typeof db>, req: Request) {
   const provided = req.headers.get("x-aura-worker-secret") || "";
   const { data, error } = await client.rpc("get_aura_worker_secret");
   return !error && !!data && provided.length > 0 && provided === data;
+}
+async function alchemyKey(client: ReturnType<typeof db>) {
+  const { data } = await client.rpc("get_aura_alchemy_api_key");
+  return String(data || "").trim();
+}
+function rpcUrl(chain: keyof typeof EVM, apiKey: string) {
+  const configured = Deno.env.get(EVM[chain].rpc)?.trim();
+  if (configured) return configured;
+  if (!apiKey) return "";
+  return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
 }
 async function rpc(url: string, method: string, params: unknown[]) {
   const response = await fetch(url, {
@@ -54,9 +65,10 @@ Deno.serve(async (req) => {
   if (!(await authorized(client, req))) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   try {
+    const alchemy = await alchemyKey(client);
     const { data: wallets, error: walletError } = await client
       .from("onchain_wallets").select("user_id,chain,address")
-      .in("chain", ["ethereum", "polygon", "arbitrum"]);
+      .in("chain", Object.keys(EVM));
     if (walletError) throw walletError;
 
     const byChain = new Map<string, Array<{ user_id: string; address: string }>>();
@@ -74,14 +86,14 @@ Deno.serve(async (req) => {
     for (const [chain, tracked] of byChain) {
       const cfg = EVM[chain as keyof typeof EVM];
       if (!cfg || tracked.length === 0) continue;
-      const rpcUrl = Deno.env.get(cfg.rpc);
-      if (!rpcUrl) continue;
+      const rpcEndpoint = rpcUrl(chain as keyof typeof EVM, alchemy);
+      if (!rpcEndpoint) continue;
 
-      const latest = hexToBigInt(await rpc(rpcUrl, "eth_blockNumber", []));
+      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", []));
       const from = latest >= BigInt(scanBlocks - 1) ? latest - BigInt(scanBlocks - 1) : 0n;
       const recipientTopics = [...new Set(tracked.map((w) => padTopicAddress(w.address)))];
 
-      const logs = await rpc(rpcUrl, "eth_getLogs", [{
+      const logs = await rpc(rpcEndpoint, "eth_getLogs", [{
         fromBlock: "0x" + from.toString(16),
         toBlock: "0x" + latest.toString(16),
         address: cfg.token,
@@ -106,7 +118,7 @@ Deno.serve(async (req) => {
 
       for (const item of grouped.values()) {
         if (item.amount_units <= 0n) continue;
-        const receipt = await rpc(rpcUrl, "eth_getTransactionReceipt", [item.tx_hash]);
+        const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [item.tx_hash]);
         if (!receipt || receipt.status !== "0x1") continue;
 
         const confirmations = latest >= hexToBigInt(receipt.blockNumber)
@@ -144,10 +156,10 @@ Deno.serve(async (req) => {
       const rpcUrl = Deno.env.get(cfg.rpc);
       if (!rpcUrl) continue;
 
-      const receipt = await rpc(rpcUrl, "eth_getTransactionReceipt", [deposit.tx_hash]);
+      const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [deposit.tx_hash]);
       if (!receipt || receipt.status !== "0x1") { pending++; continue; }
 
-      const latest = hexToBigInt(await rpc(rpcUrl, "eth_blockNumber", []));
+      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", []));
       const mined = hexToBigInt(receipt.blockNumber);
       const confirmations = latest >= mined ? Number(latest - mined + 1n) : 0;
       const required = Number(deposit.required_confirmations || cfg.confirmations);
