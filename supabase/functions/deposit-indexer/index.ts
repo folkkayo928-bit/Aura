@@ -153,8 +153,9 @@ Deno.serve(async (req) => {
     for (const deposit of pendingDeposits || []) {
       const cfg = EVM[String(deposit.chain).toLowerCase() as keyof typeof EVM];
       if (!cfg) continue;
-      const rpcUrl = Deno.env.get(cfg.rpc);
-      if (!rpcUrl) continue;
+      const chain = String(deposit.chain).toLowerCase() as keyof typeof EVM;
+      const rpcEndpoint = rpcUrl(chain, alchemy);
+      if (!rpcEndpoint) continue;
 
       const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [deposit.tx_hash]);
       if (!receipt || receipt.status !== "0x1") { pending++; continue; }
