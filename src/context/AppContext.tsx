@@ -255,17 +255,20 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   comments: [],
 });
 
-const backendCollectionToUi = (row: any): NFTCollection => ({
+const backendCollectionToUi = (
+  row: any,
+  metrics?: { floorPriceUSDT?: number; itemsCount?: number; ownersCount?: number; totalVolumeUSDT?: number },
+): NFTCollection => ({
   id: row.id,
   name: row.name || 'AURA Collection',
   slug: row.slug || row.id,
   avatar: row.avatar_url || row.creator?.avatar_url || '',
   banner: row.banner_url || '',
   verified: Boolean(row.verified),
-  floorPriceUSDT: 0,
-  totalVolumeUSDT: 0,
-  ownersCount: 0,
-  itemsCount: 0,
+  floorPriceUSDT: Number(metrics?.floorPriceUSDT || 0),
+  totalVolumeUSDT: Number(metrics?.totalVolumeUSDT || 0),
+  ownersCount: Number(metrics?.ownersCount || 0),
+  itemsCount: Number(metrics?.itemsCount || 0),
   description: row.description || '',
   category: row.category || 'generative',
   isWatched: false,
@@ -445,7 +448,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setArtworks([]);
         }
         if (!publicCollectionRes.error) {
-          setCollections((publicCollectionRes.data || []).map(row => backendCollectionToUi(row)));
+          const publicRows = (publicArtworkRes.data || []) as any[];
+          const collectionMetrics = new Map<string, { floorPriceUSDT: number; itemsCount: number }>();
+          for (const artwork of publicRows) {
+            const name = String(artwork.collection_name || '').trim();
+            if (!name) continue;
+            const key = name.toLowerCase();
+            const current = collectionMetrics.get(key) || { floorPriceUSDT: 0, itemsCount: 0 };
+            const value = Number(artwork.current_value_usdt || 0);
+            current.itemsCount += 1;
+            if (value > 0 && (current.floorPriceUSDT === 0 || value < current.floorPriceUSDT)) current.floorPriceUSDT = value;
+            collectionMetrics.set(key, current);
+          }
+          setCollections((publicCollectionRes.data || []).map(row => {
+            const metrics = collectionMetrics.get(String(row.name || '').trim().toLowerCase());
+            return backendCollectionToUi(row, metrics);
+          }));
         } else {
           setCollections([]);
         }
@@ -519,8 +537,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // For authenticated users, published backend content is authoritative.
       // Never surface stale/demo marketplace state when an authenticated backend read fails.
       if (!publicCollectionRes.error) {
+        const collectionMetrics = new Map<string, { floorPriceUSDT: number; itemsCount: number }>();
+        for (const artwork of ((artworkRes.data || []) as any[])) {
+          const name = String(artwork.collection_name || '').trim();
+          if (!name) continue;
+          const key = name.toLowerCase();
+          const current = collectionMetrics.get(key) || { floorPriceUSDT: 0, itemsCount: 0 };
+          const value = Number(artwork.current_value_usdt || 0);
+          current.itemsCount += 1;
+          if (value > 0 && (current.floorPriceUSDT === 0 || value < current.floorPriceUSDT)) current.floorPriceUSDT = value;
+          collectionMetrics.set(key, current);
+        }
         setCollections((publicCollectionRes.data || []).map(row => ({
-          ...backendCollectionToUi(row),
+          ...backendCollectionToUi(row, collectionMetrics.get(String(row.name || '').trim().toLowerCase())),
           isWatched: watchedCollectionIds.has(row.id),
         })));
       } else {
@@ -1036,6 +1065,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       profile: userProfile,
     });
     setArtworks(prev => [created, ...prev.filter(a => a.id !== created.id)]);
+
+    if (newArt.collectionName?.trim()) {
+      const { data: collectionRow, error: collectionError } = await supabase.rpc('ensure_my_collection', {
+        p_name: newArt.collectionName.trim(),
+        p_category: newArt.category,
+        p_description: newArt.description.trim(),
+      });
+      if (!collectionError && collectionRow) {
+        const collection = backendCollectionToUi(collectionRow);
+        setCollections(prev => [collection, ...prev.filter(item => item.id !== collection.id)]);
+      } else if (collectionError) {
+        addNotification(
+          'Artwork Published',
+          'Your artwork is live. The collection record could not be synced yet, so the artwork remains available without collection metadata.',
+          'community'
+        );
+      }
+    }
 
     if (newArt.listOnP2P && newArt.p2pPriceFiat) {
       const { error: offerError } = await supabase.rpc('create_p2p_offer', {
