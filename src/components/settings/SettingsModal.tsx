@@ -132,6 +132,7 @@ export const SettingsModal: React.FC = () => {
       return;
     }
     await refreshMfaState();
+    await updateUserProfile({ twoFactorEnabled: false });
     setMfaLoading(false);
   };
 
