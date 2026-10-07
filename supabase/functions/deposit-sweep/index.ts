@@ -53,12 +53,14 @@ async function authorized(client: ReturnType<typeof db>, req: Request) {
   return !error && !!data && provided.length > 0 && provided === data;
 }
 
-async function custodySecret(client: ReturnType<typeof db>, name: "xprv" | "mnemonic" | "alchemy") {
+async function custodySecret(client: ReturnType<typeof db>, name: "xprv" | "mnemonic" | "alchemy" | "xpub") {
   const fn = name === "xprv"
     ? "get_aura_evm_deposit_xprv"
     : name === "mnemonic"
       ? "get_aura_evm_deposit_mnemonic"
-      : "get_aura_alchemy_api_key";
+      : name === "xpub"
+        ? "get_aura_evm_deposit_xpub"
+        : "get_aura_alchemy_api_key";
   const { data } = await client.rpc(fn);
   return String(data || "").trim();
 }
@@ -88,6 +90,7 @@ Deno.serve(async (req) => {
   const xprv = Deno.env.get("AURA_EVM_DEPOSIT_XPRV")?.trim() || await custodySecret(client, "xprv");
   const mnemonic = Deno.env.get("AURA_EVM_DEPOSIT_MNEMONIC")?.trim() || await custodySecret(client, "mnemonic");
   const alchemy = Deno.env.get("ALCHEMY_API_KEY")?.trim() || await custodySecret(client, "alchemy");
+  const xpub = Deno.env.get("AURA_EVM_DEPOSIT_XPUB")?.trim() || await custodySecret(client, "xpub");
   if (!xprv && !mnemonic) {
     return json({
       ok: true,
@@ -96,6 +99,20 @@ Deno.serve(async (req) => {
       reason: "DEPOSIT_SWEEP_CUSTODY_NOT_CONFIGURED",
       message: "Automatic sweeps are installed and scheduled, but remain idle until server-only EVM signing custody is configured.",
     });
+  }
+
+  if (!xpub || !mnemonic) {
+    return json({ ok: true, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_CONSISTENCY_NOT_VERIFIABLE" });
+  }
+
+  try {
+    const mnemonicNode = HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'/0");
+    const derivedXpub = mnemonicNode.neuter().extendedKey;
+    if (derivedXpub !== xpub) {
+      return json({ ok: false, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_XPUB_MNEMONIC_MISMATCH" }, 503);
+    }
+  } catch {
+    return json({ ok: false, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_MNEMONIC_INVALID" }, 503);
   }
 
   const summaries: Array<Record<string, unknown>> = [];
