@@ -109,7 +109,7 @@ export const AuthModal: React.FC = () => {
                 className="flex w-full items-center justify-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-400/10 py-3.5 text-sm font-semibold text-sky-100 transition hover:bg-sky-400/15 disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Continue with Telegram
+                Connect with Telegram
               </button>
               <div className="flex items-center gap-3 py-1">
                 <div className="h-px flex-1 bg-white/10" />
