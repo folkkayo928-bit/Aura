@@ -34,6 +34,9 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [drops, setDrops] = useState<any[]>([]);
+  const [p2pDisputes, setP2pDisputes] = useState<any[]>([]);
+  const [disputeAction, setDisputeAction] = useState<{ orderId: string; resolution: 'release_to_buyer' | 'refund_seller' } | null>(null);
+  const [disputeReason, setDisputeReason] = useState('');
   const [health, setHealth] = useState<any>({});
   const [audit, setAudit] = useState<any[]>([]);
   const [financial, setFinancial] = useState<FinancialPoint[]>([]);
@@ -45,7 +48,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const load = async () => {
     if (!user) return;
     setBusy(true);
-    const [r0, r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
+    const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
       supabase.rpc('aura_can', { p_min_role: 'operator' }),
       supabase.rpc('admin_dashboard_snapshot'),
       supabase.rpc('admin_list_wallets', { p_limit: 100 }),
@@ -54,6 +57,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       supabase.rpc('admin_list_drops_v2', { p_limit: 100 }),
       supabase.rpc('admin_system_health'),
       supabase.rpc('admin_financial_timeseries', { p_days: 14 }),
+      supabase.rpc('admin_list_p2p_disputes', { p_limit: 100 }),
     ]);
 
     if (!r0.error && r0.data === true) {
@@ -70,6 +74,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setDrops(r5.data || []);
       setHealth((r6.data || [])[0] || r6.data || {});
       if (!r7.error) setFinancial((r7.data || []) as FinancialPoint[]);
+      if (!r8.error) setP2pDisputes(r8.data || []);
       if (!rf.error && rf.data) setRole('finance');
       if (!ro.error && ro.data) setRole('owner');
     }
@@ -92,6 +97,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   };
 
   const canFinance = role === 'finance' || role === 'owner';
+  const canOperate = role === 'operator' || role === 'finance' || role === 'owner';
 
   const stats = useMemo(() => [
     ['Users', dashboard.totalUsers || 0, Users],
@@ -133,7 +139,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         {notice && <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-xs text-amber-200">{notice}</div>}
 
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          {(['overview', 'wallets', 'withdrawals', 'drops', 'health'] as const).map((x) => (
+          {(['overview', 'wallets', 'withdrawals', 'drops', 'p2p', 'health'] as const).map((x) => (
             <button key={x} onClick={() => setTab(x)} className={tab === x
               ? 'rounded-full bg-stone-100 px-4 py-2 text-[10px] font-bold uppercase text-stone-950'
               : 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-semibold uppercase text-stone-400'}>
@@ -265,6 +271,24 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </>
         )}
 
+        {tab === 'p2p' && (
+          <div className="space-y-3">
+            <div className="rounded-3xl border border-white/10 bg-[#111118] p-5">
+              <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-cyan-300" /><div><div className="font-semibold">P2P dispute desk</div><div className="text-xs text-stone-500">Resolve only verified dispute states; every decision is audited.</div></div></div>
+            </div>
+            {p2pDisputes.length === 0 && <div className="rounded-2xl border border-white/10 bg-[#111118] p-5 text-xs text-stone-500">No P2P disputes are currently open.</div>}
+            {p2pDisputes.map((o) => (
+              <div key={o.id} className="rounded-2xl border border-white/10 bg-[#111118] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><div className="font-mono text-sm text-stone-100">{o.reference_code || o.id}</div><div className="mt-1 text-[10px] text-stone-500">{Number(o.crypto_amount || 0).toFixed(2)} USDT · {o.fiat_currency} · {o.payment_method}</div><div className="mt-1 text-[10px] text-stone-600">Buyer {o.buyer_id} · Seller {o.seller_id}</div></div>
+                  <span className="rounded-full bg-rose-400/10 px-2 py-1 text-[9px] uppercase tracking-wider text-rose-300">In dispute</span>
+                </div>
+                {canOperate && <div className="mt-3 grid grid-cols-2 gap-2"><button onClick={() => { setDisputeReason(''); setDisputeAction({ orderId: o.id, resolution: 'refund_seller' }); }} className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[10px] text-amber-200">Refund seller</button><button onClick={() => { setDisputeReason(''); setDisputeAction({ orderId: o.id, resolution: 'release_to_buyer' }); }} className="rounded-xl bg-emerald-400/10 px-3 py-2 text-[10px] text-emerald-300">Release to buyer</button></div>}
+              </div>
+            ))}
+          </div>
+        )}
+
         {tab === 'health' && (
           <>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -276,6 +300,16 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               {audit.map((a) => <div key={a.id} className="flex gap-3 border-t border-white/5 py-3 text-[10px]"><span className="text-amber-300">{a.action}</span><span className="flex-1 truncate text-stone-500">{a.entity_type} · {a.entity_id}</span><span className="text-stone-600">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</span></div>)}
             </div>
           </>
+        )}
+
+        {disputeAction && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
+            <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#15151d] p-5">
+              <div className="flex items-start justify-between gap-3"><div><div className="font-serif text-xl">Confirm dispute decision</div><div className="mt-1 text-xs text-stone-500">{disputeAction.resolution === 'release_to_buyer' ? 'Release the escrowed asset/value to the buyer.' : 'Refund the escrowed value to the seller.'}</div></div><button onClick={() => setDisputeAction(null)}><X /></button></div>
+              <textarea value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} placeholder="Decision reason (required)" rows={4} className="mt-4 w-full rounded-2xl border border-white/10 bg-black p-3 text-xs text-stone-100 outline-none" />
+              <button disabled={!disputeReason.trim() || busy} onClick={async () => { if (!disputeAction) return; await run('admin_resolve_p2p_dispute',{p_order_id:disputeAction.orderId,p_resolution:disputeAction.resolution,p_reason:disputeReason.trim()},'P2P dispute resolved and audited.'); setDisputeAction(null); setDisputeReason(''); }} className="mt-3 w-full rounded-2xl bg-amber-400 p-3 text-xs font-bold text-stone-950 disabled:opacity-40">Confirm resolution</button>
+            </div>
+          </div>
         )}
 
         {adjust && (
