@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthModal } from './components/auth/AuthModal';
+import { MfaSessionGate } from './components/auth/MfaSessionGate';
 import { P2POffer } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -54,9 +55,6 @@ const TelegramWebAppBridge: React.FC = () => {
     const initData = String(tg.initData || '').trim();
     const tgUser = tg.initDataUnsafe?.user;
 
-    // A Telegram Mini App already has a signed Telegram identity. Enter the
-    // AURA account automatically instead of sending the user through the
-    // slower OIDC confirmation page.
     if (initData && !user && !autoAuthAttempted.current) {
       autoAuthAttempted.current = true;
       void signInWithTelegram().then((result) => {
@@ -102,7 +100,7 @@ const AppContent: React.FC = () => {
   const [createP2POfferOpen, setCreateP2POfferOpen] = useState(false);
 
   return (
-    <>
+    <MfaSessionGate>
       <TelegramWebAppBridge />
       <Header />
 
@@ -146,7 +144,7 @@ const AppContent: React.FC = () => {
       {sellArtworkP2PModal && <SellArtP2PModal artwork={sellArtworkP2PModal} onClose={() => setSellArtworkP2PModal(null)} />}
 
       <AuthModal />
-    </>
+    </MfaSessionGate>
   );
 };
 
