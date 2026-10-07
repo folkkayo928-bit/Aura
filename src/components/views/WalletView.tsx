@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
@@ -19,6 +20,7 @@ import {
   ArrowUpDown,
   Lock,
   BadgeCheck,
+  History,
 } from 'lucide-react';
 
 export const WalletView: React.FC = () => {
@@ -56,6 +58,22 @@ export const WalletView: React.FC = () => {
   const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [withdrawMessage, setWithdrawMessage] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [withdrawalHistoryOpen, setWithdrawalHistoryOpen] = useState(false);
+  const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
+  const [withdrawalHistoryBusy, setWithdrawalHistoryBusy] = useState(false);
+
+  const openWithdrawalHistory = async () => {
+    setWithdrawalHistoryOpen(true);
+    setWithdrawalHistoryBusy(true);
+    const { data, error } = await supabase
+      .from('wallet_withdrawals')
+      .select('id,chain,token_symbol,destination_address,amount,network_fee,status,email_confirmed_at,tx_hash,rejection_reason,created_at,updated_at')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setWithdrawalHistoryBusy(false);
+    if (error) return;
+    setWithdrawalHistory(data || []);
+  };
 
 
   return (
@@ -414,6 +432,22 @@ export const WalletView: React.FC = () => {
         </button>
       </div>
 
+      <div className="px-1">
+        <button
+          onClick={() => void openWithdrawalHistory()}
+          className="w-full p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-amber-400/30 transition-all flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3 text-left">
+            <History className="w-4 h-4 text-amber-300" />
+            <div>
+              <div className="text-xs font-semibold text-stone-100">Withdrawal history</div>
+              <div className="text-[10px] text-stone-500 mt-0.5">Requests · confirmations · blockchain status</div>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-stone-500" />
+        </button>
+      </div>
+
       {/* RECENT VAULT ACTIVITY (With on-chain tags) */}
       <div className="space-y-3 px-1">
         <div className="flex items-center justify-between text-xs">
@@ -572,6 +606,38 @@ export const WalletView: React.FC = () => {
       )}
 
       <TransactionHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
+
+      {withdrawalHistoryOpen && (
+        <div className="fixed inset-0 z-[90] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-3">
+          <div className="w-full max-w-md max-h-[82vh] overflow-hidden rounded-3xl bg-[#111118] border border-white/10 shadow-2xl flex flex-col">
+            <div className="p-5 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-stone-100">Withdrawal history</h3>
+                <p className="text-[10px] text-stone-500 mt-1">Only requests belonging to your AURA account are shown.</p>
+              </div>
+              <button onClick={() => setWithdrawalHistoryOpen(false)} className="text-stone-400 text-sm">Close</button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2">
+              {withdrawalHistoryBusy && <div className="py-8 text-center text-xs text-stone-500">Loading withdrawal history…</div>}
+              {!withdrawalHistoryBusy && withdrawalHistory.length === 0 && <div className="py-8 text-center text-xs text-stone-500">No withdrawal requests yet.</div>}
+              {!withdrawalHistoryBusy && withdrawalHistory.map((w) => (
+                <div key={w.id} className="rounded-2xl border border-white/10 bg-white/[.02] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-sm text-stone-100">{Number(w.amount || 0).toFixed(2)} {w.token_symbol || 'USDT'}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-wider text-stone-500">{w.chain} · {String(w.status || '').replaceAll('_', ' ')}</div>
+                    </div>
+                    <div className="text-right text-[9px] text-stone-600">{w.created_at ? new Date(w.created_at).toLocaleString() : ''}</div>
+                  </div>
+                  <div className="mt-3 text-[10px] text-stone-500 break-all">{w.destination_address}</div>
+                  {w.tx_hash && <div className="mt-2 text-[10px] text-cyan-300 break-all">Tx: {w.tx_hash}</div>}
+                  {w.rejection_reason && <div className="mt-2 text-[10px] text-rose-300">Reason: {w.rejection_reason}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tether USDT Token Details Modal */}
       <UsdtAssetDetailsModal
