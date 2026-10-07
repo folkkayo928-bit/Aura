@@ -38,7 +38,7 @@ export const SendModal: React.FC = () => {
 
   const currentGas = 0;
   const numAmount = parseFloat(amount) || 0;
-  const totalCost = numAmount + currentGas;
+  const totalCost = numAmount;
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,18 +169,14 @@ export const SendModal: React.FC = () => {
             <div>
               <label className="text-xs text-stone-400 block mb-1.5 font-medium">
                 {mode === 'external'
-                  ? `Recipient ${network.toUpperCase()} Address (MetaMask, Phantom, Tonkeeper, Binance)`
+                  ? `Recipient ${network.toUpperCase()} EVM Address`
                   : 'Recipient Telegram Handle or Vault ID'}
               </label>
               <input
                 type="text"
                 placeholder={
                   mode === 'external'
-                    ? network === 'ton'
-                      ? 'EQB...'
-                      : network === 'solana'
-                      ? '7xK...'
-                      : '0x71C...'
+                    ? '0x71C...'
                     : '@username or aura.tg://...'
                 }
                 value={recipient}
@@ -208,7 +204,7 @@ export const SendModal: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setAmount(Math.max(0, walletBalance - currentGas).toFixed(2))}
+                  onClick={() => setAmount(Math.max(0, walletBalance).toFixed(2))}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/10 text-stone-300 hover:text-white"
                 >
                   Max
@@ -219,13 +215,14 @@ export const SendModal: React.FC = () => {
             {/* Fee summary */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-stone-400 space-y-1.5 font-mono">
               <div className="flex justify-between">
-                <span>Network Gas Fee:</span>
-                <span className="text-stone-200">${currentGas.toFixed(2)} USDT</span>
+                <span>Network Fee:</span>
+                <span className="text-amber-300">Calculated at broadcast</span>
               </div>
               <div className="flex justify-between font-semibold text-stone-100 pt-1 border-t border-white/5">
-                <span>Total Debit:</span>
+                <span>USDT Amount:</span>
                 <span className="text-amber-300">${totalCost.toFixed(2)} USDT</span>
               </div>
+              <p className="pt-1 text-[10px] text-stone-500">AURA will not pretend the network fee is $0. The actual chain fee is handled by the broadcaster.</p>
             </div>
 
             <button
