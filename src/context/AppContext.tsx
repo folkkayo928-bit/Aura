@@ -151,7 +151,7 @@ interface AppContextType {
   // P2P Trustless Escrow Market
   p2pOffers: P2POffer[];
   activeP2POrder: P2POrder | null;
-  setActiveP2POrder: (order: P2POrder | null) => void;
+  setActiveP2POrder: React.Dispatch<React.SetStateAction<P2POrder | null>>;
   startP2POrder: (params: {
     offer: P2POffer;
     cryptoAmount: number;
@@ -505,7 +505,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveP2POrder(current => current?.id === orderId ? null : current);
         return;
       }
-      setActiveP2POrder(backendP2POrderToUi(row));
+      const uiOrder = backendP2POrderToUi(row);
+      setActiveP2POrder(uiOrder);
+
+      if (row.accepted_at) {
+        const amount = Number(row.crypto_amount || 0);
+        setP2pOffers(prev => prev
+          .map(o => o.id === row.offer_id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - amount) } : o)
+          .filter(o => o.availableCrypto > 0));
+      } else if (row.status === 'cancelled') {
+        const { data: restoredOffer } = await supabase
+          .from('p2p_offers')
+          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)')
+          .eq('id', row.offer_id)
+          .maybeSingle();
+        if (restoredOffer) {
+          setP2pOffers(prev => [backendP2POfferToUi(restoredOffer), ...prev.filter(o => o.id !== row.offer_id)]);
+        }
+      }
     };
 
     const buyerChannel = supabase
