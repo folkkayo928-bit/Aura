@@ -7,9 +7,10 @@ import { Heart, Flame, Bookmark, Sparkles, CheckCircle2, ShoppingBag, Star, Thum
 interface ArtworkCardProps {
   artwork: Artwork;
   onOpenDetail: (artwork: Artwork) => void;
+  onOpenProfile?: (creator: Artwork['creator']) => void;
 }
 
-export const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, onOpenDetail }) => {
+export const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, onOpenDetail, onOpenProfile }) => {
   const {
     toggleLike,
     toggleDislike,
@@ -40,17 +41,34 @@ export const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, onOpenDetail 
       {/* Creator & Collection Bar */}
       <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-b from-[#12121b] to-transparent">
         <div className="flex items-center gap-2.5 min-w-0">
-          <img
-            src={artwork.creator.avatar}
-            alt={artwork.creator.name}
-            referrerPolicy="no-referrer"
-            className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0"
-          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenProfile?.(artwork.creator);
+            }}
+            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+            aria-label={`Open ${artwork.creator.name}'s public profile`}
+          >
+            <img
+              src={artwork.creator.avatar}
+              alt={artwork.creator.name}
+              referrerPolicy="no-referrer"
+              className="w-8 h-8 rounded-full object-cover border border-white/10 transition-transform hover:scale-105"
+            />
+          </button>
           <div className="min-w-0">
             <div className="flex items-center gap-1">
-              <span className="text-xs font-semibold text-stone-200 truncate">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenProfile?.(artwork.creator);
+                }}
+                className="max-w-full truncate text-left text-xs font-semibold text-stone-200 hover:text-amber-300"
+              >
                 {artwork.creator.name}
-              </span>
+              </button>
               {artwork.creator.verified && (
                 <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0 fill-amber-400/20" />
               )}
