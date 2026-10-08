@@ -125,6 +125,7 @@ const AppContent: React.FC = () => {
     p2pModalOpen,
     setP2pModalOpen,
     activeP2POrder,
+    setActiveP2POrder,
   } = useApp();
 
   const [selectedP2POffer, setSelectedP2POffer] = useState<P2POffer | null>(null);
@@ -144,6 +145,18 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('aura-admin-open', open);
   }, []);
   const [createP2POfferOpen, setCreateP2POfferOpen] = useState(false);
+
+  const openP2PTrade = (offer: P2POffer) => {
+    setP2pModalOpen(false);
+    setSelectedP2POffer(offer);
+  };
+
+  const closeP2PTrade = () => {
+    setSelectedP2POffer(null);
+    // The order remains server-side; clearing local state only exits the trade screen.
+    setActiveP2POrder(null);
+    setP2pModalOpen(true);
+  };
 
   return (
     <MfaSessionGate>
@@ -189,12 +202,12 @@ const AppContent: React.FC = () => {
             <button onClick={() => setP2pModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"><X className="w-4 h-4" /></button>
           </div>
           <div className="max-w-xl mx-auto w-full px-3 pt-2 pb-24">
-            <P2PView onSelectOffer={(offer) => setSelectedP2POffer(offer)} onOpenCreateOffer={() => setCreateP2POfferOpen(true)} />
+            <P2PView onSelectOffer={openP2PTrade} onOpenCreateOffer={() => setCreateP2POfferOpen(true)} />
           </div>
         </div>
       )}
 
-      {(selectedP2POffer || activeP2POrder) && <P2PTradeModal offer={selectedP2POffer} onClose={() => setSelectedP2POffer(null)} />}
+      {(selectedP2POffer || activeP2POrder) && <P2PTradeModal offer={selectedP2POffer} onClose={closeP2PTrade} />}
       {createP2POfferOpen && <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />}
       {selectedCollection && <CollectionHubModal collection={selectedCollection} onClose={() => setSelectedCollection(null)} onOpenArtworkDetail={(artwork) => setSelectedArtwork(artwork)} />}
       {makeOfferArtwork && <MakeOfferModal artwork={makeOfferArtwork} onClose={() => setMakeOfferArtwork(null)} />}
