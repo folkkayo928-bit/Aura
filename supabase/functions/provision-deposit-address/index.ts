@@ -187,6 +187,24 @@ Deno.serve(async (req) => {
 
   const userId = authData.user.id;
 
+  let requestedChain: (typeof CHAINS)[number] | null = null;
+  try {
+    const body = await req.json();
+    const candidate = String(body?.chain || "").toLowerCase();
+    if (candidate) {
+      if (!(CHAINS as readonly string[]).includes(candidate)) {
+        return Response.json(
+          { error: "UNSUPPORTED_CHAIN" },
+          { status: 400, headers: corsHeaders },
+        );
+      }
+      requestedChain = candidate as (typeof CHAINS)[number];
+    }
+  } catch {
+    // Empty/non-JSON POST bodies remain backward compatible and provision all
+    // EVM chains for legacy callers.
+  }
+
   let xpub = "";
   try {
     xpub = await custodyXpub(client);
@@ -195,19 +213,19 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const targetChains = requestedChain ? [requestedChain] : CHAINS;
     let byChain = await getCustodialRows(client, userId);
 
-    for (const chain of CHAINS) {
+    for (const chain of targetChains) {
       if (byChain.has(chain)) continue;
       const row = await provisionChain(client, userId, chain, xpub);
       byChain.set(chain, row);
     }
 
-    // Refresh from the database once more so a concurrent request cannot leave
-    // the response with a partially stale view.
+    // Refresh from the database once more so the response is authoritative.
     byChain = await getCustodialRows(client, userId);
 
-    const chains = CHAINS.map((chain) => ({
+    const chains = targetChains.map((chain) => ({
       chain,
       address: byChain.get(chain)?.address || "",
       address_type: byChain.get(chain)?.address_type || "custodial_deposit",
