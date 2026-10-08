@@ -48,6 +48,11 @@ export const CreateView: React.FC = () => {
   const [notifyWatchers, setNotifyWatchers] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [publishError, setPublishError] = useState('');
+  const scheduleMinimum = (() => {
+    const d = new Date(Date.now() + 60_000);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  })();
 
   // File upload handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,7 +387,7 @@ export const CreateView: React.FC = () => {
                 type="datetime-local"
                 value={scheduledAt}
                 onChange={(e) => setScheduledAt(e.target.value)}
-                min={new Date(Date.now() + 60_000).toISOString().slice(0,16)}
+                min={scheduleMinimum}
                 className="w-full bg-black/30 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-cyan-400/60"
                 required
               />
