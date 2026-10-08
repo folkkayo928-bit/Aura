@@ -3,7 +3,7 @@ import { ArrowRight, CheckCircle2, KeyRound, Loader2, Mail, Send, ShieldCheck, U
 import { useAuth } from '../../context/AuthContext';
 
 export const AuthModal: React.FC = () => {
-  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signInWithTelegram, signUp, resetPassword, updatePassword } = useAuth();
+  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signInWithTelegram, signInWithProvider, signUp, resetPassword, updatePassword } = useAuth();
   const [mode, setMode] = useState(authMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -102,6 +102,36 @@ export const AuthModal: React.FC = () => {
         <form onSubmit={submit} className="relative space-y-4 p-6">
           {mode !== 'forgot' && mode !== 'reset' && (
             <>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setError('');
+                    setSubmitting(true);
+                    const result = await signInWithProvider('google');
+                    if (result.error) setError(result.error);
+                    setSubmitting(false);
+                  }}
+                  disabled={submitting}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white py-3.5 text-sm font-semibold text-stone-900 transition hover:bg-stone-100 disabled:opacity-50"
+                >
+                  <span className="font-bold text-base">G</span> Continue with Google
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setError('');
+                    setSubmitting(true);
+                    const result = await signInWithProvider('apple');
+                    if (result.error) setError(result.error);
+                    setSubmitting(false);
+                  }}
+                  disabled={submitting}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-black py-3.5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-50"
+                >
+                  <span className="font-bold text-base"></span> Continue with Apple
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={continueWithTelegram}
