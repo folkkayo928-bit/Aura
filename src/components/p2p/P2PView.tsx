@@ -44,8 +44,9 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
   // Collect all distinct payment methods available in the current activeTab
   const availableMethods = useMemo(() => {
     const set = new Set<string>();
+    const marketOfferType = activeTab === 'buy' ? 'sell' : 'buy';
     p2pOffers.forEach((offer) => {
-      if (offer.type === activeTab) {
+      if (offer.type === marketOfferType) {
         offer.paymentMethods?.forEach((m) => {
           if (m && m.trim()) set.add(m.trim());
         });
@@ -57,8 +58,9 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
   // Method offer counts for the current tab
   const methodOfferCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    const marketOfferType = activeTab === 'buy' ? 'sell' : 'buy';
     p2pOffers.forEach((offer) => {
-      if (offer.type === activeTab) {
+      if (offer.type === marketOfferType) {
         offer.paymentMethods?.forEach((m) => {
           const key = m.toLowerCase();
           counts[key] = (counts[key] || 0) + 1;
@@ -79,8 +81,10 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
 
   // Filter & sort offers based on payment method and chosen sort option
   const processedOffers = useMemo(() => {
-    // 1. Filter by buy/sell tab
-    let result = p2pOffers.filter((offer) => offer.type === activeTab);
+    // 1. Filter by trading role, not the ad author's side.
+    // Buy = browse SELL ads; Sell = browse BUY ads.
+    const marketOfferType = activeTab === 'buy' ? 'sell' : 'buy';
+    let result = p2pOffers.filter((offer) => offer.type === marketOfferType);
 
     // 2. Filter by search query if typed
     if (searchMethodQuery.trim()) {
@@ -350,6 +354,10 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
           >
             Sell USDT
           </button>
+        </div>
+
+        <div className="text-[10px] text-stone-500 px-1">
+          Buy shows active seller ads (including artwork). Sell shows active buyer ads.
         </div>
 
         <div className="text-right text-[11px] font-mono text-stone-400">
@@ -714,12 +722,12 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                   <button
                     onClick={() => onSelectOffer(offer)}
                     className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-95 shadow-md ${
-                      offer.artworkId || offer.type === 'buy'
+                      activeTab === 'buy'
                         ? 'bg-emerald-500 hover:bg-emerald-400 text-stone-950 shadow-emerald-500/20'
                         : 'bg-rose-500 hover:bg-rose-400 text-stone-100 shadow-rose-500/20'
                     }`}
                   >
-                    {offer.artworkId ? 'Buy Artwork' : (offer.type === 'buy' ? 'Buy USDT' : 'Sell USDT')}
+                    {offer.artworkId && activeTab === 'buy' ? 'Buy Artwork' : (activeTab === 'buy' ? 'Buy USDT' : 'Sell USDT')}
                   </button>
                 </div>
               </div>
