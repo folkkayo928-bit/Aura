@@ -12,7 +12,7 @@ interface SellArtP2PModalProps {
 export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClose }) => {
   const { listArtworkOnP2P } = useApp();
   const [fiatPrice, setFiatPrice] = useState(artwork.currentValue.toString());
-  const [currency, setCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
+  const [currency, setCurrency] = useState<'ETB' | 'USD' | 'EUR' | 'GBP' | 'AED'>('ETB');
   const [selectedMethods, setSelectedMethods] = useState<PaymentMethodType[]>([]);
   const [savedMethods, setSavedMethods] = useState<Array<{ id: string; method_type: string; label: string; account_holder_name: string; account_identifier: string }>>([]);
   const [loadingMethods, setLoadingMethods] = useState(true);
@@ -147,7 +147,9 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
                   onChange={(e) => setCurrency(e.target.value as any)}
                   className="bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-xs text-stone-100 focus:outline-none"
                 >
+                  <option value="ETB" className="bg-[#12121a]">ETB (Birr)</option>
                   <option value="USD" className="bg-[#12121a]">USD ($)</option>
+                  <option value="AED" className="bg-[#12121a]">AED (Dirham)</option>
                   <option value="EUR" className="bg-[#12121a]">EUR (€)</option>
                   <option value="GBP" className="bg-[#12121a]">GBP (£)</option>
                 </select>
