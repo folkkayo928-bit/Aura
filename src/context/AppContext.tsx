@@ -501,19 +501,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error || !data) return;
       const row = data as any;
-      if (['cancelled', 'completed'].includes(row.status)) {
+      if (row.status === 'cancelled') {
         setActiveP2POrder(current => current?.id === orderId ? null : current);
-        return;
-      }
-      const uiOrder = backendP2POrderToUi(row);
-      setActiveP2POrder(uiOrder);
-
-      if (row.accepted_at) {
-        const amount = Number(row.crypto_amount || 0);
-        setP2pOffers(prev => prev
-          .map(o => o.id === row.offer_id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - amount) } : o)
-          .filter(o => o.availableCrypto > 0));
-      } else if (row.status === 'cancelled') {
         const { data: restoredOffer } = await supabase
           .from('p2p_offers')
           .select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)')
@@ -522,6 +511,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (restoredOffer) {
           setP2pOffers(prev => [backendP2POfferToUi(restoredOffer), ...prev.filter(o => o.id !== row.offer_id)]);
         }
+        return;
+      }
+      if (row.status === 'completed') {
+        setActiveP2POrder(current => current?.id === orderId ? null : current);
+        return;
+      }
+
+      const uiOrder = backendP2POrderToUi(row);
+      setActiveP2POrder(uiOrder);
+
+      if (row.accepted_at) {
+        const amount = Number(row.crypto_amount || 0);
+        setP2pOffers(prev => prev
+          .map(o => o.id === row.offer_id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - amount) } : o)
+          .filter(o => o.availableCrypto > 0));
       }
     };
 
