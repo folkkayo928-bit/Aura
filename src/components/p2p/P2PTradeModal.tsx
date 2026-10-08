@@ -19,7 +19,6 @@ import {
   HelpCircle,
   BadgeCheck,
   Upload,
-  Image as ImageIcon,
   FileText,
 } from 'lucide-react';
 
@@ -65,7 +64,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       id: 'm-sys-1',
       sender: 'system',
       senderName: 'AURA Trade System',
-      text: '🔒 AURA ledger hold is active. The seller balance is reserved until the payment step is completed or the order is cancelled.',
+      text: '⏳ AURA trade request is open. Once the counterparty accepts, AURA will lock the seller value for the payment window.',
       timestamp: 'Just now',
     },
   ]);
@@ -326,10 +325,19 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-400">Trade State:</span>
                 <span className="font-mono text-emerald-400 flex items-center gap-1">
-                  <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  {activeP2POrder.artwork
-                    ? `AURA ownership transfer · Order reference ${activeP2POrder.escrowTxHash}`
-                    : `AURA ledger hold · Order reference ${activeP2POrder.escrowTxHash}`}
+                  {isAcceptancePending ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-amber-300" />
+                      Waiting for acceptance · Request ${activeP2POrder.escrowTxHash}
+                    </>
+                  ) : (
+                    <>
+                      <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      {activeP2POrder.artwork
+                        ? `AURA ownership transfer · Order reference ${activeP2POrder.escrowTxHash}`
+                        : `AURA ledger hold · Order reference ${activeP2POrder.escrowTxHash}`}
+                    </>
+                  )}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
