@@ -214,6 +214,8 @@ export interface P2POrder {
   status: 'escrow_locked' | 'payment_marked' | 'completed' | 'cancelled' | 'in_dispute';
   escrowTxHash: string;
   createdAt: string;
+  acceptedAt?: string;
+  expiresAt?: string;
   protectionFundActive: boolean;
   artwork?: {
     id: string;
