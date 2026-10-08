@@ -1511,8 +1511,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       p_payment_details: paymentDetails || {},
     });
     if (error || !data) {
-      addNotification('P2P Order Failed', error?.message || 'Could not create this trade.', 'p2p');
-      return null;
+      const detail = error?.message || error?.details || error?.hint || 'Could not create this trade.';
+      addNotification('P2P Order Failed', detail, 'p2p');
+      throw new Error(detail);
     }
     const orderRow = data as any;
     const enriched = {
