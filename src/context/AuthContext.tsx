@@ -13,7 +13,7 @@ interface AuthContextValue {
   openAuth: (mode?: AuthMode) => void;
   closeAuth: () => void;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
-  signInWithTelegram: () => Promise<{ error?: string }>;
+  signInWithTelegram: () => Promise<{ error?: string; telegramId?: string }>;
   signUp: (params: { name: string; email: string; password: string }) => Promise<{ error?: string; needsConfirmation?: boolean }>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -127,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return { error: humanizeAuthError(verifyError.message) };
           }
 
-          return {};
+          return { telegramId: String(data?.user?.id || '') };
         } catch {
           return { error: 'Telegram sign-in is temporarily unavailable. Please try again.' };
         }
