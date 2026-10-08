@@ -56,6 +56,17 @@ export const SettingsModal: React.FC = () => {
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
 
   useEffect(() => {
+    const handleSettingsTab = (event: Event) => {
+      const requested = (event as CustomEvent<{ tab?: string }>).detail?.tab;
+      if (requested && ['profile', 'payments', 'wallets', 'security', 'preferences'].includes(requested)) {
+        setActiveTab(requested as 'profile' | 'payments' | 'wallets' | 'security' | 'preferences');
+      }
+    };
+    window.addEventListener('aura-settings-tab', handleSettingsTab);
+    return () => window.removeEventListener('aura-settings-tab', handleSettingsTab);
+  }, []);
+
+  useEffect(() => {
     if (!settingsModalOpen || activeTab !== 'security' || !user) return;
     let cancelled = false;
 
