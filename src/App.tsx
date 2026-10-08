@@ -79,6 +79,7 @@ const TelegramWebAppBridge: React.FC = () => {
 
 const AppContent: React.FC = () => {
   const {
+    artworks,
     activeTab,
     selectedArtwork,
     setSelectedArtwork,
