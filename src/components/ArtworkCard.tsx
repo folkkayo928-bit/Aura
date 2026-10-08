@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { Artwork } from '../types';
 import { ArtworkCanvas } from './ArtworkCanvas';
+import { createNeutralAvatar } from '../lib/avatar';
 import { Heart, Flame, Bookmark, Sparkles, CheckCircle2, ShoppingBag, Star, ThumbsDown } from 'lucide-react';
 
 interface ArtworkCardProps {
@@ -40,52 +41,50 @@ export const ArtworkCard: React.FC<ArtworkCardProps> = ({ artwork, onOpenDetail,
     <article className="group relative bg-[#0e0e14] rounded-3xl border border-white/5 overflow-hidden transition-all duration-300 hover:border-white/15">
       {/* Creator & Collection Bar */}
       <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-b from-[#12121b] to-transparent">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="min-w-0">
           <button
             type="button"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               onOpenProfile?.(artwork.creator);
             }}
-            className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+            className="flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-amber-400/50"
             aria-label={`Open ${artwork.creator.name}'s public profile`}
           >
             <img
-              src={artwork.creator.avatar}
+              src={artwork.creator.avatar || createNeutralAvatar(String(artwork.creator.id || artwork.creator.handle || 'aura-creator'))}
               alt={artwork.creator.name}
               referrerPolicy="no-referrer"
-              className="w-8 h-8 rounded-full object-cover border border-white/10 transition-transform hover:scale-105"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = createNeutralAvatar(String(artwork.creator.id || artwork.creator.handle || 'aura-creator'));
+              }}
+              className="h-9 w-9 shrink-0 rounded-full border border-white/10 bg-[#1b1b25] object-cover transition-transform hover:scale-105"
             />
-          </button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenProfile?.(artwork.creator);
-                }}
-                className="max-w-full truncate text-left text-xs font-semibold text-stone-200 hover:text-amber-300"
-              >
-                {artwork.creator.name}
-              </button>
-              {artwork.creator.verified && (
-                <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0 fill-amber-400/20" />
-              )}
-            </div>
-            {artwork.collectionName ? (
-              <button
-                onClick={handleCollectionClick}
-                className="text-[11px] text-blue-400 hover:underline font-mono block truncate text-left"
-              >
-                {artwork.collectionName}
-              </button>
-            ) : (
-              <span className="text-[11px] text-stone-400 font-mono block truncate">
+            <span className="min-w-0">
+              <span className="flex items-center gap-1">
+                <span className="max-w-[170px] truncate text-xs font-semibold text-stone-200 hover:text-amber-300">
+                  {artwork.creator.name}
+                </span>
+                {artwork.creator.verified && (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 fill-amber-400/20 text-amber-400" />
+                )}
+              </span>
+              <span className="block max-w-[170px] truncate text-[11px] text-stone-400 font-mono">
                 {artwork.creator.handle}
               </span>
-            )}
-          </div>
+            </span>
+          </button>
+          {artwork.collectionName && (
+            <button
+              type="button"
+              onClick={handleCollectionClick}
+              className="ml-[46px] max-w-[170px] truncate text-left text-[11px] font-mono text-blue-400 hover:underline"
+            >
+              {artwork.collectionName}
+            </button>
+          )}
         </div>
 
         {/* Watchlist Star & Edition Label */}
