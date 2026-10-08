@@ -205,16 +205,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
                 { label: 'Activity', hint: 'Account activity', icon: ArrowUpDown, action: () => { setProfileMode('private'); setProfileSection('activity'); } },
                 { label: 'Public Profile', hint: profileMode === 'public' ? 'Currently viewing' : 'Preview your public page', icon: Globe2, action: () => setProfileMode('public') },
                 { label: 'P2P Trading', hint: 'Open your active trade', icon: ArrowRightLeft, action: () => setActiveTab('p2p_trade') },
-                { label: 'Payment Methods', hint: 'Manage saved payment details', icon: CreditCard, action: () => setSettingsModalOpen(true) },
-                { label: 'Notifications', hint: 'Alerts & preferences', icon: Bell, action: () => setSettingsModalOpen(true) },
-                { label: 'Settings', hint: 'Profile, wallets & security', icon: Settings, action: () => setSettingsModalOpen(true) },
+                { label: 'Payment Methods', hint: 'Manage saved payment details', icon: CreditCard, action: () => { window.dispatchEvent(new CustomEvent('aura-settings-tab', { detail: { tab: 'payments' } })); setSettingsModalOpen(true); } },
+                { label: 'Notifications', hint: 'Alerts & preferences', icon: Bell, action: () => { window.dispatchEvent(new CustomEvent('aura-settings-tab', { detail: { tab: 'preferences' } })); setSettingsModalOpen(true); } },
+                { label: 'Settings', hint: 'Profile, wallets & security', icon: Settings, action: () => { window.dispatchEvent(new CustomEvent('aura-settings-tab', { detail: { tab: 'profile' } })); setSettingsModalOpen(true); } },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.label}
                     type="button"
-                    onClick={() => { item.action(); if (item.label !== 'P2P Trading') setMenuOpen(false); }}
+                    onClick={() => { item.action(); setMenuOpen(false); }}
                     className="flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.025] px-3.5 py-3 text-left hover:bg-white/[0.06]"
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-stone-300"><Icon className="h-4 w-4" /></span>
