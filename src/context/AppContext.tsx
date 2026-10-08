@@ -949,7 +949,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const { error } = await supabase.rpc('collect_artwork', { p_artwork_id: artwork.id });
     if (error) {
-      addNotification('Collect Failed', error.message.includes('INSUFFICIENT_FUNDS') ? 'Your AURA wallet needs more USDT.' : 'This artwork could not be collected right now.', 'community');
+      const message = error.message || '';
+      addNotification(
+        'Collect Failed',
+        message.includes('INSUFFICIENT_FUNDS')
+          ? 'Your AURA wallet needs more USDT.'
+          : message.includes('ARTWORK_LISTED_ON_P2P')
+            ? 'This artwork is listed for P2P sale. Open the P2P desk to buy it with fiat.'
+            : 'This artwork could not be collected right now.',
+        'community'
+      );
       return false;
     }
 
