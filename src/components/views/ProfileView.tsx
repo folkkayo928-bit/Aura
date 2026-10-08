@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Artwork, NFTCollection } from '../../types';
+import { createNeutralAvatar } from '../../lib/avatar';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import {
   ShieldCheck,
@@ -100,7 +101,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
             <div className="-mt-11 flex items-end justify-between">
               <div className="relative">
                 <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#111118] bg-[#1b1b25] shadow-xl">
-                  <img src={userProfile.avatar} alt={userProfile.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  <img src={userProfile.avatar || createNeutralAvatar(user?.id || userProfile.telegramHandle || "aura-profile")} alt={userProfile.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full border-2 border-[#111118] bg-amber-400 text-stone-950 flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4" />
