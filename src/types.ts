@@ -78,7 +78,7 @@ export interface Artwork {
   published?: boolean;
   scheduledAt?: string;
   p2pPriceFiat?: number;
-  p2pCurrency?: 'USD' | 'EUR' | 'GBP';
+  p2pCurrency?: 'ETB' | 'USD' | 'EUR' | 'GBP' | 'AED';
   p2pPaymentMethods?: PaymentMethodType[];
   comments: ArtworkComment[];
 }
