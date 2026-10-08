@@ -75,6 +75,8 @@ export interface Artwork {
   conversionLiquidity: 'Ample' | 'Moderate' | 'Limited' | 'Not reported';
   // P2P Direct Art Sale
   isListedOnP2P?: boolean;
+  published?: boolean;
+  scheduledAt?: string;
   p2pPriceFiat?: number;
   p2pCurrency?: 'USD' | 'EUR' | 'GBP';
   p2pPaymentMethods?: PaymentMethodType[];
