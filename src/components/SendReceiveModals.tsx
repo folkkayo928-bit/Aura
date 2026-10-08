@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { CryptoNetwork } from '../types';
 import {
   X,
@@ -241,6 +242,7 @@ export const SendModal: React.FC = () => {
 
 export const ReceiveModal: React.FC = () => {
   const { receiveModalOpen, setReceiveModalOpen, userProfile } = useApp();
+  const { user, loading: authLoading } = useAuth();
   const [copied, setCopied] = useState<string | null>(null);
   const [depositAddresses, setDepositAddresses] = useState<Record<string, string>>({});
   const [depositLoading, setDepositLoading] = useState(false);
@@ -250,12 +252,19 @@ export const ReceiveModal: React.FC = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   React.useEffect(() => {
-    if (!receiveModalOpen) return;
+    if (!receiveModalOpen || authLoading) return;
     let cancelled = false;
 
     const loadDepositAddresses = async () => {
       setDepositLoading(true);
       setDepositMessage(null);
+
+      if (!user) {
+        setDepositAddresses({});
+        setDepositLoading(false);
+        setDepositMessage('Sign in to enable secure external USDT receiving.');
+        return;
+      }
 
       const { data, error } = await supabase.functions.invoke('provision-deposit-address', {
         body: {},
@@ -263,18 +272,31 @@ export const ReceiveModal: React.FC = () => {
 
       if (cancelled) return;
 
-      if (error || !data?.success) {
+      let backendPayload: any = data || null;
+      const status = Number((error as any)?.context?.status || 0);
+      if (!backendPayload && (error as any)?.context instanceof Response) {
+        try {
+          backendPayload = await (error as any).context.clone().json();
+        } catch {
+          backendPayload = null;
+        }
+      }
+
+      if (error || !backendPayload?.success) {
         setDepositAddresses({});
-        setDepositMessage(
-          data?.message ||
-          (data?.error === 'DEPOSIT_ADDRESS_PROVISIONING_UNAVAILABLE'
-            ? 'External USDT receiving is not enabled yet.'
-            : 'External USDT receiving is temporarily unavailable.'),
-        );
+        if (status === 401 || backendPayload?.error === 'UNAUTHORIZED') {
+          setDepositMessage('Your AURA session is not ready. Please close and reopen the Receive panel.');
+        } else if (backendPayload?.message) {
+          setDepositMessage(String(backendPayload.message));
+        } else if (backendPayload?.error === 'DEPOSIT_CUSTODY_XPUB_INVALID') {
+          setDepositMessage('AURA secure deposit custody is not configured correctly yet.');
+        } else {
+          setDepositMessage('External USDT receiving is temporarily unavailable. Please try again.');
+        }
       } else {
-        const fromLegacyShape = data.addresses || {};
+        const fromLegacyShape = backendPayload.addresses || {};
         const fromCurrentShape = Object.fromEntries(
-          (Array.isArray(data.chains) ? data.chains : [])
+          (Array.isArray(backendPayload.chains) ? backendPayload.chains : [])
             .filter((item: any) => item?.chain)
             .map((item: any) => [item.chain, item.address || '']),
         );
@@ -292,7 +314,7 @@ export const ReceiveModal: React.FC = () => {
 
     void loadDepositAddresses();
     return () => { cancelled = true; };
-  }, [receiveModalOpen]);
+  }, [receiveModalOpen, authLoading, user?.id]);
 
   const externalAddress = depositAddresses[selectedNetwork] || '';
   const auraReceiveValue = userProfile.telegramHandle && userProfile.telegramHandle !== '@collector'
