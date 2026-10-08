@@ -80,7 +80,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       if (!data) return;
       setMessages((data as any[]).map((m) => ({
         id: m.id,
-        sender: m.sender_role === 'system' ? 'system' : m.sender_id === user.id ? 'buyer' : 'merchant',
+        sender: m.sender_role === 'system' ? 'system' : m.sender_role === 'seller' ? 'merchant' : 'buyer',
         senderName: m.sender?.display_name || m.sender?.handle || 'AURA Member',
         text: m.text,
         timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -115,7 +115,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
 
           setMessages((prev) => prev.some((m) => m.id === row.id) ? prev : [...prev, {
             id: row.id,
-            sender: row.sender_id === user.id ? 'buyer' : 'merchant',
+            sender: row.sender_role === 'seller' ? 'merchant' : 'buyer',
             senderName,
             text: row.text,
             timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
