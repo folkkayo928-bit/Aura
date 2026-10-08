@@ -14,6 +14,7 @@ import {
   Plus,
   Trash2,
   ArrowUpDown,
+  CalendarClock,
   Check,
   CheckCircle2,
   FileCode,
@@ -42,6 +43,9 @@ export const CreateView: React.FC = () => {
   ]);
   const [p2pPaymentInstructions, setP2pPaymentInstructions] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
+  const [releaseMode, setReleaseMode] = useState<'now' | 'scheduled'>('now');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [notifyWatchers, setNotifyWatchers] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [publishError, setPublishError] = useState('');
 
@@ -114,6 +118,8 @@ export const CreateView: React.FC = () => {
         p2pPriceFiat: listOnP2P ? parseFloat(p2pPrice) || parseFloat(price) : undefined,
         p2pPaymentMethods: listOnP2P ? p2pPaymentMethods : undefined,
         p2pPaymentInstructions: listOnP2P ? p2pPaymentInstructions.trim() : undefined,
+        scheduledAt: releaseMode === 'scheduled' ? scheduledAt : undefined,
+        notifyWatchers,
       });
     } catch (error: any) {
       setPublishError(error?.message || 'Something went wrong while publishing the artwork.');
@@ -348,6 +354,44 @@ export const CreateView: React.FC = () => {
           <p className="text-[10px] leading-relaxed text-stone-500">
             Private buyer-only links and license codes are not collected here yet. AURA will add them only when a secure ownership entitlement system can enforce access after purchase.
           </p>
+        </div>
+
+        {/* RELEASE PLAN */}
+        <div className="p-4 rounded-3xl bg-cyan-950/15 border border-cyan-500/20 space-y-3">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="w-4 h-4 text-cyan-300" />
+            <div>
+              <span className="text-xs font-bold text-stone-100 block">Release plan</span>
+              <span className="text-[10px] text-stone-500 block">Choose when collectors can see this artwork.</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setReleaseMode('now')} className={releaseMode === 'now' ? 'rounded-xl border border-emerald-400/40 bg-emerald-400/15 p-3 text-left' : 'rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left'}>
+              <span className="text-xs font-semibold text-stone-100 block">Publish now</span>
+              <span className="text-[10px] text-stone-500">Visible immediately.</span>
+            </button>
+            <button type="button" onClick={() => setReleaseMode('scheduled')} className={releaseMode === 'scheduled' ? 'rounded-xl border border-cyan-400/40 bg-cyan-400/15 p-3 text-left' : 'rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left'}>
+              <span className="text-xs font-semibold text-stone-100 block">Schedule release</span>
+              <span className="text-[10px] text-stone-500">Go live at a specific time.</span>
+            </button>
+          </div>
+          {releaseMode === 'scheduled' && (
+            <div className="space-y-2">
+              <label className="text-[11px] text-stone-300 font-medium block">Release date & time</label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                min={new Date(Date.now() + 60_000).toISOString().slice(0,16)}
+                className="w-full bg-black/30 border border-cyan-500/30 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-cyan-400/60"
+                required
+              />
+              <label className="flex items-center gap-2 text-[11px] text-stone-400">
+                <input type="checkbox" checked={notifyWatchers} onChange={(e) => setNotifyWatchers(e.target.checked)} className="w-4 h-4 accent-cyan-400" />
+                Notify people who watch this artwork when it goes live
+              </label>
+            </div>
+          )}
         </div>
 
         {/* DUAL LISTING OPTION: DIRECT P2P CASH SALE */}
