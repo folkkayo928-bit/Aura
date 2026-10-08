@@ -659,6 +659,21 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                   </div>
                 </div>
 
+                {offer.artworkId && (
+                  <div className="flex items-center gap-3 rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.05] p-3">
+                    {offer.artworkImage ? (
+                      <img src={offer.artworkImage} alt="" className="h-14 w-14 rounded-xl object-cover border border-white/10" />
+                    ) : (
+                      <div className="h-14 w-14 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-cyan-300 text-xs">ART</div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-mono uppercase tracking-widest text-cyan-300">Direct Artwork Sale</div>
+                      <div className="mt-0.5 truncate text-sm font-semibold text-stone-100">{offer.artworkTitle || 'AURA Artwork'}</div>
+                      <div className="mt-1 text-[10px] text-stone-500">Protected ownership transfer after payment confirmation.</div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Price & Limits Row */}
                 <div className="flex items-baseline justify-between pt-1 border-t border-white/5">
                   <div>
@@ -699,12 +714,12 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                   <button
                     onClick={() => onSelectOffer(offer)}
                     className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all active:scale-95 shadow-md ${
-                      offer.type === 'buy'
+                      offer.artworkId || offer.type === 'buy'
                         ? 'bg-emerald-500 hover:bg-emerald-400 text-stone-950 shadow-emerald-500/20'
                         : 'bg-rose-500 hover:bg-rose-400 text-stone-100 shadow-rose-500/20'
                     }`}
                   >
-                    {offer.type === 'buy' ? 'Buy USDT' : 'Sell USDT'}
+                    {offer.artworkId ? 'Buy Artwork' : (offer.type === 'buy' ? 'Buy USDT' : 'Sell USDT')}
                   </button>
                 </div>
               </div>
