@@ -27,7 +27,38 @@ async function custodyXpub(client: ReturnType<typeof db>) {
 }
 
 function validEvmXpub(value: string) {
-  return /^(xpub|ypub|zpub|tpub|upub|vpub)[1-9A-HJ-NP-Za-km-z]+$/.test(value);
+  // ethers v6 supports standard xpub/xpriv serialization here.
+  return /^xpub[1-9A-HJ-NP-Za-km-z]+$/.test(value);
+}
+
+async function deriveDepositAddress(
+  client: ReturnType<typeof db>,
+  xpub: string,
+  derivationIndex: number,
+) {
+  try {
+    if (validEvmXpub(xpub)) {
+      const root = HDNodeWallet.fromExtendedKey(xpub);
+      const child = root.derivePath(`0/${derivationIndex}`);
+      return getAddress(child.address);
+    }
+  } catch {
+    // Fall through to the server-side Vault mnemonic. This keeps custody
+    // server-only and prevents a bad/stale xpub from breaking deposits.
+  }
+
+  const { data: mnemonic, error } = await client.rpc("get_aura_evm_deposit_mnemonic");
+  if (error || !String(mnemonic || "").trim()) {
+    throw new Error("CUSTODY_DERIVATION_UNAVAILABLE");
+  }
+
+  const root = HDNodeWallet.fromPhrase(
+    String(mnemonic).trim(),
+    undefined,
+    "m/44'/60'/0'",
+  );
+  const child = root.derivePath(`0/${derivationIndex}`);
+  return getAddress(child.address);
 }
 
 Deno.serve(async (req) => {
@@ -87,9 +118,7 @@ Deno.serve(async (req) => {
       derivationIndex = Number(index);
       if (!Number.isSafeInteger(derivationIndex) || derivationIndex < 0) throw new Error("INVALID_DERIVATION_INDEX");
 
-      const root = HDNodeWallet.fromExtendedKey(xpub);
-      const child = root.derivePath(`0/${derivationIndex}`);
-      address = getAddress(child.address);
+      address = await deriveDepositAddress(client, xpub, derivationIndex);
     }
 
     const missing = CHAINS.filter((chain) => !byChain.has(chain));
