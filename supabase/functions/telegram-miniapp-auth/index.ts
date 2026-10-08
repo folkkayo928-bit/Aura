@@ -141,6 +141,7 @@ Deno.serve(async (req) => {
       .update({
         telegram_user_id: telegramId,
         display_name: name,
+        ...(username ? { handle: `@${username.replace(/^@+/, '')}` } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("id", targetUser.id);
