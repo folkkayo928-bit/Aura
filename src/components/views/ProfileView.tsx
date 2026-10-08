@@ -58,6 +58,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
   const [collectionForm, setCollectionForm] = useState({ name: '', slug: '', description: '', category: 'generative' as NFTCollection['category'], avatarUrl: '', bannerUrl: '', websiteUrl: '', telegramUrl: '', discordUrl: '' });
 
   const creatorCollections = collections.filter((collection) => collection.creatorId === user?.id);
+  const scheduledArtworks = artworks.filter((a) => a.creator?.id === user?.id && a.published === false && a.scheduledAt);
 
   const ownedArtworks = artworks.filter((a) => a.isOwned);
 
@@ -194,6 +195,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
       </div>
       </>)}
 
+
+      {profileMode === 'private' && scheduledArtworks.length > 0 && (
+        <div className="rounded-3xl border border-cyan-500/15 bg-cyan-500/[0.04] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-cyan-300">Upcoming releases</div>
+              <p className="mt-1 text-xs text-stone-500">Your scheduled artwork stays private until its release time.</p>
+            </div>
+            <span className="rounded-full bg-cyan-400/10 px-2 py-1 text-[10px] font-mono text-cyan-300">{scheduledArtworks.length} scheduled</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {scheduledArtworks.slice(0, 3).map((artwork) => (
+              <div key={artwork.id} className="flex items-center justify-between gap-3 rounded-2xl bg-black/20 px-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold text-stone-200">{artwork.title}</div>
+                  <div className="mt-0.5 text-[10px] text-stone-500">Goes live {artwork.scheduledAt ? new Date(artwork.scheduledAt).toLocaleString() : 'soon'}</div>
+                </div>
+                <span className="shrink-0 rounded-full border border-cyan-400/20 px-2 py-1 text-[9px] font-mono text-cyan-300">Scheduled</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* PROFILE REPUTATION */}
       <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
         <div className="flex items-center justify-between">
@@ -319,7 +344,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
               artworks.filter((a) => a.creator?.id === user?.id).map((artwork) => (
                 <button key={artwork.id} onClick={() => onOpenDetail(artwork)} className="overflow-hidden rounded-2xl border border-white/10 bg-[#111118] text-left">
                   <div className="aspect-square"><ArtworkCanvas artwork={artwork} showOverlayGrain={false} /></div>
-                  <div className="p-3"><div className="truncate text-xs font-semibold text-stone-100">{artwork.title}</div><div className="mt-1 text-[10px] text-stone-500">${artwork.currentValue.toLocaleString()} USDT</div></div>
+                  <div className="p-3"><div className="flex items-center justify-between gap-2"><div className="truncate text-xs font-semibold text-stone-100">{artwork.title}</div>{artwork.published === false && <span className="shrink-0 rounded-full border border-cyan-400/20 px-1.5 py-0.5 text-[8px] font-mono text-cyan-300">Scheduled</span>}</div><div className="mt-1 text-[10px] text-stone-500">{artwork.published === false && artwork.scheduledAt ? `Releases ${new Date(artwork.scheduledAt).toLocaleString()}` : `${artwork.currentValue.toLocaleString()} USDT`}</div></div>
                 </button>
               ))
             )}
