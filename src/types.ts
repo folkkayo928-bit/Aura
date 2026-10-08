@@ -240,3 +240,4 @@ export interface ConnectedExternalWallet {
 }
 
 export type TelegramViewMode = 'bot_profile' | 'bot_chat' | 'miniapp';
+export type AppTab = 'home' | 'discover' | 'create' | 'wallet' | 'profile' | 'p2p_trade';
