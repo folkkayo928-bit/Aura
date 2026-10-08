@@ -14,6 +14,7 @@ interface AuthContextValue {
   closeAuth: () => void;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithTelegram: () => Promise<{ error?: string; telegramId?: string }>;
+  signInWithProvider: (provider: 'google' | 'apple') => Promise<{ error?: string }>;
   signUp: (params: { name: string; email: string; password: string }) => Promise<{ error?: string; needsConfirmation?: boolean }>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -91,6 +92,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       return error ? { error: humanizeAuthError(error.message) } : {};
+    },
+
+    signInWithProvider: async (provider) => {
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo: getAuthRedirectUrl() },
+        });
+        return error ? { error: humanizeAuthError(error.message) } : {};
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '');
+        return { error: humanizeAuthError(message || `Could not start ${provider} sign-in.`) };
+      }
     },
 
     signInWithTelegram: async () => {
