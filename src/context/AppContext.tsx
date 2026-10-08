@@ -402,7 +402,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'home' | 'discover' | 'create' | 'wallet' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [feedFilter, setFeedFilter] = useState<FeedSection>('trending');
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<NFTCollection | null>(null);
