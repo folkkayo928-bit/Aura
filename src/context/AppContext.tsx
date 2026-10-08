@@ -167,6 +167,7 @@ interface AppContextType {
   cancelP2POrder: (orderId: string) => Promise<boolean>;
   raiseP2PDispute: (orderId: string, reason?: string) => Promise<boolean>;
   createP2POffer: (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>) => Promise<boolean>;
+  cancelP2POffer: (offerId: string) => Promise<boolean>;
   // Telegram Bot Homepage & Chat integration
   telegramViewMode: TelegramViewMode;
   setTelegramViewMode: (mode: TelegramViewMode) => void;
@@ -1852,6 +1853,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const cancelP2POffer = async (offerId: string): Promise<boolean> => {
+    if (!user) { openAuth('signin'); return false; }
+    const { data, error } = await supabase.rpc('cancel_p2p_offer', { p_offer_id: offerId });
+    if (error || !data) {
+      addNotification('P2P Ad Could Not Cancel', error?.message || 'The ad could not be cancelled. An active trade may be using it.', 'p2p');
+      return false;
+    }
+    setP2pOffers(prev => prev.filter(o => o.id !== offerId));
+    addNotification('🔓 P2P Reserve Released', 'Your unused reserved USDT was returned to your available wallet balance.', 'p2p');
+    return true;
+  };
+
   const createP2POffer = async (offerData: Omit<P2POffer, 'id' | 'merchant' | 'isSmartEscrowLocked'>): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
     const { data, error } = await supabase.rpc('create_p2p_offer', {
@@ -1963,6 +1976,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cancelP2POrder,
         raiseP2PDispute,
         createP2POffer,
+        cancelP2POffer,
         telegramViewMode,
         setTelegramViewMode,
         startBotAndOpenApp,
