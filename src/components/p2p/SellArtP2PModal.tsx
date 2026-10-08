@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Artwork, PaymentMethodType } from '../../types';
 import { ArtworkCanvas } from '../ArtworkCanvas';
-import { CustomPaymentMethodInput } from './CustomPaymentMethodInput';
-import { X, ArrowUpDown, ShieldCheck, Check, DollarSign } from 'lucide-react';
+import { X, ArrowUpDown, ShieldCheck, Check, CreditCard } from 'lucide-react';
 
 interface SellArtP2PModalProps {
   artwork: Artwork;
@@ -14,15 +13,26 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
   const { listArtworkOnP2P } = useApp();
   const [fiatPrice, setFiatPrice] = useState(artwork.currentValue.toString());
   const [currency, setCurrency] = useState<'USD' | 'EUR' | 'GBP'>('USD');
-  const [selectedMethods, setSelectedMethods] = useState<PaymentMethodType[]>([
-    'revolut',
-    'bank_transfer',
-    'telegram_pay',
-  ]);
+  const [selectedMethods, setSelectedMethods] = useState<PaymentMethodType[]>([]);
+  const [savedMethods, setSavedMethods] = useState<Array<{ id: string; method_type: string; label: string; account_holder_name: string; account_identifier: string }>>([]);
+  const [loadingMethods, setLoadingMethods] = useState(true);
   const [paymentInstructions, setPaymentInstructions] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  useEffect(() => {
+    void (async () => {
+      const { supabase } = await import('../../lib/supabase');
+      const { data } = await supabase.from('p2p_payment_methods')
+        .select('id,method_type,label,account_holder_name,account_identifier')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false });
+      const rows = (data || []) as any[];
+      setSavedMethods(rows);
+      if (rows.length > 0) setSelectedMethods([rows[0].method_type]);
+      setLoadingMethods(false);
+    })();
+  }, []);
 
   const handleList = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,8 +42,8 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
       setErrorMessage('Enter a valid selling price.');
       return;
     }
-    if (selectedMethods.length === 0) {
-      setErrorMessage('Choose at least one payment method.');
+    if (selectedMethods.length !== 1) {
+      setErrorMessage('Add and select one saved payment method with your name and account number.');
       return;
     }
     if (!paymentInstructions.trim()) {
@@ -144,32 +154,52 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
               </div>
             </div>
 
-            {/* Seller payment account / instructions */}
-            <div>
-              <label className="text-xs text-stone-300 block mb-1.5 font-medium">
-                Your Payment Account / Instructions
+            {/* Saved Seller Payment Method */}
+            <div className="space-y-2">
+              <label className="text-xs text-stone-300 font-semibold flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+                Your Payment Method
               </label>
+              <p className="text-[11px] text-stone-500">Artwork P2P sales also require your name, account number, and payment method.</p>
+              {loadingMethods ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-center text-[11px] text-stone-500">Loading saved payment methods…</div>
+              ) : savedMethods.length === 0 ? (
+                <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-3 text-[11px] text-stone-300">
+                  Add a payment method first in Settings → Payment Methods.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {savedMethods.map((method) => {
+                    const selected = selectedMethods[0] === method.method_type;
+                    return (
+                      <button type="button" key={method.id} onClick={() => setSelectedMethods([method.method_type])}
+                        className={"w-full rounded-xl border p-3 text-left " + (selected ? 'border-emerald-400/60 bg-emerald-400/10' : 'border-white/10 bg-white/[0.03]')}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-stone-100">{method.label || method.method_type}</span>
+                          {selected && <span className="text-[9px] uppercase tracking-wider text-emerald-300">Selected</span>}
+                        </div>
+                        <div className="mt-1.5 grid grid-cols-2 gap-2 text-[10px]">
+                          <span><span className="text-stone-500">Name:</span> <span className="text-stone-300">{method.account_holder_name}</span></span>
+                          <span><span className="text-stone-500">Account:</span> <span className="font-mono text-stone-300">{method.account_identifier}</span></span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Extra sale instructions */}
+            <div>
+              <label className="text-xs text-stone-300 block mb-1.5 font-medium">Extra Payment Instructions (Optional)</label>
               <textarea
                 rows={2}
                 value={paymentInstructions}
                 onChange={(e) => setPaymentInstructions(e.target.value)}
-                placeholder="Example: Revolut @yourhandle, bank IBAN, or Telegram Pay username"
+                placeholder="Optional note for buyers"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-emerald-400/60 resize-none"
-                required
               />
-              <p className="text-[10px] text-stone-500 mt-1">
-                Buyers see this inside the matched order.
-              </p>
             </div>
-
-            {/* Custom Payment Methods for Art Sale (Alex or any artist can write any payment method they want) */}
-            <CustomPaymentMethodInput
-              selectedMethods={selectedMethods}
-              onChange={setSelectedMethods}
-              accentColor="emerald"
-              label="Accepted Cash Payment Methods"
-              sublabel="Select presets or type any custom payment method (e.g. Alex's Bank Wire, Monzo, Zelle, PayPal, Swish)"
-            />
 
             <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-stone-300 leading-relaxed space-y-1">
               <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
