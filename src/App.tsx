@@ -127,9 +127,17 @@ const AppContent: React.FC = () => {
     setP2pModalOpen,
     activeP2POrder,
     setActiveP2POrder,
+    isTelegramShellMode,
   } = useApp();
 
+  const { user, loading: authLoading, openAuth } = useAuth();
   const [selectedP2POffer, setSelectedP2POffer] = useState<P2POffer | null>(null);
+
+  React.useEffect(() => {
+    if (!isTelegramShellMode || authLoading || user) return;
+    const timer = window.setTimeout(() => openAuth('signup'), 1200);
+    return () => window.clearTimeout(timer);
+  }, [isTelegramShellMode, authLoading, user, openAuth]);
   const [adminOpen, setAdminOpen] = useState(false);
   const [publicProfileCreator, setPublicProfileCreator] = useState<Creator | null>(null);
 
@@ -159,80 +167,83 @@ const AppContent: React.FC = () => {
     setP2pModalOpen(true);
   };
 
+  const telegramAccountRequired = isTelegramShellMode && !authLoading && !user;
+
   return (
     <MfaSessionGate>
       {adminOpen && <AdminView onBack={() => setAdminOpen(false)} />}
-      <TelegramWebAppBridge />
-      <Header />
-
-      <div className="px-3 pt-3">
-        {activeTab === 'home' && (
-          <HomeView
-            onOpenDetail={(artwork) => setSelectedArtwork(artwork)}
-            onOpenProfile={openPublicProfile}
-          />
-        )}
-        {activeTab === 'discover' && (
-          <DiscoverView
-            onOpenDetail={(artwork) => setSelectedArtwork(artwork)}
-            onOpenProfile={openPublicProfile}
-          />
-        )}
-        {activeTab === 'create' && <CreateView />}
-        {activeTab === 'wallet' && <WalletView />}
-        {activeTab === 'profile' && <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
-        {activeTab === 'p2p_trade' && (
-          <P2PTradeCenterView onResume={() => setP2pModalOpen(true)} />
-        )}
-      </div>
-
-      <BottomNav />
-
-      {selectedArtwork && <ArtworkModal artwork={selectedArtwork} onClose={() => setSelectedArtwork(null)} />}
-      {collectModalArtwork && <CollectModal artwork={collectModalArtwork} onClose={() => setCollectModalArtwork(null)} />}
-      {convertModalArtwork && <ConvertModal artwork={convertModalArtwork} onClose={() => setConvertModalArtwork(null)} />}
-      {communityDrawerArtwork && <CommunityValueDrawer artwork={communityDrawerArtwork} onClose={() => setCommunityDrawerArtwork(null)} />}
-
-      <SendModal />
-      <ReceiveModal />
-      <BuyModal />
-      <SettingsModal />
-      <SeedPhraseModal />
-
-      {p2pModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#09090d]/95 backdrop-blur-2xl flex flex-col no-scrollbar">
-          <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#09090d]/90 backdrop-blur-md border-b border-white/5">
-            <span className="text-xs font-mono tracking-widest uppercase text-stone-300">AURA P2P Trading Desk</span>
-            <button onClick={() => setP2pModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"><X className="w-4 h-4" /></button>
-          </div>
-          <div className="max-w-xl mx-auto w-full px-3 pt-2 pb-24">
-            <P2PView onSelectOffer={openP2PTrade} onOpenCreateOffer={() => setCreateP2POfferOpen(true)} />
+      {telegramAccountRequired ? (
+        <div className="min-h-screen bg-[#09090d] px-5 pt-24 text-center text-stone-100">
+          <div className="mx-auto max-w-sm rounded-3xl border border-amber-400/15 bg-white/[0.03] p-7 shadow-2xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-300 text-xl">A</div>
+            <h1 className="mt-5 text-2xl font-light">Create your AURA account</h1>
+            <p className="mt-2 text-xs leading-5 text-stone-500">
+              An account is required to enter the AURA Mini App. Create one with Google, Apple, Telegram, or email.
+            </p>
+            <button type="button" onClick={() => openAuth('signup')} className="mt-5 w-full rounded-2xl bg-amber-400 py-3.5 text-sm font-bold text-stone-950">
+              Create account / Sign in
+            </button>
           </div>
         </div>
+      ) : (
+        <>
+          {adminOpen && <AdminView onBack={() => setAdminOpen(false)} />}
+          <TelegramWebAppBridge />
+          <Header />
+
+          <div className="px-3 pt-3">
+            {activeTab === 'home' && (
+              <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} onOpenProfile={openPublicProfile} />
+            )}
+            {activeTab === 'discover' && (
+              <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} onOpenProfile={openPublicProfile} />
+            )}
+            {activeTab === 'create' && <CreateView />}
+            {activeTab === 'wallet' && <WalletView />}
+            {activeTab === 'profile' && <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
+            {activeTab === 'p2p_trade' && <P2PTradeCenterView onResume={() => setP2pModalOpen(true)} />}
+          </div>
+
+          <BottomNav />
+
+          {selectedArtwork && <ArtworkModal artwork={selectedArtwork} onClose={() => setSelectedArtwork(null)} />}
+          {collectModalArtwork && <CollectModal artwork={collectModalArtwork} onClose={() => setCollectModalArtwork(null)} />}
+          {convertModalArtwork && <ConvertModal artwork={convertModalArtwork} onClose={() => setConvertModalArtwork(null)} />}
+          {communityDrawerArtwork && <CommunityValueDrawer artwork={communityDrawerArtwork} onClose={() => setCommunityDrawerArtwork(null)} />}
+          <SendModal />
+          <ReceiveModal />
+          <BuyModal />
+          <SettingsModal />
+          <SeedPhraseModal />
+
+          {p2pModalOpen && (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-[#09090d]/95 backdrop-blur-2xl flex flex-col no-scrollbar">
+              <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#09090d]/90 backdrop-blur-md border-b border-white/5">
+                <span className="text-xs font-mono tracking-widest uppercase text-stone-300">AURA P2P Trading Desk</span>
+                <button onClick={() => setP2pModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="max-w-xl mx-auto w-full px-3 pt-2 pb-24">
+                <P2PView onSelectOffer={openP2PTrade} onOpenCreateOffer={() => setCreateP2POfferOpen(true)} />
+              </div>
+            </div>
+          )}
+
+          {(selectedP2POffer || activeP2POrder) && <P2PTradeModal offer={selectedP2POffer} onClose={closeP2PTrade} />}
+          {createP2POfferOpen && <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />}
+          {selectedCollection && <CollectionHubModal collection={selectedCollection} onClose={() => setSelectedCollection(null)} onOpenArtworkDetail={(artwork) => setSelectedArtwork(artwork)} />}
+          {makeOfferArtwork && <MakeOfferModal artwork={makeOfferArtwork} onClose={() => setMakeOfferArtwork(null)} />}
+          {sellArtworkP2PModal && <SellArtP2PModal artwork={sellArtworkP2PModal} onClose={() => setSellArtworkP2PModal(null)} />}
+          <AuthModal />
+          {publicProfileCreator && (
+            <PublicProfileView creator={publicProfileCreator} artworks={artworks} onBack={() => setPublicProfileCreator(null)}
+              onOpenDetail={(artwork) => { setPublicProfileCreator(null); setSelectedArtwork(artwork); }} />
+          )}
+        </>
       )}
-
-      {(selectedP2POffer || activeP2POrder) && <P2PTradeModal offer={selectedP2POffer} onClose={closeP2PTrade} />}
-      {createP2POfferOpen && <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />}
-      {selectedCollection && <CollectionHubModal collection={selectedCollection} onClose={() => setSelectedCollection(null)} onOpenArtworkDetail={(artwork) => setSelectedArtwork(artwork)} />}
-      {makeOfferArtwork && <MakeOfferModal artwork={makeOfferArtwork} onClose={() => setMakeOfferArtwork(null)} />}
-      {sellArtworkP2PModal && <SellArtP2PModal artwork={sellArtworkP2PModal} onClose={() => setSellArtworkP2PModal(null)} />}
-
       <AuthModal />
-
-      {publicProfileCreator && (
-        <PublicProfileView
-          creator={publicProfileCreator}
-          artworks={artworks}
-          onBack={() => setPublicProfileCreator(null)}
-          onOpenDetail={(artwork) => {
-            setPublicProfileCreator(null);
-            setSelectedArtwork(artwork);
-          }}
-        />
-      )}
     </MfaSessionGate>
   );
-};
+
 
 export default function App() {
   return (
