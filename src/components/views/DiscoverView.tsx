@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Artwork, ArtworkCategory, Creator } from '../../types';
 import { ArtworkCanvas } from '../ArtworkCanvas';
+import { createNeutralAvatar } from '../../lib/avatar';
 import {
   Search,
   Sparkles,
@@ -169,6 +170,10 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpen
                 src={c.avatar}
                 alt={c.name}
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = createNeutralAvatar(String(c.id || c.handle || 'aura-creator'));
+              }}
                 className="w-11 h-11 rounded-full object-cover border border-white/10 mb-2 group-hover:scale-105 transition-transform"
               />
               <span className="text-xs font-semibold text-stone-200 truncate w-full">
@@ -241,13 +246,17 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpen
                       e.stopPropagation();
                       onOpenProfile?.(artwork.creator);
                     }}
-                    className="mt-1 flex max-w-full items-center gap-1.5 text-left"
+                    className="mt-1 flex min-h-[44px] max-w-full items-center gap-1.5 rounded-xl text-left"
                   >
                     <img
-                      src={artwork.creator.avatar}
+                      src={artwork.creator.avatar || createNeutralAvatar(String(artwork.creator.id || artwork.creator.handle || 'aura-creator'))}
                       alt=""
                       referrerPolicy="no-referrer"
-                      className="h-5 w-5 shrink-0 rounded-full border border-white/10 object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = createNeutralAvatar(String(artwork.creator.id || artwork.creator.handle || 'aura-creator'));
+                      }}
+                      className="h-6 w-6 shrink-0 rounded-full border border-white/10 bg-[#1b1b25] object-cover"
                     />
                     <span className="truncate text-[10px] font-mono text-stone-300 hover:text-amber-300">
                       {artwork.creator.name}
