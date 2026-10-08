@@ -226,7 +226,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpen
                 </div>
 
                 {/* Bottom title info */}
-                <div className="absolute bottom-2 inset-x-2 pointer-events-none">
+                <div className="absolute bottom-2 inset-x-2 pointer-events-auto">
                   {artwork.collectionName && (
                     <span className="text-[9px] font-mono text-blue-300 block truncate">
                       {artwork.collectionName}
