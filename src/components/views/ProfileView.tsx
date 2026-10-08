@@ -24,6 +24,7 @@ import {
   LockKeyhole,
   Users,
   Trophy,
+  LogOut,
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -46,7 +47,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
     connectedWallets,
     transactions,
   } = useApp();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [selectedCertArtwork, setSelectedCertArtwork] = useState<Artwork | null>(null);
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -138,7 +139,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
             <div className="grid grid-cols-4 divide-x divide-white/5 mt-5 rounded-2xl bg-white/[0.025] border border-white/5">
               <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{ownedArtworks.length}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Works</span></div>
-              <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).length}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Created</span></div>
+              <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{artworks.filter((a) => a.creator?.id === user?.id).length}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Created</span></div>
               <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{artworks.filter((a) => a.isLiked || a.isLoved).length}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Favorites</span></div>
               <div className="text-center py-3 px-1"><span className="font-serif text-lg text-stone-100 block">{"$" + Math.round(totalCurrentValue).toLocaleString()}</span><span className="text-[9px] text-stone-500 font-mono uppercase">Value</span></div>
             </div>
@@ -162,6 +163,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
           {shareCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
         </button>
       </div>
+
+      <button
+        type="button"
+        onClick={async () => {
+          await signOut();
+          setActiveTab('home');
+        }}
+        className="w-full flex items-center justify-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/[0.05] px-4 py-3 text-xs font-semibold text-rose-300 hover:bg-rose-500/10"
+      >
+        <LogOut className="w-4 h-4" />
+        Log out of AURA
+      </button>
 
       {/* PROFILE SNAPSHOT */}
       {profileMode === 'private' && (<>
@@ -192,7 +205,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         <div className="mt-4 grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Award className="mx-auto h-4 w-4 text-amber-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{ownedArtworks.length + connectedWallets.length}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Signals</div></div>
           <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Users className="mx-auto h-4 w-4 text-cyan-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{ownedArtworks.reduce((sum, a) => sum + a.collectorsCount, 0)}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Collector reach</div></div>
-          <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Sparkles className="mx-auto h-4 w-4 text-violet-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).length}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Creations</div></div>
+          <div className="rounded-2xl bg-white/[0.03] p-3 text-center"><Sparkles className="mx-auto h-4 w-4 text-violet-300" /><div className="mt-1 text-sm font-semibold text-stone-100">{artworks.filter((a) => a.creator?.id === user?.id).length}</div><div className="text-[9px] uppercase tracking-wider text-stone-600">Creations</div></div>
         </div>
       </div>
 
@@ -296,14 +309,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
         {profileSection === 'created' && (
           <div className="grid grid-cols-2 gap-3">
-            {artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).length === 0 ? (
+            {artworks.filter((a) => a.creator?.id === user?.id).length === 0 ? (
               <div className="col-span-2 rounded-3xl border border-white/5 bg-white/[0.02] p-8 text-center">
                 <Sparkles className="mx-auto h-8 w-8 text-stone-600" />
                 <p className="mt-3 text-xs text-stone-500">Your minted creations will appear here.</p>
                 <button onClick={() => setActiveTab('create')} className="mt-4 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-stone-950">Create a work</button>
               </div>
             ) : (
-              artworks.filter((a) => a.creator?.handle === userProfile.telegramHandle).map((artwork) => (
+              artworks.filter((a) => a.creator?.id === user?.id).map((artwork) => (
                 <button key={artwork.id} onClick={() => onOpenDetail(artwork)} className="overflow-hidden rounded-2xl border border-white/10 bg-[#111118] text-left">
                   <div className="aspect-square"><ArtworkCanvas artwork={artwork} showOverlayGrain={false} /></div>
                   <div className="p-3"><div className="truncate text-xs font-semibold text-stone-100">{artwork.title}</div><div className="mt-1 text-[10px] text-stone-500">${artwork.currentValue.toLocaleString()} USDT</div></div>
