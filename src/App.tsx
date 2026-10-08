@@ -58,9 +58,9 @@ const TelegramWebAppBridge: React.FC = () => {
     const initData = String(tg.initData || '').trim();
     const tgUser = tg.initDataUnsafe?.user;
     const telegramId = String(tgUser?.id || '').trim();
-    const sessionTelegramId = String(
-      user?.user_metadata?.telegram_id || user?.user_metadata?.sub || ''
-    ).trim();
+    // Only telegram_id is trusted here. Never use Supabase/provider `sub` as a
+    // Telegram identity because it can represent a different subject namespace.
+    const sessionTelegramId = String(user?.user_metadata?.telegram_id || '').trim();
     let signedOutForTelegramId = '';
     try { signedOutForTelegramId = sessionStorage.getItem('aura_telegram_signed_out_id') || ''; } catch {}
 
@@ -77,11 +77,16 @@ const TelegramWebAppBridge: React.FC = () => {
     if ((shouldAutoAuth || telegramSessionMismatch) && autoAuthAttempted.current !== telegramId) {
       autoAuthAttempted.current = telegramId;
       void (async () => {
+        // Fully clear the previous account before authenticating the Telegram
+        // identity currently opening AURA. This prevents cross-account reuse
+        // of the persisted Supabase session in Telegram's shared WebView.
         if (telegramSessionMismatch && user) await signOut();
         const result = await signInWithTelegram();
-        if (!result.error) {
+        if (!result.error && result.telegramId === telegramId) {
           try { sessionStorage.removeItem('aura_telegram_signed_out_id'); } catch {}
           closeAuth();
+        } else if (!result.error) {
+          await signOut();
         }
       })();
       return;
