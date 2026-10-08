@@ -171,7 +171,7 @@ const AppContent: React.FC = () => {
 
   return (
     <MfaSessionGate>
-      {adminOpen && <AdminView onBack={() => setAdminOpen(false)} />}
+      <TelegramWebAppBridge />
       {telegramAccountRequired ? (
         <div className="min-h-screen bg-[#09090d] px-5 pt-24 text-center text-stone-100">
           <div className="mx-auto max-w-sm rounded-3xl border border-amber-400/15 bg-white/[0.03] p-7 shadow-2xl">
@@ -188,24 +188,16 @@ const AppContent: React.FC = () => {
       ) : (
         <>
           {adminOpen && <AdminView onBack={() => setAdminOpen(false)} />}
-          <TelegramWebAppBridge />
           <Header />
-
           <div className="px-3 pt-3">
-            {activeTab === 'home' && (
-              <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} onOpenProfile={openPublicProfile} />
-            )}
-            {activeTab === 'discover' && (
-              <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} onOpenProfile={openPublicProfile} />
-            )}
+            {activeTab === 'home' && <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} onOpenProfile={openPublicProfile} />}
+            {activeTab === 'discover' && <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} onOpenProfile={openPublicProfile} />}
             {activeTab === 'create' && <CreateView />}
             {activeTab === 'wallet' && <WalletView />}
             {activeTab === 'profile' && <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
             {activeTab === 'p2p_trade' && <P2PTradeCenterView onResume={() => setP2pModalOpen(true)} />}
           </div>
-
           <BottomNav />
-
           {selectedArtwork && <ArtworkModal artwork={selectedArtwork} onClose={() => setSelectedArtwork(null)} />}
           {collectModalArtwork && <CollectModal artwork={collectModalArtwork} onClose={() => setCollectModalArtwork(null)} />}
           {convertModalArtwork && <ConvertModal artwork={convertModalArtwork} onClose={() => setConvertModalArtwork(null)} />}
@@ -215,7 +207,6 @@ const AppContent: React.FC = () => {
           <BuyModal />
           <SettingsModal />
           <SeedPhraseModal />
-
           {p2pModalOpen && (
             <div className="fixed inset-0 z-50 overflow-y-auto bg-[#09090d]/95 backdrop-blur-2xl flex flex-col no-scrollbar">
               <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#09090d]/90 backdrop-blur-md border-b border-white/5">
@@ -227,23 +218,25 @@ const AppContent: React.FC = () => {
               </div>
             </div>
           )}
-
           {(selectedP2POffer || activeP2POrder) && <P2PTradeModal offer={selectedP2POffer} onClose={closeP2PTrade} />}
           {createP2POfferOpen && <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />}
           {selectedCollection && <CollectionHubModal collection={selectedCollection} onClose={() => setSelectedCollection(null)} onOpenArtworkDetail={(artwork) => setSelectedArtwork(artwork)} />}
           {makeOfferArtwork && <MakeOfferModal artwork={makeOfferArtwork} onClose={() => setMakeOfferArtwork(null)} />}
           {sellArtworkP2PModal && <SellArtP2PModal artwork={sellArtworkP2PModal} onClose={() => setSellArtworkP2PModal(null)} />}
-          <AuthModal />
           {publicProfileCreator && (
-            <PublicProfileView creator={publicProfileCreator} artworks={artworks} onBack={() => setPublicProfileCreator(null)}
-              onOpenDetail={(artwork) => { setPublicProfileCreator(null); setSelectedArtwork(artwork); }} />
+            <PublicProfileView
+              creator={publicProfileCreator}
+              artworks={artworks}
+              onBack={() => setPublicProfileCreator(null)}
+              onOpenDetail={(artwork) => { setPublicProfileCreator(null); setSelectedArtwork(artwork); }}
+            />
           )}
         </>
       )}
       <AuthModal />
     </MfaSessionGate>
   );
-
+}
 
 export default function App() {
   return (
