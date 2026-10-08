@@ -136,12 +136,34 @@ Deno.serve(async (req) => {
       targetUser = { id: updated.user.id, email: updated.user.email };
     }
 
+    // Telegram username is only a display handle, never the account identity.
+    // A stale/duplicate handle must never block sign-in for the verified numeric
+    // Telegram ID. Only claim the handle when it is unused or already belongs
+    // to this exact profile.
+    let safeHandle: string | null = null;
+    if (username) {
+      const candidateHandle = `@${username.replace(/^@+/, '')}`;
+      const { data: handleOwner } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("handle", candidateHandle)
+        .neq("id", targetUser.id)
+        .maybeSingle();
+      if (!handleOwner?.id) safeHandle = candidateHandle;
+      else console.warn("Telegram handle already belongs to another profile; keeping numeric Telegram identity authoritative", {
+        telegramId,
+        candidateHandle,
+        targetUserId: targetUser.id,
+        handleOwnerId: handleOwner.id,
+      });
+    }
+
     const { error: profileLinkError } = await admin
       .from("profiles")
       .update({
         telegram_user_id: telegramId,
         display_name: name,
-        ...(username ? { handle: `@${username.replace(/^@+/, '')}` } : {}),
+        ...(safeHandle ? { handle: safeHandle } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq("id", targetUser.id);
