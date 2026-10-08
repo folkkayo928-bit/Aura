@@ -153,8 +153,14 @@ app.post('/api/internal/telegram/drop-notify', async (req, res) => {
     try {
       await telegram('sendMessage', {
         chat_id: chatId,
-        text: `✨ AURA\n${title}\n\n${message}`,
+        text: `✨ AURA VAULT\n\n${title}\n\n${message}\n\n━━━━━━━━━━━━━━\n🔐 Secure P2P • Live update`,
+        parse_mode: 'HTML',
         disable_web_page_preview: true,
+        ...(WEBAPP_URL ? {
+          reply_markup: {
+            inline_keyboard: [[{ text: '🚀 Open AURA & Continue', web_app: { url: WEBAPP_URL } }]],
+          },
+        } : {}),
       });
       sent++;
       if (item?.id) sentIds.push(String(item.id));
