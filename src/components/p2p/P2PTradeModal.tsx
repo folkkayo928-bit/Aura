@@ -50,6 +50,8 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
   const [proofUploading, setProofUploading] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [startError, setStartError] = useState('');
   const [proofs, setProofs] = useState<Array<{ id: string; file_name: string; mime_type: string; note?: string | null; created_at: string; url?: string }>>([]);
   const [messages, setMessages] = useState<P2PChatMessage[]>([
     {
@@ -145,13 +147,22 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
 
   const handleStartTrade = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!offer || !hasUsableOffer || numCrypto <= 0) return;
-    if (!isArtworkOffer && offer.type === 'buy' && !receiveAccount.trim()) {
-      alert('Add the account or handle where the buyer should send your fiat payment.');
+    setStartError('');
+    if (!offer || !hasUsableOffer || numCrypto <= 0) {
+      setStartError('This offer is missing required trade details.');
       return;
     }
+    if (!user) {
+      setStartError('Sign in to your AURA account before starting this trade.');
+      return;
+    }
+    if (!isArtworkOffer && offer.type === 'buy' && !receiveAccount.trim()) {
+      setStartError('Add the account or handle where the fiat payment should be sent.');
+      return;
+    }
+    setIsStarting(true);
     try {
-      await startP2POrder({
+      const order = await startP2POrder({
         offer,
         cryptoAmount: numCrypto,
         paymentMethod: selectedMethod,
@@ -159,8 +170,11 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
           ? { accountName: user?.user_metadata?.name || undefined, accountNumberOrId: receiveAccount.trim() }
           : undefined,
       });
+      if (!order) setStartError('AURA could not open the trade. Please check the offer and try again.');
     } catch (err: any) {
-      alert(err.message || 'Error creating P2P order');
+      setStartError(err?.message || 'AURA could not open the trade.');
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -201,7 +215,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const timeFormatted = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4">
       <div
         className="w-full max-w-md bg-[#12121a] border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-6 max-h-[92vh] overflow-y-auto no-scrollbar"
         onClick={(e) => e.stopPropagation()}
@@ -607,6 +621,23 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
               )}
             </div>
 
+            {startError && (
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-[11px] text-rose-200">
+                {startError}
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3.5 space-y-2">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400">What happens next</div>
+              <div className="grid grid-cols-4 gap-1.5 text-center text-[9px]">
+                <div className="rounded-xl bg-white/[0.03] p-2"><div className="text-amber-300 font-bold">1</div><div className="mt-1 text-stone-400">Review</div></div>
+                <div className="rounded-xl bg-white/[0.03] p-2"><div className="text-amber-300 font-bold">2</div><div className="mt-1 text-stone-400">Pay</div></div>
+                <div className="rounded-xl bg-white/[0.03] p-2"><div className="text-amber-300 font-bold">3</div><div className="mt-1 text-stone-400">Proof</div></div>
+                <div className="rounded-xl bg-white/[0.03] p-2"><div className="text-amber-300 font-bold">4</div><div className="mt-1 text-stone-400">Release</div></div>
+              </div>
+              <p className="text-[10px] leading-relaxed text-stone-500">{isArtworkOffer ? 'After your payment proof is accepted, the seller releases the artwork and AURA records you as the owner.' : 'After your payment is verified, the seller releases the held USDT into the buyer wallet.'}</p>
+            </div>
+
             {/* Trade state callout */}
             <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-stone-300 leading-relaxed">
               <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -620,14 +651,14 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             {/* Submit */}
             <button
               type="submit"
-              disabled={numCrypto <= 0}
+              disabled={numCrypto <= 0 || isStarting}
               className={`w-full py-4 rounded-xl font-bold text-xs transition-all shadow-lg active:scale-[0.98] ${
                 currentOffer.type === 'sell'
                   ? 'bg-emerald-500 hover:bg-emerald-400 text-stone-950 shadow-emerald-500/20'
                   : 'bg-rose-500 hover:bg-rose-400 text-stone-100 shadow-rose-500/20'
               }`}
             >
-              {isArtworkOffer ? 'Buy Artwork' : (currentOffer.type === 'sell' ? 'Buy USDT' : 'Sell USDT')}
+              {isStarting ? 'Opening secure trade…' : (isArtworkOffer ? 'Buy Artwork' : (currentOffer.type === 'sell' ? 'Buy USDT' : 'Sell USDT'))}
             </button>
           </form>
         )}
