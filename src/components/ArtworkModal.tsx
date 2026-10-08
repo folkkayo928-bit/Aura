@@ -341,25 +341,25 @@ export const ArtworkModal: React.FC<ArtworkModalProps> = ({ artwork, onClose }) 
                 <span>Offer</span>
               </button>
 
-              <button
-                onClick={() => setCollectModalArtwork(artwork)}
-                className="flex-1 py-3 px-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10 active:scale-[0.98]"
-              >
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Collect · ${artwork.currentValue} USDT</span>
-              </button>
-
-              {artwork.isListedOnP2P && (
+              {artwork.isListedOnP2P ? (
                 <button
                   onClick={() => {
                     onClose();
                     setP2pModalOpen(true);
                   }}
-                  className="py-3 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-bold text-[11px] transition-all flex items-center justify-center gap-1"
-                  title="Buy directly for Fiat Cash with P2P Escrow"
+                  className="flex-1 py-3 px-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 active:scale-[0.98]"
+                  title="Buy this artwork through AURA P2P"
                 >
-                  <ArrowUpDown className="w-3 h-3 text-emerald-400" />
-                  <span>P2P Cash</span>
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  <span>Buy with P2P</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setCollectModalArtwork(artwork)}
+                  className="flex-1 py-3 px-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10 active:scale-[0.98]"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Collect · $${artwork.currentValue} USDT</span>
                 </button>
               )}
             </div>
