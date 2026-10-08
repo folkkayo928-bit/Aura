@@ -53,6 +53,8 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [receiveAccount, setReceiveAccount] = useState('');
+  const [receiveAccountName, setReceiveAccountName] = useState('');
+  const [savedReceiveMethods, setSavedReceiveMethods] = useState<Array<{ id: string; method_type: string; label: string; account_holder_name: string; account_identifier: string }>>([]);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null);
   const [proofUploading, setProofUploading] = useState(false);
@@ -150,6 +152,23 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   }, [activeP2POrder?.id, activeP2POrder?.status]);
 
   useEffect(() => {
+    if (!offer || offer.type !== 'buy' || !user) {
+      setSavedReceiveMethods([]);
+      setReceiveAccount('');
+      setReceiveAccountName('');
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from('p2p_payment_methods')
+        .select('id,method_type,label,account_holder_name,account_identifier')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false });
+      setSavedReceiveMethods((data || []) as any[]);
+    })();
+  }, [offer?.id, offer?.type, user?.id]);
+
+  useEffect(() => {
     if (offer && offer.paymentMethods.length > 0) {
       setSelectedMethod(offer.paymentMethods[0]);
     }
@@ -223,9 +242,14 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       setStartError('Sign in to your AURA account before starting this trade.');
       return;
     }
-    if (!isArtworkOffer && offer.type === 'buy' && !receiveAccount.trim()) {
-      setStartError('Add the account or handle where the fiat payment should be sent.');
-      return;
+    if (!isArtworkOffer && offer.type === 'buy') {
+      const saved = savedReceiveMethods.find((m) => m.method_type === selectedMethod || m.label === selectedMethod);
+      if (!saved) {
+        setStartError('Save the selected payment method with your name and account number before starting this trade.');
+        return;
+      }
+      setReceiveAccount(saved.account_identifier);
+      setReceiveAccountName(saved.account_holder_name);
     }
     if (!isArtworkOffer && offer.type === 'buy' && numCrypto > walletBalance) {
       setStartError('Insufficient USDT balance for this trade.');
@@ -238,7 +262,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
         cryptoAmount: numCrypto,
         paymentMethod: selectedMethod,
         paymentDetails: offer.type === 'buy'
-          ? { accountName: user?.user_metadata?.name || undefined, accountNumberOrId: receiveAccount.trim() }
+          ? { accountName: receiveAccountName || undefined, accountNumberOrId: receiveAccount.trim() }
           : undefined,
       });
       if (!order) setStartError('AURA could not open the trade. Please check the offer and try again.');
@@ -758,20 +782,25 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
 
             {!isArtworkOffer && currentOffer.type === 'buy' && (
               <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-2">
-                <label className="text-xs text-cyan-200 font-medium block">
-                  Your Fiat Receiving Account / Handle
-                </label>
-                <input
-                  type="text"
-                  value={receiveAccount}
-                  onChange={(e) => setReceiveAccount(e.target.value)}
-                  placeholder="Bank account, wallet handle, or payment ID"
-                  className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-cyan-400/60"
-                  required
-                />
-                <p className="text-[10px] text-stone-500">
-                  This is shown to the buyer so they know where to send the fiat payment.
-                </p>
+                <label className="text-xs text-cyan-200 font-medium block">Your saved fiat receiving method</label>
+                {savedReceiveMethods.filter((m) => m.method_type === selectedMethod || m.label === selectedMethod).length > 0 ? (
+                  savedReceiveMethods
+                    .filter((m) => m.method_type === selectedMethod || m.label === selectedMethod)
+                    .map((method) => (
+                      <div key={method.id} className="rounded-xl border border-cyan-500/20 bg-black/20 p-3">
+                        <div className="text-xs font-semibold text-stone-100">{method.label}</div>
+                        <div className="mt-1 grid grid-cols-2 gap-2 text-[10px]">
+                          <span><span className="text-stone-500">Name:</span> <span className="text-stone-300">{method.account_holder_name}</span></span>
+                          <span><span className="text-stone-500">Account:</span> <span className="font-mono text-stone-300">{method.account_identifier}</span></span>
+                        </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-3 text-[10px] text-stone-300">
+                    Add a saved <span className="text-amber-300 font-semibold">{formatPaymentMethodLabel(selectedMethod)}</span> method in Settings with your name and account number before starting this trade.
+                  </div>
+                )}
+                <p className="text-[10px] text-stone-500">AURA uses the saved details for this payment method; you cannot replace them with an unverified account here.</p>
               </div>
             )}
 
