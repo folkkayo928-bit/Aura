@@ -18,6 +18,8 @@ const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || pro
 const WEBAPP_URL = (process.env.TELEGRAM_WEBAPP_URL || PUBLIC_APP_URL).replace(/\/$/, '');
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 const TELEGRAM_NOTIFY_SECRET = process.env.AURA_TELEGRAM_NOTIFY_SECRET || '';
+const TELEGRAM_WELCOME_PHOTO_URL = WEBAPP_URL ? WEBAPP_URL + '/aura-bot-avatar.jpg' : '';
+const TELEGRAM_SUPPORT_URL = (process.env.AURA_SUPPORT_URL || '').trim();
 
 async function telegram(method, body) {
   if (!BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN is not configured');
@@ -160,17 +162,47 @@ app.post('/api/telegram/webhook', async (req, res) => {
   const message = req.body?.message;
   const chatId = message?.chat?.id;
   const text = String(message?.text || '').trim().toLowerCase();
+  const callback = req.body?.callback_query;
+  const callbackChatId = callback?.message?.chat?.id;
+  if (callback?.data === 'aura_contact_us' && callbackChatId) {
+    try {
+      await telegram('answerCallbackQuery', { callback_query_id: callback.id, text: 'AURA Support' });
+      await telegram('sendMessage', {
+        chat_id: callbackChatId,
+        text: '💬 AURA Support\\n\\nReply here and our team can assist you. A dedicated support link can also be configured for the Contact Us button.',
+      });
+    } catch (error) {
+      console.error('Telegram contact callback error:', error);
+    }
+    return;
+  }
   if (!chatId) return;
 
   try {
-    if (text === '/start' || text.startsWith('/start ' ) || text === '/app') {
-      await telegram('sendMessage', {
-        chat_id: chatId,
-        text: '✨ Welcome to AURA Vault. Collect, create, trade and manage your digital art from one secure Mini App.',
-        reply_markup: WEBAPP_URL
-          ? { inline_keyboard: [[{ text: '🚀 Open AURA Mini App', web_app: { url: WEBAPP_URL } }]] }
-          : undefined,
-      });
+    if (text === '/start' || text.startsWith('/start ') || text === '/app') {
+      const welcomeText = '✨ Welcome to AURA Vault.\\n\\nCollect, create, trade, and manage digital art from one secure Mini App.\\n\\nEnter the AURA community and explore the full platform.';
+      const buttons = [];
+      if (WEBAPP_URL) buttons.push({ text: '🚀 Open AURA', web_app: { url: WEBAPP_URL } });
+      buttons.push(
+        TELEGRAM_SUPPORT_URL
+          ? { text: '💬 Contact Us', url: TELEGRAM_SUPPORT_URL }
+          : { text: '💬 Contact Us', callback_data: 'aura_contact_us' },
+      );
+
+      if (TELEGRAM_WELCOME_PHOTO_URL) {
+        await telegram('sendPhoto', {
+          chat_id: chatId,
+          photo: TELEGRAM_WELCOME_PHOTO_URL,
+          caption: welcomeText,
+          reply_markup: { inline_keyboard: [buttons] },
+        });
+      } else {
+        await telegram('sendMessage', {
+          chat_id: chatId,
+          text: welcomeText,
+          reply_markup: { inline_keyboard: [buttons] },
+        });
+      }
     } else if (text === '/help') {
       await telegram('sendMessage', {
         chat_id: chatId,
