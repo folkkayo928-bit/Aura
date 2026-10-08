@@ -19,6 +19,7 @@ import {
   MediaType,
   NFTTrait,
   TelegramViewMode,
+  AppTab,
 } from '../types';
 
 export interface UserProfile {
@@ -47,10 +48,11 @@ export interface Web3VaultAddresses {
 
 interface AppContextType {
   artworks: Artwork[];
+  user: ReturnType<typeof useAuth>['user'];
   collections: NFTCollection[];
   upcomingDrops: UpcomingDrop[];
-  activeTab: 'home' | 'discover' | 'create' | 'wallet' | 'profile';
-  setActiveTab: (tab: 'home' | 'discover' | 'create' | 'wallet' | 'profile') => void;
+  activeTab: AppTab;
+  setActiveTab: (tab: AppTab) => void;
   feedFilter: FeedSection;
   setFeedFilter: (filter: FeedSection) => void;
   selectedArtwork: Artwork | null;
@@ -1898,6 +1900,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         artworks,
+        user,
         collections,
         upcomingDrops,
         activeTab,
