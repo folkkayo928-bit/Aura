@@ -31,7 +31,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
     setActiveTab,
   } = useApp();
 
-  const watchedArtworks = artworks.filter((a) => a.isWatched);
+  const watchedArtworks = artworks.filter((a) => a.published !== false && a.isWatched);
   const watchedCollections = collections.filter((c) => c.isWatched);
 
   return (
