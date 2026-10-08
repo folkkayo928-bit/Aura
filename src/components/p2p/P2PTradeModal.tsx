@@ -18,6 +18,9 @@ import {
   Send,
   HelpCircle,
   BadgeCheck,
+  Upload,
+  Image as ImageIcon,
+  FileText,
 } from 'lucide-react';
 
 interface P2PTradeModalProps {
@@ -28,7 +31,9 @@ interface P2PTradeModalProps {
 export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) => {
   const {
     startP2POrder,
+    acceptP2POrder,
     activeP2POrder,
+    setActiveP2POrder,
     markP2PPaymentSent,
     completeP2POrder,
     cancelP2POrder,
@@ -43,7 +48,9 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   );
   const [copiedRef, setCopiedRef] = useState(false);
   const [copiedAccount, setCopiedAccount] = useState(false);
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState(900); // 15 mins
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(0);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [receiveAccount, setReceiveAccount] = useState('');
@@ -83,6 +90,47 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   }, [activeP2POrder?.id, user]);
 
   useEffect(() => {
+    if (!activeP2POrder?.id || !user) return;
+
+    const channel = supabase
+      .channel(`aura-p2p-chat-${activeP2POrder.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'p2p_messages', filter: `order_id=eq.${activeP2POrder.id}` },
+        async (payload) => {
+          const row = payload.new as any;
+          if (!row?.id) return;
+          let senderName = row.sender_id === user.id
+            ? 'You'
+            : row.sender_role === 'seller'
+              ? (activeP2POrder.merchant.name || 'Seller')
+              : 'Buyer';
+
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('display_name,handle')
+            .eq('id', row.sender_id)
+            .maybeSingle();
+
+          senderName = senderProfile?.display_name || senderProfile?.handle || senderName;
+
+          setMessages((prev) => prev.some((m) => m.id === row.id) ? prev : [...prev, {
+            id: row.id,
+            sender: row.sender_id === user.id ? 'buyer' : 'merchant',
+            senderName,
+            text: row.text,
+            timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          }]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeP2POrder?.id, user]);
+
+  useEffect(() => {
     if (!activeP2POrder?.id) {
       setProofs([]);
       return;
@@ -109,15 +157,35 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
   }, [offer]);
 
   useEffect(() => {
-    if (activeP2POrder && activeP2POrder.status === 'payment_marked') {
-      const timer = setInterval(() => {
-        setTimeLeftSeconds((prev) => Math.max(0, prev - 1));
-      }, 1000);
-      return () => clearInterval(timer);
+    if (!activeP2POrder?.expiresAt) {
+      setTimeLeftSeconds(0);
+      return;
     }
-  }, [activeP2POrder]);
+
+    const updateCountdown = () => {
+      setTimeLeftSeconds(Math.max(0, Math.ceil((new Date(activeP2POrder.expiresAt as string).getTime() - Date.now()) / 1000)));
+    };
+
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [activeP2POrder?.expiresAt]);
+
+  useEffect(() => {
+    return () => {
+      if (paymentProofUrl) URL.revokeObjectURL(paymentProofUrl);
+    };
+  }, [paymentProofUrl]);
 
   if (!offer && !activeP2POrder) return null;
+
+  const isAcceptancePending = Boolean(activeP2POrder && !activeP2POrder.acceptedAt);
+  const isOrderAcceptor = Boolean(
+    activeP2POrder &&
+    (activeP2POrder.type === 'sell'
+      ? activeP2POrder.sellerId === user?.id
+      : activeP2POrder.buyerId === user?.id)
+  );
 
   const currentOffer = offer || {
     id: activeP2POrder?.offerId || '',
@@ -265,7 +333,13 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
-                <span className="text-stone-400">Payment Window:</span>
+                <span className="text-stone-400">
+                  {isAcceptancePending
+                    ? 'Acceptance Window:'
+                    : activeP2POrder.status === 'payment_marked'
+                      ? 'Release Window:'
+                      : 'Payment Window:'}
+                </span>
                 <span className="font-mono text-amber-300 font-semibold flex items-center gap-1">
                   <Clock className="w-3 h-3" /> {timeFormatted}
                 </span>
@@ -393,20 +467,105 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             </div>
 
             {/* Stepper Actions */}
-            {activeP2POrder.status === 'escrow_locked' && (
+            {isAcceptancePending && (
+              <div className="space-y-3 pt-1">
+                {isOrderAcceptor ? (
+                  <>
+                    <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 text-center space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-amber-300 text-xs font-bold">
+                        <Clock className="w-4 h-4" />
+                        Acceptance required
+                      </div>
+                      <p className="text-[11px] text-stone-300">
+                        Review the payment method and order details, then accept this trade within 5 minutes.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isAccepting || timeLeftSeconds === 0}
+                      onClick={async () => {
+                        if (!activeP2POrder) return;
+                        setIsAccepting(true);
+                        const ok = await acceptP2POrder(activeP2POrder.id);
+                        setIsAccepting(false);
+                        if (!ok) return;
+                      }}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/50 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+                    >
+                      {isAccepting ? 'Accepting securely…' : timeLeftSeconds === 0 ? 'Acceptance expired' : 'Accept Order'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isAccepting}
+                      onClick={() => void cancelP2POrder(activeP2POrder.id)}
+                      className="w-full py-2.5 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-300 text-xs font-semibold hover:bg-rose-500/10"
+                    >
+                      Decline Order
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+                      <div className="text-xs font-semibold text-stone-200">Waiting for the counterparty to accept</div>
+                      <div className="text-[10px] text-stone-400 mt-1">They have 5 minutes. You will be notified as soon as the order is accepted.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void cancelP2POrder(activeP2POrder.id)}
+                      className="w-full py-2.5 rounded-xl text-stone-400 hover:text-stone-200 text-xs"
+                    >
+                      Cancel Request
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {activeP2POrder.status === 'escrow_locked' && activeP2POrder.acceptedAt && (
               <div className="space-y-2 pt-1">
                 {activeP2POrder.buyerId === user?.id ? (
                   <div className="space-y-2">
-                    <label className="block rounded-xl border border-white/10 bg-white/[0.03] p-3 cursor-pointer">
-                      <span className="block text-xs font-semibold text-stone-200">Payment proof</span>
-                      <span className="block text-[10px] text-stone-400 mt-1">Upload a receipt or screenshot so the seller can verify the payment.</span>
+                    <div className="space-y-2">
                       <input
+                        id="aura-payment-proof-upload"
                         type="file"
                         accept="image/jpeg,image/png,image/webp,application/pdf"
-                        className="mt-2 block w-full text-[11px] text-stone-400"
-                        onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
+                        className="sr-only"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setPaymentProof(file);
+                          if (paymentProofUrl) URL.revokeObjectURL(paymentProofUrl);
+                          setPaymentProofUrl(file && file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+                        }}
                       />
-                    </label>
+                      <label
+                        htmlFor="aura-payment-proof-upload"
+                        className="block rounded-2xl border border-dashed border-emerald-500/30 bg-emerald-950/10 p-4 cursor-pointer hover:border-emerald-400/60 hover:bg-emerald-950/20 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
+                            <Upload className="w-5 h-5 text-emerald-300" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-xs font-semibold text-stone-100">Upload payment proof</span>
+                            <span className="block text-[10px] text-stone-400 mt-1">Tap here to choose a receipt or screenshot.</span>
+                          </div>
+                        </div>
+                      </label>
+
+                      {paymentProof && (
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                          {paymentProofUrl ? (
+                            <img src={paymentProofUrl} alt="Selected payment proof" className="w-full max-h-56 rounded-lg object-contain bg-black/30" />
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs text-stone-200">
+                              <FileText className="w-4 h-4 text-cyan-300" />
+                              <span className="truncate">{paymentProof.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <button
                       disabled={!paymentProof || proofUploading}
                       onClick={async () => {
@@ -485,13 +644,23 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
 
                 {activeP2POrder.sellerId === user?.id ? (
                   <button
+                    type="button"
+                    disabled={isReleasing || timeLeftSeconds === 0}
                     onClick={async () => {
+                      setIsReleasing(true);
                       const completed = await completeP2POrder(activeP2POrder.id);
+                      setIsReleasing(false);
                       if (completed) onClose();
                     }}
-                    className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 text-stone-950 font-bold text-xs transition-all shadow-lg active:scale-[0.98]"
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/50 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
                   >
-                    {activeP2POrder.artwork ? 'Release Artwork to Buyer' : 'Release Held USDT'}
+                    {isReleasing
+                      ? 'Confirming securely…'
+                      : timeLeftSeconds === 0
+                        ? 'Release window expired'
+                        : activeP2POrder.artwork
+                          ? 'Confirm & Release Artwork'
+                          : 'Confirm & Release USDT'}
                   </button>
                 ) : (
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-center text-xs text-stone-400">
