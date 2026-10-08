@@ -21,25 +21,49 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
   ]);
   const [paymentInstructions, setPaymentInstructions] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleList = (e: React.FormEvent) => {
+  const handleList = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
     const num = parseFloat(fiatPrice);
-    if (isNaN(num) || num <= 0 || selectedMethods.length === 0) return;
+    if (isNaN(num) || num <= 0) {
+      setErrorMessage('Enter a valid selling price.');
+      return;
+    }
+    if (selectedMethods.length === 0) {
+      setErrorMessage('Choose at least one payment method.');
+      return;
+    }
+    if (!paymentInstructions.trim()) {
+      setErrorMessage('Add the payment account or instructions buyers should use.');
+      return;
+    }
 
-    listArtworkOnP2P({
-      artworkId: artwork.id,
-      fiatPrice: num,
-      currency,
-      paymentMethods: selectedMethods,
-      paymentInstructions: paymentInstructions.trim(),
-    });
-
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      onClose();
-    }, 1500);
+    setIsSubmitting(true);
+    try {
+      const ok = await listArtworkOnP2P({
+        artworkId: artwork.id,
+        fiatPrice: num,
+        currency,
+        paymentMethods: selectedMethods,
+        paymentInstructions: paymentInstructions.trim(),
+      });
+      if (!ok) {
+        setErrorMessage('AURA could not publish this artwork to P2P. The artwork was not marked as sold.');
+        return;
+      }
+      setIsSuccess(true);
+      window.setTimeout(() => {
+        setIsSuccess(false);
+        onClose();
+      }, 1500);
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'AURA could not publish this artwork to P2P.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -157,11 +181,18 @@ export const SellArtP2PModal: React.FC<SellArtP2PModalProps> = ({ artwork, onClo
               </p>
             </div>
 
+            {errorMessage && (
+              <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2.5 text-[11px] text-rose-200">
+                {errorMessage}
+              </div>
+            )}
+
             <button
               type="submit"
+              disabled={isSubmitting}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
             >
-              Post on P2P for ${fiatPrice} {currency}
+              {isSubmitting ? 'Publishing securely…' : `Post on P2P for ${fiatPrice} ${currency}`}
             </button>
           </form>
         )}
