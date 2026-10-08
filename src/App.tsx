@@ -104,6 +104,13 @@ const AppContent: React.FC = () => {
   const [adminOpen, setAdminOpen] = useState(false);
   const [publicProfileCreator, setPublicProfileCreator] = useState<Creator | null>(null);
 
+  const openPublicProfile = (creator: Creator) => {
+    // Public creator profiles must always take priority over an artwork/collection overlay.
+    setSelectedArtwork(null);
+    setSelectedCollection(null);
+    setPublicProfileCreator(creator);
+  };
+
   React.useEffect(() => {
     const open = () => setAdminOpen(true);
     window.addEventListener('aura-admin-open', open);
@@ -121,13 +128,13 @@ const AppContent: React.FC = () => {
         {activeTab === 'home' && (
           <HomeView
             onOpenDetail={(artwork) => setSelectedArtwork(artwork)}
-            onOpenProfile={(creator) => setPublicProfileCreator(creator)}
+            onOpenProfile={openPublicProfile}
           />
         )}
         {activeTab === 'discover' && (
           <DiscoverView
             onOpenDetail={(artwork) => setSelectedArtwork(artwork)}
-            onOpenProfile={(creator) => setPublicProfileCreator(creator)}
+            onOpenProfile={openPublicProfile}
           />
         )}
         {activeTab === 'create' && <CreateView />}
