@@ -21,6 +21,7 @@ interface DiscoverViewProps {
 
 export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpenProfile }) => {
   const { artworks, collections, setSelectedCollection, toggleWatchlist } = useApp();
+  const visibleArtworks = artworks.filter((art) => art.published !== false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ArtworkCategory | 'all'>('all');
 
@@ -35,7 +36,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpen
     { id: 'botanical', label: 'Bio-Generative' },
   ];
 
-  const filteredArtworks = artworks.filter((art) => {
+  const filteredArtworks = visibleArtworks.filter((art) => {
     const matchesCategory = selectedCategory === 'all' || art.category === selectedCategory;
     const matchesSearch =
       art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -47,7 +48,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpen
 
   const spotlightCurators = React.useMemo(() => {
     const byCreator = new Map<string, { id: string; name: string; handle: string; avatar: string; works: number }>();
-    for (const artwork of artworks) {
+    for (const artwork of visibleArtworks) {
       const key = artwork.creator.id || artwork.creator.handle;
       const existing = byCreator.get(key);
       if (existing) existing.works += 1;
@@ -60,7 +61,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpen
       });
     }
     return Array.from(byCreator.values()).sort((a, b) => b.works - a.works).slice(0, 3);
-  }, [artworks]);
+  }, [visibleArtworks]);
 
   return (
     <div className="space-y-6 pb-24">
