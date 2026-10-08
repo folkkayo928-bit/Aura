@@ -40,8 +40,8 @@ import { AdminView } from './components/admin/AdminView';
 
 const TelegramWebAppBridge: React.FC = () => {
   const { setIsTelegramShellMode, setTelegramViewMode, updateUserProfile } = useApp();
-  const { user, signInWithTelegram, closeAuth } = useAuth();
-  const autoAuthAttempted = React.useRef(false);
+  const { user, signInWithTelegram, signOut, closeAuth } = useAuth();
+  const autoAuthAttempted = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
@@ -57,15 +57,37 @@ const TelegramWebAppBridge: React.FC = () => {
 
     const initData = String(tg.initData || '').trim();
     const tgUser = tg.initDataUnsafe?.user;
+    const telegramId = String(tgUser?.id || '').trim();
+    const sessionTelegramId = String(
+      user?.user_metadata?.telegram_id || user?.user_metadata?.sub || ''
+    ).trim();
+    let signedOutForTelegramId = '';
+    try { signedOutForTelegramId = sessionStorage.getItem('aura_telegram_signed_out_id') || ''; } catch {}
 
-    if (initData && !user && !autoAuthAttempted.current) {
-      autoAuthAttempted.current = true;
-      void signInWithTelegram().then((result) => {
-        if (!result.error) closeAuth();
-      });
+    // Telegram's numeric user ID is the immutable external identity. Never
+    // reuse another Telegram account's persisted Supabase session in the same
+    // Mini App webview. A different Telegram ID means this is a different AURA account.
+    const telegramSessionMismatch = Boolean(
+      initData && telegramId && user && sessionTelegramId !== telegramId
+    );
+    const shouldAutoAuth = Boolean(
+      initData && telegramId && !user && signedOutForTelegramId !== telegramId
+    );
+
+    if ((shouldAutoAuth || telegramSessionMismatch) && autoAuthAttempted.current !== telegramId) {
+      autoAuthAttempted.current = telegramId;
+      void (async () => {
+        if (telegramSessionMismatch && user) await signOut();
+        const result = await signInWithTelegram();
+        if (!result.error) {
+          try { sessionStorage.removeItem('aura_telegram_signed_out_id'); } catch {}
+          closeAuth();
+        }
+      })();
+      return;
     }
 
-    if (user && tgUser) {
+    if (user && tgUser && sessionTelegramId === telegramId) {
       const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ').trim();
       void updateUserProfile({
         ...(fullName ? { name: fullName } : {}),
