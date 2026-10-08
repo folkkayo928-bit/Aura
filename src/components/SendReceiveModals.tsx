@@ -252,18 +252,39 @@ export const ReceiveModal: React.FC = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   React.useEffect(() => {
-    if (!receiveModalOpen || authLoading) return;
+    if (!receiveModalOpen) return;
     let cancelled = false;
 
     const loadDepositAddresses = async () => {
-      setDepositLoading(true);
       setDepositMessage(null);
+      setDepositLoading(true);
+
+      if (authLoading) {
+        // Keep the modal in a real loading state while Telegram/Supabase
+        // restores the session instead of showing a false "unavailable" error.
+        return;
+      }
 
       if (!user) {
         setDepositAddresses({});
         setDepositLoading(false);
         setDepositMessage('Sign in to enable secure external USDT receiving.');
         return;
+      }
+
+      const cacheKey = `aura:evm-deposit-addresses:${user.id}`;
+      try {
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+        if (
+          cached &&
+          typeof cached === 'object' &&
+          ['ethereum', 'polygon', 'arbitrum', 'bsc'].every((chain) => typeof cached[chain] === 'string' && cached[chain])
+        ) {
+          setDepositAddresses(cached);
+          setDepositLoading(false);
+        }
+      } catch {
+        // Ignore a damaged local cache and fetch the authoritative value.
       }
 
       const { data, error } = await supabase.functions.invoke('provision-deposit-address', {
@@ -283,15 +304,20 @@ export const ReceiveModal: React.FC = () => {
       }
 
       if (error || !backendPayload?.success) {
-        setDepositAddresses({});
-        if (status === 401 || backendPayload?.error === 'UNAUTHORIZED') {
-          setDepositMessage('Your AURA session is not ready. Please close and reopen the Receive panel.');
-        } else if (backendPayload?.message) {
-          setDepositMessage(String(backendPayload.message));
-        } else if (backendPayload?.error === 'DEPOSIT_CUSTODY_XPUB_INVALID') {
-          setDepositMessage('AURA secure deposit custody is not configured correctly yet.');
-        } else {
-          setDepositMessage('External USDT receiving is temporarily unavailable. Please try again.');
+        // If we already have a verified cached address, keep showing it while
+        // the background refresh is unavailable.
+        const hasCachedAddress = Object.values(depositAddresses).some(Boolean);
+        if (!hasCachedAddress) setDepositAddresses({});
+        if (!hasCachedAddress) {
+          if (status === 401 || backendPayload?.error === 'UNAUTHORIZED') {
+            setDepositMessage('Your AURA session is not ready. Please close and reopen the Receive panel.');
+          } else if (backendPayload?.message) {
+            setDepositMessage(String(backendPayload.message));
+          } else if (backendPayload?.error === 'DEPOSIT_CUSTODY_XPUB_INVALID') {
+            setDepositMessage('AURA secure deposit custody is not configured correctly yet.');
+          } else {
+            setDepositMessage('External USDT receiving is temporarily unavailable. Please try again.');
+          }
         }
       } else {
         const fromLegacyShape = backendPayload.addresses || {};
@@ -301,12 +327,18 @@ export const ReceiveModal: React.FC = () => {
             .map((item: any) => [item.chain, item.address || '']),
         );
         const addresses = Object.keys(fromLegacyShape).length ? fromLegacyShape : fromCurrentShape;
-        setDepositAddresses({
+        const normalizedAddresses = {
           ethereum: addresses.ethereum || '',
           polygon: addresses.polygon || '',
           arbitrum: addresses.arbitrum || '',
           bsc: addresses.bsc || '',
-        });
+        };
+        setDepositAddresses(normalizedAddresses);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(normalizedAddresses));
+        } catch {
+          // Storage can be unavailable in restricted Telegram webviews.
+        }
       }
 
       setDepositLoading(false);
