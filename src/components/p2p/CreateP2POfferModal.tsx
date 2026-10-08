@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PaymentMethodType } from '../../types';
-import { CustomPaymentMethodInput } from './CustomPaymentMethodInput';
-import { X, Plus, ShieldCheck, FileText } from 'lucide-react';
+import { X, Plus, ShieldCheck, FileText, CreditCard } from 'lucide-react';
 
 interface CreateP2POfferModalProps {
   onClose: () => void;
@@ -16,19 +15,33 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
   const [available, setAvailable] = useState('200');
   const [minLimit, setMinLimit] = useState('10');
   const [maxLimit, setMaxLimit] = useState('200');
-  const [selectedMethods, setSelectedMethods] = useState<PaymentMethodType[]>([
-    'telegram_pay',
-    'revolut',
-  ]);
+  const [selectedMethods, setSelectedMethods] = useState<PaymentMethodType[]>([]);
+  const [savedMethods, setSavedMethods] = useState<Array<{ id: string; method_type: string; label: string; account_holder_name: string; account_identifier: string; instructions: string | null }>>([]);
+  const [loadingMethods, setLoadingMethods] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  useEffect(() => {
+    void (async () => {
+      setLoadingMethods(true);
+      const { supabase } = await import('../../lib/supabase');
+      const { data } = await supabase.from('p2p_payment_methods')
+        .select('id,method_type,label,account_holder_name,account_identifier,instructions')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false });
+      const rows = (data || []) as any[];
+      setSavedMethods(rows);
+      if (rows.length > 0) setSelectedMethods([rows[0].method_type]);
+      setLoadingMethods(false);
+    })();
+  }, []);
+
   const [instructions, setInstructions] = useState(
     'Tell the counterparty where and how to pay. AURA reserves the seller’s USDT in its internal ledger until the trade is completed or cancelled.'
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedMethods.length === 0) return;
+    if (selectedMethods.length !== 1) { setErrorMessage('Add and select one saved payment method with your name and account number before posting.'); return; }
 
     setIsSubmitting(true);
     setErrorMessage('');
@@ -161,27 +174,55 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
             </div>
           </div>
 
-          {/* Accepted Payment Methods (Presets & Any Custom Payment Method) */}
-          <CustomPaymentMethodInput
-            selectedMethods={selectedMethods}
-            onChange={setSelectedMethods}
-            accentColor="amber"
-            label="Accepted Payment Methods"
-            sublabel="Select presets or write any custom payment method you want (e.g. Alex’s Bank Wire, Zelle, PayPal, Monzo)"
-          />
+          {/* Saved Payment Method */}
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-stone-300 font-semibold flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                <span>Your Payment Method</span>
+              </label>
+              <p className="mt-0.5 text-[11px] text-stone-500">Buy and Sell ads require your name, account number, and payment method.</p>
+            </div>
+            {loadingMethods ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-center text-[11px] text-stone-500">Loading saved payment methods…</div>
+            ) : savedMethods.length === 0 ? (
+              <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-3 text-[11px] text-stone-300">
+                Add a payment method first in <span className="text-amber-300 font-semibold">Settings → Payment Methods</span>.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {savedMethods.map((method) => {
+                  const selected = selectedMethods[0] === method.method_type;
+                  return (
+                    <button type="button" key={method.id} onClick={() => setSelectedMethods([method.method_type])}
+                      className={"w-full rounded-xl border p-3 text-left transition " + (selected ? 'border-amber-400/60 bg-amber-400/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/5')}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-stone-100">{method.label || method.method_type}</span>
+                        {selected && <span className="text-[9px] uppercase tracking-wider text-amber-300">Selected</span>}
+                      </div>
+                      <div className="mt-1.5 grid grid-cols-2 gap-2 text-[10px]">
+                        <span><span className="text-stone-500">Name:</span> <span className="text-stone-300">{method.account_holder_name}</span></span>
+                        <span><span className="text-stone-500">Account:</span> <span className="font-mono text-stone-300">{method.account_identifier}</span></span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-          {/* Payment Instructions / Account details */}
+          {/* Payment Instructions */}
           <div>
             <label className="text-xs text-stone-300 font-semibold flex items-center gap-1.5 mb-1">
               <FileText className="w-3.5 h-3.5 text-amber-400" />
-              <span>Payment Instructions & Account Info (Optional)</span>
+              <span>Extra Payment Instructions (Optional)</span>
             </label>
             <textarea
               rows={2}
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              placeholder="e.g. Pay to Alex on Revolut (@alex.patron) or send via Zelle to alex@art.xyz with order ref..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-amber-400/60 resize-none font-mono"
+              placeholder="Optional instructions for the counterparty"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-amber-400/60 resize-none"
             />
           </div>
 
