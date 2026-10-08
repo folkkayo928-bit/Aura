@@ -161,6 +161,7 @@ interface AppContextType {
       accountNumberOrId?: string;
     };
   }) => Promise<P2POrder | null>;
+  acceptP2POrder: (orderId: string) => Promise<boolean>;
   markP2PPaymentSent: (orderId: string) => Promise<boolean>;
   completeP2POrder: (orderId: string) => Promise<boolean>;
   cancelP2POrder: (orderId: string) => Promise<boolean>;
@@ -343,6 +344,8 @@ const backendP2POrderToUi = (row: any): P2POrder => {
     status: row.status,
     escrowTxHash: row.escrow_reference || row.reference_code || '',
     createdAt: row.created_at ? new Date(row.created_at).toLocaleString() : 'Just now',
+    acceptedAt: row.accepted_at ? new Date(row.accepted_at).toISOString() : undefined,
+    expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : undefined,
     protectionFundActive: row.status === 'escrow_locked' || row.status === 'payment_marked',
     artwork: row.artwork_id ? {
       id: row.artwork_id,
@@ -430,6 +433,112 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
+    let disposed = false;
+    const loadNotifications = async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('id,title,message,type,created_at,read_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(12);
+
+      if (disposed || !data) return;
+      const mapped = (data as any[]).map((n) => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        timestamp: new Date(n.created_at).toLocaleString(),
+        type: n.type as TelegramNotification['type'],
+      }));
+      setNotifications(prev => {
+        const byId = new Map<string, TelegramNotification>();
+        [...mapped, ...prev].forEach(item => byId.set(item.id, item));
+        return Array.from(byId.values()).slice(0, 12);
+      });
+    };
+
+    void loadNotifications();
+
+    const channel = supabase
+      .channel(`aura-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const n = payload.new as any;
+          const incoming: TelegramNotification = {
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            timestamp: new Date(n.created_at).toLocaleString(),
+            type: n.type as TelegramNotification['type'],
+          };
+          setNotifications(prev => [incoming, ...prev.filter(item => item.id !== incoming.id)].slice(0, 12));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      disposed = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const hydrateOrder = async (orderId: string) => {
+      const { data, error } = await supabase
+        .from('p2p_orders')
+        .select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))')
+        .eq('id', orderId)
+        .maybeSingle();
+
+      if (error || !data) return;
+      const row = data as any;
+      if (['cancelled', 'completed'].includes(row.status)) {
+        setActiveP2POrder(current => current?.id === orderId ? null : current);
+        return;
+      }
+      setActiveP2POrder(backendP2POrderToUi(row));
+    };
+
+    const buyerChannel = supabase
+      .channel(`aura-p2p-orders-buyer-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'p2p_orders', filter: `buyer_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as any;
+          if (row?.id) void hydrateOrder(row.id);
+        }
+      )
+      .subscribe();
+
+    const sellerChannel = supabase
+      .channel(`aura-p2p-orders-seller-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'p2p_orders', filter: `seller_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as any;
+          if (row?.id) void hydrateOrder(row.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(buyerChannel);
+      void supabase.removeChannel(sellerChannel);
+    };
+  }, [user]);
+
+  useEffect(() => {
     let cancelled = false;
     const loadBackendState = async () => {
       const [publicArtworkRes, publicCollectionRes, publicP2pRes] = await Promise.all([
@@ -515,7 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
         supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
-        supabase.from('p2p_orders').select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('p2p_orders').select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).in('status', ['escrow_locked','payment_marked','in_dispute']).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.rpc('list_live_aura_drops_v2',{p_limit:50}),
       ]);
 
@@ -1504,40 +1613,97 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       openAuth('signin');
       return null;
     }
+
     const { data, error } = await supabase.rpc('create_p2p_order', {
       p_offer_id: offer.id,
       p_crypto_amount: cryptoAmount,
       p_payment_method: paymentMethod,
       p_payment_details: paymentDetails || {},
     });
+
     if (error || !data) {
       const detail = error?.message || error?.details || error?.hint || 'Could not create this trade.';
       addNotification('P2P Order Failed', detail, 'p2p');
       throw new Error(detail);
     }
+
     const orderRow = data as any;
     const enriched = {
       ...orderRow,
       offer: {
         ...offer,
-        merchant: { id: offer.merchant.id, handle: offer.merchant.telegramHandle, display_name: offer.merchant.name, avatar_url: offer.merchant.avatar },
-        artwork: offer.artworkId ? { id: offer.artworkId, title: offer.artworkTitle, media_url: offer.artworkImage } : null,
+        merchant: {
+          id: offer.merchant.id,
+          handle: offer.merchant.telegramHandle,
+          display_name: offer.merchant.name,
+          avatar_url: offer.merchant.avatar,
+        },
+        artwork: offer.artworkId
+          ? { id: offer.artworkId, title: offer.artworkTitle, media_url: offer.artworkImage }
+          : null,
       },
     };
+
     const uiOrder = backendP2POrderToUi(enriched);
     setActiveP2POrder(uiOrder);
-    setP2pOffers(prev => prev
-      .map(o => o.id === offer.id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - cryptoAmount) } : o)
-      .filter(o => o.availableCrypto > 0));
+
     const isArtworkTrade = Boolean(orderRow.artwork_id || offer.artworkId);
     addNotification(
-      isArtworkTrade ? '🔒 Artwork P2P Trade Opened' : '🔒 AURA Trade Hold Created',
-      isArtworkTrade
-        ? 'Payment is handled through the listed fiat method. AURA transfers the artwork only after the seller confirms payment.'
-        : `${cryptoAmount} USDT is reserved until the trade completes or is cancelled.`,
+      isArtworkTrade ? '⏳ Artwork P2P Request Sent' : '⏳ P2P Request Sent',
+      'The counterparty has 5 minutes to accept. AURA will automatically cancel the request if it is not accepted.',
       'p2p'
     );
+
     return uiOrder;
+  };
+
+  const acceptP2POrder = async (orderId: string): Promise<boolean> => {
+    if (!user) {
+      openAuth('signin');
+      return false;
+    }
+
+    const { data, error } = await supabase.rpc('accept_p2p_order', { p_order_id: orderId });
+    if (error || !data) {
+      addNotification(
+        'P2P Acceptance Failed',
+        error?.message || 'Could not accept this order. It may have expired already.',
+        'p2p'
+      );
+      return false;
+    }
+
+    const row = data as any;
+    const current = activeP2POrder;
+    if (current) {
+      setActiveP2POrder({
+        ...current,
+        status: 'escrow_locked',
+        acceptedAt: row.accepted_at ? new Date(row.accepted_at).toISOString() : new Date().toISOString(),
+        expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : undefined,
+        escrowTxHash: row.escrow_reference || row.reference_code || current.escrowTxHash,
+        protectionFundActive: true,
+      });
+    } else {
+      const { data: orderData } = await supabase
+        .from('p2p_orders')
+        .select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))')
+        .eq('id', orderId)
+        .maybeSingle();
+      if (orderData) setActiveP2POrder(backendP2POrderToUi(orderData));
+    }
+
+    const offerAmount = Number(row.crypto_amount || 0);
+    setP2pOffers(prev => prev
+      .map(o => o.id === row.offer_id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - offerAmount) } : o)
+      .filter(o => o.availableCrypto > 0));
+
+    addNotification(
+      row.artwork_id ? '✅ Artwork P2P Order Accepted' : '✅ P2P Order Accepted',
+      'The 15-minute payment window is now running. The buyer must pay and upload proof before it expires.',
+      'p2p'
+    );
+    return true;
   };
 
   const markP2PPaymentSent = async (orderId: string): Promise<boolean> => {
@@ -1547,10 +1713,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification('P2P Update Failed', error?.message || 'Could not update the trade.', 'p2p');
       return false;
     }
+
     const row = data as any;
     const current = activeP2POrder;
-    setActiveP2POrder(current ? { ...current, status: 'payment_marked' } : backendP2POrderToUi(row));
-    addNotification('⏳ Payment Status Recorded', 'The counterparty can now review the payment and release the held USDT.', 'p2p');
+    const nextOrder = current
+      ? {
+          ...current,
+          status: 'payment_marked' as const,
+          expiresAt: row.expires_at ? new Date(row.expires_at).toISOString() : current.expiresAt,
+        }
+      : backendP2POrderToUi(row);
+    setActiveP2POrder(nextOrder);
+
+    addNotification(
+      '⏳ Payment Proof Sent',
+      'The seller has been notified and has 15 minutes to verify the payment and release the held value.',
+      'p2p'
+    );
     return true;
   };
 
@@ -1749,6 +1928,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeP2POrder,
         setActiveP2POrder,
         startP2POrder,
+        acceptP2POrder,
         markP2PPaymentSent,
         completeP2POrder,
         cancelP2POrder,
