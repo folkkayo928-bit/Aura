@@ -522,10 +522,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveP2POrder(uiOrder);
 
       if (row.accepted_at) {
-        const amount = Number(row.crypto_amount || 0);
-        setP2pOffers(prev => prev
-          .map(o => o.id === row.offer_id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - amount) } : o)
-          .filter(o => o.availableCrypto > 0));
+        const { data: currentOffer } = await supabase
+          .from('p2p_offers')
+          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)')
+          .eq('id', row.offer_id)
+          .maybeSingle();
+
+        if (currentOffer?.is_active && Number(currentOffer.available_crypto || 0) > 0) {
+          const uiOffer = backendP2POfferToUi(currentOffer as any);
+          setP2pOffers(prev => [uiOffer, ...prev.filter(o => o.id !== row.offer_id)]);
+        } else {
+          setP2pOffers(prev => prev.filter(o => o.id !== row.offer_id));
+        }
       }
     };
 
