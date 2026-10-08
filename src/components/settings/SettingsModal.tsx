@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 import { MfaEnrollmentModal } from '../auth/MfaEnrollmentModal';
+import { PaymentMethodsPanel } from './PaymentMethodsPanel';
 import {
   X,
   Settings,
@@ -18,6 +19,7 @@ import {
   Image as ImageIcon,
   Smartphone,
   AlertTriangle,
+  CreditCard,
 } from 'lucide-react';
 
 export const SettingsModal: React.FC = () => {
@@ -33,7 +35,7 @@ export const SettingsModal: React.FC = () => {
     disconnectExternalWallet,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'wallets' | 'security' | 'preferences'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'wallets' | 'security' | 'preferences'>('profile');
 
   const [name, setName] = useState(userProfile.name);
   const [telegramHandle, setTelegramHandle] = useState(userProfile.telegramHandle);
@@ -156,6 +158,7 @@ export const SettingsModal: React.FC = () => {
           <div className="flex items-center gap-1 p-1 bg-white/5 rounded-2xl border border-white/5 mb-5 overflow-x-auto no-scrollbar">
             {[
               { id: 'profile', label: 'Profile', icon: User },
+              { id: 'payments', label: 'Payment Methods', icon: CreditCard },
               { id: 'wallets', label: 'Web3 Wallets', icon: Link },
               { id: 'security', label: 'Vault & Keys', icon: Key },
               { id: 'preferences', label: 'Preferences', icon: Bell },
@@ -230,6 +233,8 @@ export const SettingsModal: React.FC = () => {
               <button type="submit" className="w-full py-3.5 rounded-xl bg-amber-400 text-stone-950 font-bold text-xs hover:bg-amber-300 transition-colors shadow-lg shadow-amber-500/10">Save Profile Changes</button>
             </form>
           )}
+
+          {activeTab === 'payments' && <PaymentMethodsPanel />}
 
           {activeTab === 'wallets' && (
             <div className="space-y-4">
