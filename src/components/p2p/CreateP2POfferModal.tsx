@@ -9,9 +9,10 @@ interface CreateP2POfferModalProps {
 }
 
 export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClose }) => {
-  const { createP2POffer } = useApp();
+  const { createP2POffer, walletBalance } = useApp();
   const [type, setType] = useState<'buy' | 'sell'>('sell');
   const [price, setPrice] = useState('1.00');
+  const [fiatCurrency, setFiatCurrency] = useState('ETB');
   const [available, setAvailable] = useState('200');
   const [minLimit, setMinLimit] = useState('10');
   const [maxLimit, setMaxLimit] = useState('200');
@@ -20,6 +21,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     'revolut',
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [instructions, setInstructions] = useState(
     'Tell the counterparty where and how to pay. AURA reserves the seller’s USDT in its internal ledger until the trade is completed or cancelled.'
   );
@@ -29,10 +31,11 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     if (selectedMethods.length === 0) return;
 
     setIsSubmitting(true);
+    setErrorMessage('');
     const ok = await createP2POffer({
       type,
       pricePerUnit: parseFloat(price) || 1.0,
-      fiatCurrency: 'USD',
+      fiatCurrency,
       availableCrypto: parseFloat(available) || 100,
       minLimitFiat: parseFloat(minLimit) || 10,
       maxLimitFiat: parseFloat(maxLimit) || 200,
@@ -44,6 +47,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
     });
     setIsSubmitting(false);
     if (ok) onClose();
+    else setErrorMessage('AURA could not publish this offer. Check your available USDT, price, limits, and payment details.');
   };
 
   return (
@@ -92,10 +96,11 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
           {/* Unit Price */}
           <div>
-            <label className="text-xs text-stone-400 block mb-1 font-medium">Unit Price (USD)</label>
+            <label className="text-xs text-stone-400 block mb-1 font-medium">Unit Price ({fiatCurrency} per USDT)</label>
             <input
               type="number"
-              step="0.01"
+              step="0.0001"
+              min="0.0001"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
@@ -103,8 +108,25 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
             />
           </div>
 
+          <div>
+            <label className="text-xs text-stone-400 block mb-1 font-medium">Fiat Currency</label>
+            <select value={fiatCurrency} onChange={(e) => setFiatCurrency(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-amber-400/60">
+              <option value="ETB">🇪🇹 ETB — Ethiopian Birr</option>
+              <option value="USD">🇺🇸 USD — US Dollar</option>
+              <option value="EUR">🇪🇺 EUR — Euro</option>
+              <option value="GBP">🇬🇧 GBP — British Pound</option>
+              <option value="AED">🇦🇪 AED — UAE Dirham</option>
+            </select>
+          </div>
+
           {/* Total Crypto Available */}
           <div>
+            {type === 'sell' && (
+              <div className="mb-2 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[10px]">
+                <span className="text-stone-400">Available to reserve</span>
+                <span className="font-mono font-bold text-emerald-300">{walletBalance.toFixed(2)} USDT</span>
+              </div>
+            )}
             <label className="text-xs text-stone-400 block mb-1 font-medium">Crypto Pool Size (USDT)</label>
             <input
               type="number"
@@ -165,8 +187,10 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
           <div className="flex items-center gap-2 text-[11px] text-stone-400 bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>USDT escrow is enforced by the AURA server-side ledger when the order is matched.</span>
+            <span>{type === 'sell' ? 'AURA reserves this entire Sell pool immediately. You cannot advertise more USDT than your available wallet balance.' : 'Your Buy ad does not reserve USDT; the seller supplies the USDT when the order is accepted.'}</span>
           </div>
+
+          {errorMessage && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-200">{errorMessage}</div>}
 
           <button
             type="submit"
