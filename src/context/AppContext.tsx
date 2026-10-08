@@ -90,7 +90,7 @@ interface AppContextType {
   listArtworkOnP2P: (params: {
     artworkId: string;
     fiatPrice: number;
-    currency: 'USD' | 'EUR' | 'GBP';
+    currency: 'ETB' | 'USD' | 'EUR' | 'GBP' | 'AED';
     paymentMethods: PaymentMethodType[];
     paymentInstructions?: string;
   }) => Promise<boolean>;
