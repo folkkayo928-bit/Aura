@@ -101,7 +101,10 @@ export const Header: React.FC = () => {
                       key={n.id}
                       onClick={() => {
                         setNotificationsOpen(false);
-                        if (n.type === 'p2p') setP2pModalOpen(true);
+                        if (n.type === 'p2p') {
+                          setActiveTab('p2p_trade');
+                          setP2pModalOpen(false);
+                        }
                       }}
                       className="w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/[0.04] transition-colors"
                     >
