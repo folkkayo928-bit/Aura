@@ -24,9 +24,10 @@ interface HomeViewProps {
 
 export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail, onOpenProfile }) => {
   const { artworks, collections, feedFilter, setFeedFilter, setSelectedCollection } = useApp();
+  const visibleArtworks = useMemo(() => artworks.filter((a) => a.published !== false), [artworks]);
 
   const watchedCount = useMemo(() => {
-    return artworks.filter((a) => a.isWatched).length + collections.filter((c) => c.isWatched).length;
+    return visibleArtworks.filter((a) => a.isWatched).length + collections.filter((c) => c.isWatched).length;
   }, [artworks, collections]);
 
   const filterTabs: { id: FeedSection; label: string; icon: any; badge?: number }[] = [
@@ -43,7 +44,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail, onOpenProfile 
   const filteredArtworks = useMemo(() => {
     switch (feedFilter) {
       case 'rising':
-        return [...artworks].filter((a) => a.interestLevel === 'Rising' || a.interestLevel === 'Surging');
+        return [...visibleArtworks].filter((a) => a.interestLevel === 'Rising' || a.interestLevel === 'Surging');
       case 'new':
         return [...artworks].sort((a, b) => b.id.localeCompare(a.id));
       case 'loved':
@@ -54,7 +55,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail, onOpenProfile 
       default:
         return [...artworks].sort((a, b) => b.eligibleInteractions - a.eligibleInteractions);
     }
-  }, [artworks, feedFilter]);
+  }, [visibleArtworks, feedFilter]);
 
   return (
     <div className="space-y-6 pb-24">
