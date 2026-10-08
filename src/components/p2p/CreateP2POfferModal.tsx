@@ -96,7 +96,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
           {/* Unit Price */}
           <div>
-            <label className="text-xs text-stone-400 block mb-1 font-medium">Unit Price ({fiatCurrency} per USDT)</label>
+            <label className="text-xs text-stone-400 block mb-1 font-medium">{type === 'buy' ? 'Your Buy Price' : 'Your Sell Price'} ({fiatCurrency} per USDT)</label>
             <input
               type="number"
               step="0.0001"
@@ -119,7 +119,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
             </select>
           </div>
 
-          {/* Total Crypto Available */}
+          {/* Crypto Quantity */}
           <div>
             {type === 'sell' && (
               <div className="mb-2 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[10px]">
@@ -127,7 +127,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
                 <span className="font-mono font-bold text-emerald-300">{walletBalance.toFixed(2)} USDT</span>
               </div>
             )}
-            <label className="text-xs text-stone-400 block mb-1 font-medium">Crypto Pool Size (USDT)</label>
+            <label className="text-xs text-stone-400 block mb-1 font-medium">{type === 'buy' ? 'USDT I Want to Buy' : 'USDT I Want to Sell'}</label>
             <input
               type="number"
               value={available}
@@ -140,7 +140,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
           {/* Limits */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-stone-400 block mb-1 font-medium">Min Limit ({fiatCurrency})</label>
+              <label className="text-xs text-stone-400 block mb-1 font-medium">{type === 'buy' ? 'Minimum I Will Pay' : 'Minimum I Will Receive'} ({fiatCurrency})</label>
               <input
                 type="number"
                 value={minLimit}
@@ -150,7 +150,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
               />
             </div>
             <div>
-              <label className="text-xs text-stone-400 block mb-1 font-medium">Max Limit ({fiatCurrency})</label>
+              <label className="text-xs text-stone-400 block mb-1 font-medium">{type === 'buy' ? 'Maximum I Will Pay' : 'Maximum I Will Receive'} ({fiatCurrency})</label>
               <input
                 type="number"
                 value={maxLimit}
@@ -187,7 +187,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
           <div className="flex items-center gap-2 text-[11px] text-stone-400 bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{type === 'sell' ? 'AURA reserves this entire Sell pool immediately. You cannot advertise more USDT than your available wallet balance.' : 'Your Buy ad does not reserve USDT; the seller supplies the USDT when the order is accepted.'}</span>
+            <span>{type === 'sell' ? 'AURA reserves this entire Sell pool immediately. You cannot advertise more USDT than your available wallet balance.' : 'Buy ads do not reserve or check your USDT wallet. This quantity is simply how much USDT you want to buy; the matched seller supplies the USDT.'}</span>
           </div>
 
           {errorMessage && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-200">{errorMessage}</div>}
