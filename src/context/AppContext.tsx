@@ -109,6 +109,8 @@ interface AppContextType {
     p2pPriceFiat?: number;
     p2pPaymentMethods?: PaymentMethodType[];
     p2pPaymentInstructions?: string;
+    scheduledAt?: string;
+    notifyWatchers?: boolean;
   }) => Promise<void>;
   isTelegramShellMode: boolean;
   setIsTelegramShellMode: (enabled: boolean) => void;
@@ -257,6 +259,8 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   p2pPriceFiat: row.p2p_price_fiat ? Number(row.p2p_price_fiat) : undefined,
   p2pCurrency: row.p2p_currency || undefined,
   p2pPaymentMethods: Array.isArray(row.p2p_payment_methods) ? row.p2p_payment_methods : [],
+  published: row.published !== false,
+  scheduledAt: row.scheduled_at || undefined,
     comments: [],
   };
 };
@@ -1143,13 +1147,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     listOnP2P?: boolean;
     p2pPriceFiat?: number;
     p2pPaymentMethods?: PaymentMethodType[];
+    p2pPaymentInstructions?: string;
+    scheduledAt?: string;
+    notifyWatchers?: boolean;
   }) => {
     if (!user) {
       openAuth('signin');
       return;
     }
 
-    const { data, error } = await supabase.rpc('create_my_artwork', {
+    const scheduleAt = newArt.scheduledAt ? new Date(newArt.scheduledAt) : null;
+    if (scheduleAt && Number.isNaN(scheduleAt.getTime())) {
+      addNotification('Schedule Invalid', 'Choose a valid future release time.', 'community');
+      return;
+    }
+    if (scheduleAt && scheduleAt.getTime() <= Date.now()) {
+      addNotification('Schedule Invalid', 'Scheduled release time must be in the future.', 'community');
+      return;
+    }
+
+    const { data, error } = await supabase.rpc('create_my_artwork_v2', {
       p_title: newArt.title.trim(),
       p_description: newArt.description.trim(),
       p_price_usdt: newArt.price,
@@ -1163,6 +1180,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       p_p2p_price_fiat: newArt.listOnP2P && newArt.p2pPriceFiat ? newArt.p2pPriceFiat : null,
       p_p2p_currency: 'USD',
       p_p2p_payment_methods: newArt.listOnP2P ? (newArt.p2pPaymentMethods || []) : [],
+      p_p2p_payment_instructions: newArt.listOnP2P ? (newArt.p2pPaymentInstructions?.trim() || null) : null,
+      p_scheduled_at: scheduleAt?.toISOString() || null,
+      p_notify_watchers: newArt.notifyWatchers !== false,
     });
 
     if (error || !data) {
@@ -1185,44 +1205,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!collectionError && collectionRow) {
         const collection = backendCollectionToUi(collectionRow);
         setCollections(prev => [collection, ...prev.filter(item => item.id !== collection.id)]);
-      } else if (collectionError) {
-        addNotification(
-          'Artwork Published',
-          'Your artwork is live. The collection record could not be synced yet, so the artwork remains available without collection metadata.',
-          'community'
-        );
       }
     }
 
-    if (newArt.listOnP2P && newArt.p2pPriceFiat) {
-      const { error: offerError } = await supabase.rpc('create_p2p_offer', {
-        p_type: 'sell',
-        p_price_per_unit: newArt.p2pPriceFiat,
-        p_fiat_currency: 'USD',
-        p_available_crypto: 1,
-        p_min_limit_fiat: newArt.p2pPriceFiat,
-        p_max_limit_fiat: newArt.p2pPriceFiat,
-        p_payment_methods: newArt.p2pPaymentMethods || [],
-        p_payment_instructions: (newArt as any).p2pPaymentInstructions?.trim() || 'Use the selected payment method and the order reference shown after matching. AURA transfers artwork ownership only after the seller confirms receipt.',
-        p_artwork_id: created.id,
-      });
-
-      if (offerError) {
-        addNotification('Artwork Minted', 'The artwork is live, but the P2P listing could not be created yet.', 'p2p');
-      } else {
-        setArtworks(prev => prev.map(a => a.id === created.id ? {
-          ...a,
-          isListedOnP2P: true,
-          p2pPriceFiat: newArt.p2pPriceFiat,
-          p2pCurrency: 'USD',
-          p2pPaymentMethods: newArt.p2pPaymentMethods || [],
-        } : a));
-      }
+    if (scheduleAt) {
+      addNotification(
+        '🗓️ Artwork Scheduled',
+        `"${newArt.title}" will go live on ${scheduleAt.toLocaleString()}.`,
+        'drop_alert'
+      );
+      setActiveTab('profile');
+      return;
     }
 
     addNotification(
       '✨ Artwork Published',
-      `"${newArt.title}" is now in your AURA collection.`,
+      `"${newArt.title}" is now live in your AURA collection.`,
       'community'
     );
     setActiveTab('home');
