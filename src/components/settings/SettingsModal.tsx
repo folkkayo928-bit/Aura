@@ -213,8 +213,18 @@ export const SettingsModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs text-stone-400 block mb-1 font-medium">Collector Bio / Statement</label>
-                <textarea rows={2} value={bio} onChange={(e) => setBio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-100 focus:outline-none focus:border-amber-400/60 resize-none" />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-stone-400 font-medium">Bio / About you</label>
+                  <span className="text-[10px] text-stone-600">{bio.length}/280</span>
+                </div>
+                <textarea
+                  rows={4}
+                  maxLength={280}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell collectors what you create, collect, or care about."
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 placeholder:text-stone-600 focus:outline-none focus:border-amber-400/60 resize-none"
+                />
               </div>
 
               <button type="submit" className="w-full py-3.5 rounded-xl bg-amber-400 text-stone-950 font-bold text-xs hover:bg-amber-300 transition-colors shadow-lg shadow-amber-500/10">Save Profile Changes</button>
