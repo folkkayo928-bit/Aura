@@ -227,6 +227,10 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       setStartError('Add the account or handle where the fiat payment should be sent.');
       return;
     }
+    if (!isArtworkOffer && offer.type === 'buy' && numCrypto > walletBalance) {
+      setStartError('Insufficient USDT balance for this trade.');
+      return;
+    }
     setIsStarting(true);
     try {
       const order = await startP2POrder({
@@ -717,14 +721,14 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
             {/* Amount input */}
             <div>
               <div className="flex justify-between text-xs text-stone-400 mb-1.5">
-                <span>{isArtworkOffer ? 'Artwork' : 'USDT Amount'}</span>
-                <span>Limits: ${currentOffer.minLimitFiat} - ${currentOffer.maxLimitFiat}</span>
+                <span>{isArtworkOffer ? 'Artwork' : currentOffer.type === 'buy' ? 'USDT You Want to Sell' : 'USDT You Want to Buy'}</span>
+                <span>Limits: {currentOffer.minLimitFiat} - {currentOffer.maxLimitFiat} {currentOffer.fiatCurrency}</span>
               </div>
               <div className="relative">
                 <input
                   type="number"
                   min={currentOffer.minLimitFiat / currentOffer.pricePerUnit}
-                  max={currentOffer.maxLimitFiat / currentOffer.pricePerUnit}
+                  max={Math.min(currentOffer.maxLimitFiat / currentOffer.pricePerUnit, currentOffer.type === 'buy' ? walletBalance : Number.POSITIVE_INFINITY)}
                   step="any"
                   value={isArtworkOffer ? '1' : cryptoAmount}
                   onChange={(e) => setCryptoAmount(e.target.value)}
@@ -734,13 +738,23 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
                 />
                 <button
                   type="button"
-                  onClick={() => setCryptoAmount('100')}
+                  onClick={() => setCryptoAmount(String(Math.min(100, currentOffer.maxLimitFiat / currentOffer.pricePerUnit, currentOffer.type === 'buy' ? walletBalance : 100)))}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/10 text-stone-300"
                 >
-                  $100
+                  Max
                 </button>
               </div>
             </div>
+
+            {!isArtworkOffer && currentOffer.type === 'buy' && (
+              <div className="p-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-stone-300">
+                <div className="flex items-center justify-between">
+                  <span>Available to reserve</span>
+                  <span className="font-mono font-bold text-emerald-300">{walletBalance.toFixed(2)} USDT</span>
+                </div>
+                <p className="mt-1 text-stone-500">Only the amount you enter is locked. AURA checks your live wallet balance before opening the trade.</p>
+              </div>
+            )}
 
             {!isArtworkOffer && currentOffer.type === 'buy' && (
               <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-2">
