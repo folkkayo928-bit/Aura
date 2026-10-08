@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import { createNeutralAvatar } from '../lib/avatar';
 import {
   Artwork,
   FeedSection,
@@ -239,7 +240,7 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
     id: row.creator_id,
     name: row.profiles?.display_name || 'AURA Creator',
     handle: row.profiles?.handle || '@creator',
-    avatar: row.profiles?.avatar_url || '',
+    avatar: row.profiles?.avatar_url || createNeutralAvatar(String(row.creator_id || row.profiles?.id || row.profiles?.handle || 'aura-creator')),
     verified: false,
     bio: row.profiles?.bio || '',
     totalPieces: 0,
