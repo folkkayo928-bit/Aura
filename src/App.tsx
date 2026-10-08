@@ -30,6 +30,7 @@ import { SettingsModal } from './components/settings/SettingsModal';
 import { SeedPhraseModal } from './components/settings/SeedPhraseModal';
 
 import { P2PView } from './components/p2p/P2PView';
+import { P2PTradeCenterView } from './components/p2p/P2PTradeCenterView';
 import { P2PTradeModal } from './components/p2p/P2PTradeModal';
 import { CreateP2POfferModal } from './components/p2p/CreateP2POfferModal';
 import { SellArtP2PModal } from './components/p2p/SellArtP2PModal';
@@ -180,6 +181,9 @@ const AppContent: React.FC = () => {
         {activeTab === 'create' && <CreateView />}
         {activeTab === 'wallet' && <WalletView />}
         {activeTab === 'profile' && <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
+        {activeTab === 'p2p_trade' && (
+          <P2PTradeCenterView onResume={() => setP2pModalOpen(true)} />
+        )}
       </div>
 
       <BottomNav />
