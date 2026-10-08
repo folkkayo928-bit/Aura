@@ -116,6 +116,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return { error: 'Telegram sign-in could not create a secure session.' };
           }
 
+          try { sessionStorage.removeItem('aura_telegram_signed_out_id'); } catch {};
+
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: 'email',
@@ -177,6 +179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
 
     signOut: async () => {
+      const telegramId = String((window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || '').trim();
+      if (telegramId) {
+        try { sessionStorage.setItem('aura_telegram_signed_out_id', telegramId); } catch {}
+      }
       await supabase.auth.signOut();
       setAuthModalOpen(false);
     },
