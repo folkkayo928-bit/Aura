@@ -106,6 +106,10 @@ export const PublicProfileView: React.FC<PublicProfileViewProps> = ({
                 <img
                   src={profile.avatar || createNeutralAvatar(creator.id || creator.handle)}
                   alt={profile.name}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = createNeutralAvatar(creator.id || creator.handle || 'aura-profile');
+                  }}
                   className="h-20 w-20 rounded-full border-4 border-[#111118] bg-[#1b1b25] object-cover shadow-xl"
                   referrerPolicy="no-referrer"
                 />
