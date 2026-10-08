@@ -1179,7 +1179,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }: {
     artworkId: string;
     fiatPrice: number;
-    currency: 'USD' | 'EUR' | 'GBP';
+    currency: 'ETB' | 'USD' | 'EUR' | 'GBP' | 'AED';
     paymentMethods: PaymentMethodType[];
     paymentInstructions?: string;
   }) => {
