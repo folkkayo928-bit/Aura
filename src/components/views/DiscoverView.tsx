@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Artwork, ArtworkCategory } from '../../types';
+import { Artwork, ArtworkCategory, Creator } from '../../types';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import {
   Search,
@@ -15,9 +15,10 @@ import {
 
 interface DiscoverViewProps {
   onOpenDetail: (artwork: Artwork) => void;
+  onOpenProfile?: (creator: Creator) => void;
 }
 
-export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
+export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail, onOpenProfile }) => {
   const { artworks, collections, setSelectedCollection, toggleWatchlist } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ArtworkCategory | 'all'>('all');
@@ -156,9 +157,13 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
 
         <div className="grid grid-cols-3 gap-2">
           {spotlightCurators.map((c) => (
-            <div
+            <button
+              type="button"
               key={c.id}
-              className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/15 transition-all text-center flex flex-col items-center group cursor-pointer"
+              onClick={() => onOpenProfile?.(artworks.find((a) => a.creator.id === c.id)?.creator || {
+                id: c.id, name: c.name, handle: c.handle, avatar: c.avatar, verified: false, bio: '', totalPieces: c.works, totalCollectors: 0
+              })}
+              className="w-full p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/15 transition-all text-center flex flex-col items-center group cursor-pointer"
             >
               <img
                 src={c.avatar}
@@ -175,7 +180,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
               <span className="text-[10px] text-amber-400/80 font-mono mt-1">
                 {c.works} Live Works
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -230,9 +235,24 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ onOpenDetail }) => {
                   <h4 className="font-serif text-sm text-stone-100 font-normal leading-tight truncate">
                     {artwork.title}
                   </h4>
-                  <p className="text-[10px] text-stone-400 font-mono truncate mt-0.5">
-                    {artwork.creator.name}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenProfile?.(artwork.creator);
+                    }}
+                    className="mt-1 flex max-w-full items-center gap-1.5 text-left"
+                  >
+                    <img
+                      src={artwork.creator.avatar}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="h-5 w-5 shrink-0 rounded-full border border-white/10 object-cover"
+                    />
+                    <span className="truncate text-[10px] font-mono text-stone-300 hover:text-amber-300">
+                      {artwork.creator.name}
+                    </span>
+                  </button>
                 </div>
               </div>
 
