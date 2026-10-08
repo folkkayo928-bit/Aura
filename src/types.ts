@@ -178,7 +178,7 @@ export interface P2POffer {
   type: 'buy' | 'sell';
   merchant: P2PMerchant;
   pricePerUnit: number;
-  fiatCurrency: 'USD' | 'EUR' | 'GBP';
+  fiatCurrency: 'ETB' | 'USD' | 'EUR' | 'GBP' | 'AED';
   availableCrypto: number;
   minLimitFiat: number;
   maxLimitFiat: number;
