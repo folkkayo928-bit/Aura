@@ -17,6 +17,8 @@ import { DiscoverView } from './components/views/DiscoverView';
 import { CreateView } from './components/views/CreateView';
 import { WalletView } from './components/views/WalletView';
 import { ProfileView } from './components/views/ProfileView';
+import { PublicProfileView } from './components/views/PublicProfileView';
+import { Creator } from './types';
 
 import { ArtworkModal } from './components/ArtworkModal';
 import { CollectModal } from './components/CollectModal';
@@ -99,6 +101,7 @@ const AppContent: React.FC = () => {
 
   const [selectedP2POffer, setSelectedP2POffer] = useState<P2POffer | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [publicProfileCreator, setPublicProfileCreator] = useState<Creator | null>(null);
 
   React.useEffect(() => {
     const open = () => setAdminOpen(true);
@@ -114,8 +117,18 @@ const AppContent: React.FC = () => {
       <Header />
 
       <div className="px-3 pt-3">
-        {activeTab === 'home' && <HomeView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
-        {activeTab === 'discover' && <DiscoverView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
+        {activeTab === 'home' && (
+          <HomeView
+            onOpenDetail={(artwork) => setSelectedArtwork(artwork)}
+            onOpenProfile={(creator) => setPublicProfileCreator(creator)}
+          />
+        )}
+        {activeTab === 'discover' && (
+          <DiscoverView
+            onOpenDetail={(artwork) => setSelectedArtwork(artwork)}
+            onOpenProfile={(creator) => setPublicProfileCreator(creator)}
+          />
+        )}
         {activeTab === 'create' && <CreateView />}
         {activeTab === 'wallet' && <WalletView />}
         {activeTab === 'profile' && <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
@@ -153,6 +166,18 @@ const AppContent: React.FC = () => {
       {sellArtworkP2PModal && <SellArtP2PModal artwork={sellArtworkP2PModal} onClose={() => setSellArtworkP2PModal(null)} />}
 
       <AuthModal />
+
+      {publicProfileCreator && (
+        <PublicProfileView
+          creator={publicProfileCreator}
+          artworks={artworks}
+          onBack={() => setPublicProfileCreator(null)}
+          onOpenDetail={(artwork) => {
+            setPublicProfileCreator(null);
+            setSelectedArtwork(artwork);
+          }}
+        />
+      )}
     </MfaSessionGate>
   );
 };
