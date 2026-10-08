@@ -25,6 +25,10 @@ import {
   Users,
   Trophy,
   LogOut,
+  Menu,
+  ChevronRight,
+  CreditCard,
+  Bell,
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -51,6 +55,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
   const [selectedCertArtwork, setSelectedCertArtwork] = useState<Artwork | null>(null);
   const [copied, setCopied] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [profileMode, setProfileMode] = useState<'private' | 'public'>('private');
   const [profileSection, setProfileSection] = useState<'collection' | 'created' | 'collections' | 'activity'>('collection');
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
@@ -148,34 +153,92 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         </div>
       </div>
 
-      {/* PROFILE ACTIONS */}
+      {/* CLEAN PROFILE ACTION BAR */}
       <div className="flex items-center gap-2 px-1">
-        <div className="flex flex-1 rounded-2xl bg-white/[0.03] border border-white/10 p-1">
-          <button onClick={() => setProfileMode('private')} className={profileMode === 'private' ? 'flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-white/10 py-2.5 text-[10px] font-semibold text-stone-100' : 'flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[10px] text-stone-500'}><LockKeyhole className="w-3.5 h-3.5" /> My profile</button>
-          <button onClick={() => setProfileMode('public')} className={profileMode === 'public' ? 'flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-white/10 py-2.5 text-[10px] font-semibold text-stone-100' : 'flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[10px] text-stone-500'}><Globe2 className="w-3.5 h-3.5" /> Public preview</button>
-        </div>
-        <button onClick={async () => {
-          const shareUrl = window.location.origin + '/#profile/' + encodeURIComponent(userProfile.telegramHandle.replace('@', ''));
-          try {
-            if (navigator.share) await navigator.share({ title: userProfile.name + ' · AURA', text: userProfile.bio, url: shareUrl });
-            else { await navigator.clipboard?.writeText(shareUrl); setShareCopied(true); setTimeout(() => setShareCopied(false), 1800); }
-          } catch {}
-        }} className="shrink-0 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-3 py-2.5 text-[10px] font-semibold text-amber-300">
-          {shareCopied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-semibold text-stone-100 hover:bg-white/[0.07]"
+        >
+          <Menu className="h-4 w-4 text-amber-300" />
+          Profile menu
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const shareUrl = window.location.origin + '/#profile/' + encodeURIComponent(userProfile.telegramHandle.replace('@', ''));
+            try {
+              if (navigator.share) await navigator.share({ title: userProfile.name + ' · AURA', text: userProfile.bio, url: shareUrl });
+              else { await navigator.clipboard?.writeText(shareUrl); setShareCopied(true); setTimeout(() => setShareCopied(false), 1800); }
+            } catch {}
+          }}
+          className="shrink-0 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-amber-300"
+          aria-label="Share profile"
+        >
+          {shareCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
         </button>
       </div>
 
-      <button
-        type="button"
-        onClick={async () => {
-          await signOut();
-          setActiveTab('home');
-        }}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/[0.05] px-4 py-3 text-xs font-semibold text-rose-300 hover:bg-rose-500/10"
-      >
-        <LogOut className="w-4 h-4" />
-        Log out of AURA
-      </button>
+      {/* PROFILE MENU */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
+          <div
+            className="w-full max-w-xl rounded-t-3xl border border-white/10 bg-[#12121a] p-4 pb-7 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15" />
+            <div className="flex items-center justify-between px-1">
+              <div>
+                <div className="font-serif text-xl text-stone-100">Profile</div>
+                <div className="mt-1 text-[10px] font-mono uppercase tracking-widest text-stone-500">Everything in one place</div>
+              </div>
+              <button type="button" onClick={() => setMenuOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-stone-400" aria-label="Close menu">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-1.5">
+              {[
+                { label: 'My Collection', hint: 'Owned works', icon: Award, action: () => { setProfileMode('private'); setProfileSection('collection'); } },
+                { label: 'Created Works', hint: 'Your creations', icon: Sparkles, action: () => { setProfileMode('private'); setProfileSection('created'); } },
+                { label: 'Collections', hint: 'Collection hubs', icon: Trophy, action: () => { setProfileMode('private'); setProfileSection('collections'); } },
+                { label: 'Activity', hint: 'Account activity', icon: ArrowUpDown, action: () => { setProfileMode('private'); setProfileSection('activity'); } },
+                { label: 'Public Profile', hint: profileMode === 'public' ? 'Currently viewing' : 'Preview your public page', icon: Globe2, action: () => setProfileMode('public') },
+                { label: 'P2P Trading', hint: 'Open your active trade', icon: ArrowRightLeft, action: () => setActiveTab('p2p_trade') },
+                { label: 'Payment Methods', hint: 'Manage saved payment details', icon: CreditCard, action: () => setSettingsModalOpen(true) },
+                { label: 'Notifications', hint: 'Alerts & preferences', icon: Bell, action: () => setSettingsModalOpen(true) },
+                { label: 'Settings', hint: 'Profile, wallets & security', icon: Settings, action: () => setSettingsModalOpen(true) },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => { item.action(); if (item.label !== 'P2P Trading') setMenuOpen(false); }}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.025] px-3.5 py-3 text-left hover:bg-white/[0.06]"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-stone-300"><Icon className="h-4 w-4" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold text-stone-100">{item.label}</span>
+                      <span className="mt-0.5 block text-[10px] text-stone-500">{item.hint}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-stone-600" />
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={async () => { setMenuOpen(false); await signOut(); setActiveTab('home'); }}
+                className="mt-2 flex w-full items-center gap-3 rounded-2xl border border-rose-500/15 bg-rose-500/[0.05] px-3.5 py-3 text-left text-rose-300"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10"><LogOut className="h-4 w-4" /></span>
+                <span className="text-xs font-semibold">Log out of AURA</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PROFILE SNAPSHOT */}
       {profileMode === 'private' && (<>
@@ -234,12 +297,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
         </div>
       </div>
 
-      {/* PROFILE CONTENT TABS */}
-      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.02] p-1">
-        {[['collection', 'Collection'], ['created', 'Created'], ['collections', 'Collections'], ['activity', 'Activity']].map(([id, label]) => (
-          <button key={id} onClick={() => setProfileSection(id as typeof profileSection)} className={profileSection === id ? 'flex-1 rounded-xl bg-white/10 py-2.5 text-[10px] font-semibold text-stone-100' : 'flex-1 rounded-xl py-2.5 text-[10px] text-stone-500'}>{label}</button>
-        ))}
-      </div>
+      {/* CONTENT IS NAVIGATED FROM THE PROFILE MENU TO KEEP THE PAGE CLEAN */}
       {profileMode === 'public' && <div className="rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.04] px-4 py-3 text-xs text-stone-400"><span className="font-semibold text-cyan-300">Public preview.</span> Private vault performance, connected wallets and security controls are hidden.</div>}
 
       {profileSection === 'collections' && (
