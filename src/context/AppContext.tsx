@@ -204,17 +204,19 @@ const mapLedgerToTransaction = (row: any): Transaction => {
   };
 };
 
-const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, interaction?: any): Artwork => ({
-  id: row.id,
-  title: row.title,
-  edition: row.edition || 'Edition not reported',
-  creator: {
-    id: row.creator_id,
-    name: row.profiles?.display_name || 'AURA Creator',
-    handle: row.profiles?.handle || '@creator',
-    avatar: row.profiles?.avatar_url || createNeutralAvatar(String(row.creator_id || row.profiles?.id || row.profiles?.handle || 'aura-creator')),
-    verified: false,
-    bio: row.profiles?.bio || '',
+const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, interaction?: any): Artwork => {
+  const profile = row.profiles || interaction?.profile || {};
+  return {
+    id: row.id,
+    title: row.title,
+    edition: row.edition || 'Edition not reported',
+    creator: {
+      id: row.creator_id,
+      name: profile.display_name || profile.name || 'AURA Creator',
+      handle: profile.handle || profile.telegramHandle || '@creator',
+      avatar: profile.avatar_url || profile.avatar || createNeutralAvatar(String(row.creator_id || profile.id || profile.handle || profile.telegramHandle || 'aura-creator')),
+      verified: false,
+      bio: profile.bio || '',
     totalPieces: 0,
     totalCollectors: Number(row.collectors_count || 0),
   },
@@ -243,7 +245,7 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   isLoved: Boolean(interaction?.loved),
   isSaved: Boolean(interaction?.saved),
   isWatched: Boolean(interaction?.watched),
-  createdDate: new Date(row.created_at).toLocaleDateString(),
+    createdDate: new Date(row.created_at).toLocaleDateString(),
   category: row.category || 'generative',
   mediaType: row.media_type || 'image',
   customMediaUrl: row.media_url || undefined,
@@ -255,8 +257,9 @@ const backendArtworkToUi = (row: any, owned = false, purchasePrice?: number, int
   p2pPriceFiat: row.p2p_price_fiat ? Number(row.p2p_price_fiat) : undefined,
   p2pCurrency: row.p2p_currency || undefined,
   p2pPaymentMethods: Array.isArray(row.p2p_payment_methods) ? row.p2p_payment_methods : [],
-  comments: [],
-});
+    comments: [],
+  };
+};
 
 const backendCollectionToUi = (
   row: any,
@@ -446,6 +449,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ]);
 
       if (!user) {
+        setUserProfile({
+          name: 'AURA Collector',
+          telegramHandle: '@collector',
+          avatar: createNeutralAvatar('aura-signed-out'),
+          coverImage: '',
+          bio: 'Collecting digital art on AURA.',
+          vaultId: 'Sign in to create your vault',
+          joinedDate: 'New member',
+          defaultCurrency: 'USD',
+          notificationsEnabled: true,
+          telegramBotAlerts: true,
+          twoFactorEnabled: false,
+          biometricAuth: false,
+        });
         if (!publicArtworkRes.error) {
           setArtworks((publicArtworkRes.data || []).map(row => backendArtworkToUi(row)));
         } else {
