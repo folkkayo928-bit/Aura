@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ArtworkCard } from '../ArtworkCard';
-import { FeedSection } from '../../types';
+import { FeedSection, Creator } from '../../types';
 import { WatchlistView } from '../watchlist/WatchlistView';
 import { UpcomingDropsView } from '../drops/UpcomingDropsView';
 import {
@@ -19,9 +19,10 @@ import {
 
 interface HomeViewProps {
   onOpenDetail: (artwork: any) => void;
+  onOpenProfile?: (creator: Creator) => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail, onOpenProfile }) => {
   const { artworks, collections, feedFilter, setFeedFilter, setSelectedCollection } = useApp();
 
   const watchedCount = useMemo(() => {
@@ -185,6 +186,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail }) => {
               key={artwork.id}
               artwork={artwork}
               onOpenDetail={onOpenDetail}
+              onOpenProfile={onOpenProfile}
             />
           ))}
         </div>
