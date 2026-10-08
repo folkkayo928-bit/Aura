@@ -273,6 +273,7 @@ export const ReceiveModal: React.FC = () => {
       }
 
       const cacheKey = `aura:evm-deposit-addresses:${user.id}`;
+      let hasCachedAddress = false;
       try {
         const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
         if (
@@ -281,6 +282,7 @@ export const ReceiveModal: React.FC = () => {
           ['ethereum', 'polygon', 'arbitrum', 'bsc'].every((chain) => typeof cached[chain] === 'string' && cached[chain])
         ) {
           setDepositAddresses(cached);
+          hasCachedAddress = true;
           setDepositLoading(false);
         }
       } catch {
@@ -306,7 +308,6 @@ export const ReceiveModal: React.FC = () => {
       if (error || !backendPayload?.success) {
         // If we already have a verified cached address, keep showing it while
         // the background refresh is unavailable.
-        const hasCachedAddress = Object.values(depositAddresses).some(Boolean);
         if (!hasCachedAddress) setDepositAddresses({});
         if (!hasCachedAddress) {
           if (status === 401 || backendPayload?.error === 'UNAUTHORIZED') {
