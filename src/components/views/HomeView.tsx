@@ -28,7 +28,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail, onOpenProfile 
 
   const watchedCount = useMemo(() => {
     return visibleArtworks.filter((a) => a.isWatched).length + collections.filter((c) => c.isWatched).length;
-  }, [artworks, collections]);
+  }, [visibleArtworks, collections]);
 
   const filterTabs: { id: FeedSection; label: string; icon: any; badge?: number }[] = [
     { id: 'trending', label: 'Trending', icon: TrendingUp },
@@ -46,14 +46,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenDetail, onOpenProfile 
       case 'rising':
         return [...visibleArtworks].filter((a) => a.interestLevel === 'Rising' || a.interestLevel === 'Surging');
       case 'new':
-        return [...artworks].sort((a, b) => b.id.localeCompare(a.id));
+        return [...visibleArtworks].sort((a, b) => b.id.localeCompare(a.id));
       case 'loved':
-        return [...artworks].sort((a, b) => b.loves - a.loves);
+        return [...visibleArtworks].sort((a, b) => b.loves - a.loves);
       case 'recommended':
-        return [...artworks].filter((a) => a.eligibleInteractions > 800);
+        return [...visibleArtworks].filter((a) => a.eligibleInteractions > 800);
       case 'trending':
       default:
-        return [...artworks].sort((a, b) => b.eligibleInteractions - a.eligibleInteractions);
+        return [...visibleArtworks].sort((a, b) => b.eligibleInteractions - a.eligibleInteractions);
     }
   }, [visibleArtworks, feedFilter]);
 
