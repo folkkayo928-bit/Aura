@@ -33,13 +33,14 @@ interface P2PViewProps {
 export type P2PSortOption = 'method_match' | 'price_best' | 'completion' | 'trades' | 'speed';
 
 export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOffer }) => {
-  const { p2pOffers, walletBalance } = useApp();
+  const { p2pOffers, walletBalance, user, cancelP2POffer } = useApp();
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType | 'all'>('all');
   const [searchMethodQuery, setSearchMethodQuery] = useState('');
   const [sortBy, setSortBy] = useState<P2PSortOption>('method_match');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [filterMode, setFilterMode] = useState<'prioritize' | 'strict'>('prioritize');
+  const [cancellingOfferId, setCancellingOfferId] = useState<string | null>(null);
 
   // Collect all distinct payment methods available in the current activeTab
   const availableMethods = useMemo(() => {
@@ -706,6 +707,26 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
                     </div>
                   </div>
                 </div>
+
+                {user?.id === offer.merchant?.id && offer.type === 'sell' && (
+                  <div className="flex items-center justify-between rounded-xl border border-amber-400/15 bg-amber-400/5 px-3 py-2">
+                    <div className="text-[10px] text-amber-200">
+                      <span className="font-semibold">Your protected Sell ad</span>
+                      <span className="text-stone-500 ml-1">· funds are reserved</span>
+                    </div>
+                    <button
+                      disabled={cancellingOfferId === offer.id}
+                      onClick={async () => {
+                        setCancellingOfferId(offer.id);
+                        await cancelP2POffer(offer.id);
+                        setCancellingOfferId(null);
+                      }}
+                      className="text-[10px] font-bold text-rose-300 hover:text-rose-200 disabled:opacity-50"
+                    >
+                      {cancellingOfferId === offer.id ? 'Releasing…' : 'Cancel Ad & Release'}
+                    </button>
+                  </div>
+                )}
 
                 {/* Payment Methods & Action Button */}
                 <div className="flex items-center justify-between pt-2">
