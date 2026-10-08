@@ -290,7 +290,7 @@ const backendMerchantToUi = (row: any): P2PMerchant => {
     id: row?.id || '',
     name: row?.display_name || 'AURA Member',
     legalName: row?.display_name || 'AURA Member',
-    avatar: row?.avatar_url || '',
+    avatar: row?.avatar_url || createNeutralAvatar(String(row?.id || row?.handle || 'aura-member')),
     ordersCompleted: completed,
     completionRate: total > 0 ? (completed / total) * 100 : 0,
     avgReleaseTimeMinutes: 0,
@@ -363,7 +363,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: 'AURA Collector',
     telegramHandle: '@collector',
-    avatar: '',
+    avatar: createNeutralAvatar('aura-signed-out'),
     coverImage: '',
     bio: 'Collecting digital art on AURA.',
     vaultId: 'Sign in to create your vault',
@@ -539,7 +539,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!liveDropsRes.error) {
         setUpcomingDrops((liveDropsRes.data || []).map((d:any) => ({
           id:d.id, title:d.title, collectionName:'AURA Drop',
-          creator:{id:d.creator_id||'',name:'AURA Creator',handle:'@creator',avatar:'',verified:false,bio:'',totalPieces:0,totalCollectors:0},
+          creator:{id:d.creator_id||'',name:'AURA Creator',handle:'@creator',avatar:createNeutralAvatar(String(d.creator_id||'aura-drop')),verified:false,bio:'',totalPieces:0,totalCollectors:0},
           banner:d.banner_url||'', avatar:'', mintDate:d.scheduled_at?new Date(d.scheduled_at).toLocaleString():'Scheduled',
           mintTimestamp:d.scheduled_at?new Date(d.scheduled_at).getTime():Date.now(), mintPriceUSDT:Number(d.mint_price_usdt||0),
           supply:Number(d.supply||0), mintedSoFar:Number(d.minted_so_far||0), whitelistOpen:Boolean(d.whitelist_open),
