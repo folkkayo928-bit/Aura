@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -18,7 +19,16 @@ const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || process.env.APP_URL || pro
 const WEBAPP_URL = (process.env.TELEGRAM_WEBAPP_URL || PUBLIC_APP_URL).replace(/\/$/, '');
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
 const TELEGRAM_NOTIFY_SECRET = process.env.AURA_TELEGRAM_NOTIFY_SECRET || '';
-const TELEGRAM_WELCOME_PHOTO_URL = WEBAPP_URL ? WEBAPP_URL + '/aura-bot-avatar.jpg' : '';
+const TELEGRAM_WELCOME_PHOTO_URL = WEBAPP_URL ? WEBAPP_URL + '/aura-bot-avatar.jpg?v=2' : '';
+const TELEGRAM_WELCOME_PHOTO = (() => {
+  try {
+    const base64 = readFileSync(path.join(__dirname, 'assets', 'aura-bot-avatar.jpg.b64'), 'utf8').replace(/\\s+/g, '');
+    return Buffer.from(base64, 'base64');
+  } catch (error) {
+    console.error('AURA welcome photo asset unavailable:', error?.message || String(error));
+    return null;
+  }
+})();
 const TELEGRAM_SUPPORT_URL = (process.env.AURA_SUPPORT_URL || '').trim();
 
 async function telegram(method, body) {
@@ -95,6 +105,12 @@ async function configureTelegram() {
 
 app.get('/api/telegram/health', (_req, res) => {
   res.json({ ok: true, bot: '@myaura1_bot', configured: Boolean(BOT_TOKEN && WEBAPP_URL) });
+});
+
+app.get('/aura-bot-avatar.jpg', (_req, res) => {
+  if (!TELEGRAM_WELCOME_PHOTO) return res.sendStatus(404);
+  res.set('Cache-Control', 'public, max-age=86400, immutable');
+  res.type('image/jpeg').send(TELEGRAM_WELCOME_PHOTO);
 });
 
 app.post('/api/telegram/auth', (req, res) => {
