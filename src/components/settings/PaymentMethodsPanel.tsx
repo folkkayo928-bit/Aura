@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PRESET_PAYMENT_METHODS, formatPaymentMethodLabel } from '../p2p/CustomPaymentMethodInput';
 import { CreditCard, Plus, Trash2, Pencil, Check, X, ShieldCheck } from 'lucide-react';
@@ -24,6 +24,7 @@ export const PaymentMethodsPanel: React.FC = () => {
   const [accountNumber, setAccountNumber] = useState('');
   const [instructions, setInstructions] = useState('');
   const [error, setError] = useState('');
+  const loadRunRef = useRef(0);
 
   const selectedLabel = useMemo(() => {
     const preset = PRESET_PAYMENT_METHODS.find((p) => p.id === methodType);
@@ -41,8 +42,10 @@ export const PaymentMethodsPanel: React.FC = () => {
   };
 
   const load = async () => {
+    const loadRun = ++loadRunRef.current;
     setLoading(true);
     const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (loadRun !== loadRunRef.current) return;
     const userId = authData.user?.id;
     if (authError || !userId) {
       setMethods([]);
@@ -57,6 +60,7 @@ export const PaymentMethodsPanel: React.FC = () => {
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('updated_at', { ascending: false });
+    if (loadRun !== loadRunRef.current) return;
     if (loadError) setError(loadError.message);
     setMethods((data || []) as PaymentMethodRow[]);
     setLoading(false);
@@ -67,10 +71,13 @@ export const PaymentMethodsPanel: React.FC = () => {
     // Clear private payment details immediately whenever the signed-in account changes.
     // Defer the reload outside Supabase's auth callback to avoid auth-lock deadlocks.
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Invalidate outstanding reads before clearing the previous account's data.
+      loadRunRef.current += 1;
       setMethods([]);
+      setError('');
+      resetForm();
       if (!session?.user) {
         setLoading(false);
-        setEditing(null);
         return;
       }
       window.setTimeout(() => { void load(); }, 0);
