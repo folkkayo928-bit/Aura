@@ -124,6 +124,13 @@ export const SendModal: React.FC = () => {
             ['ACCOUNT_NOTIFICATION_SETTINGS_UNAVAILABLE', 'AURA could not load your withdrawal confirmation settings. Please try again later.'],
             ['CHAIN_NOT_YET_SUPPORTED_FOR_REAL_WITHDRAWAL', 'Real withdrawals are not enabled for this network yet.'],
             ['UNSUPPORTED_REAL_WITHDRAWAL_CHAIN', 'Real withdrawals are not enabled for this network yet.'],
+            ['WITHDRAWAL_BROADCASTER_NOT_CONFIGURED', 'AURA’s secure withdrawal signer is not configured yet. No funds were reserved.'],
+            ['WITHDRAWAL_TREASURY_NOT_CONFIGURED', 'The selected network treasury is not configured. No funds were reserved.'],
+            ['WITHDRAWAL_TREASURY_SIGNER_MISMATCH', 'AURA’s signer and network treasury do not match. No funds were reserved.'],
+            ['WITHDRAWAL_SIGNER_INVALID', 'AURA could not validate its secure withdrawal signer. No funds were reserved.'],
+            ['WITHDRAWAL_LIQUIDITY_UNAVAILABLE', 'AURA’s selected network does not have enough USDT liquidity. No funds were reserved.'],
+            ['WITHDRAWAL_GAS_UNAVAILABLE', 'AURA’s selected network treasury does not have gas available. No funds were reserved.'],
+            ['WITHDRAWAL_READINESS_CHECK_FAILED', 'AURA could not verify network readiness. No funds were reserved.'],
           ];
           const match = knownErrors.find(([key]) => code.includes(key));
           setSendError(match ? match[1] : rawError.replace(/[_-]+/g, ' ').slice(0, 260));
