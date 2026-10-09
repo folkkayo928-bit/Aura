@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Artwork, NFTCollection } from '../../types';
 import { createNeutralAvatar } from '../../lib/avatar';
 import { ArtworkCanvas } from '../ArtworkCanvas';
+import { ProfileMenuPageView } from './ProfileMenuPageView';
+import type { ProfileMenuPage } from './ProfileMenuPageView';
 import {
   ShieldCheck,
   Award,
@@ -53,6 +55,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
   const [selectedCertArtwork, setSelectedCertArtwork] = useState<Artwork | null>(null);
   const [copied, setCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeMenuPage, setActiveMenuPage] = useState<ProfileMenuPage | null>(null);
   const [profileMode, setProfileMode] = useState<'private' | 'public'>('private');
   const [profileSection, setProfileSection] = useState<'collection' | 'created' | 'collections' | 'activity'>('collection');
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
@@ -75,6 +78,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (activeMenuPage) {
+    return (
+      <ProfileMenuPageView
+        page={activeMenuPage}
+        onBack={() => setActiveMenuPage(null)}
+        onOpenDetail={onOpenDetail}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 pb-24">
@@ -182,15 +195,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
 
             <div className="mt-4 space-y-1.5">
               {[
-                { label: 'My Collection', hint: 'Owned works', icon: Award, action: () => { setProfileMode('private'); setProfileSection('collection'); } },
-                { label: 'Created Works', hint: 'Your creations', icon: Sparkles, action: () => { setProfileMode('private'); setProfileSection('created'); } },
-                { label: 'Collections', hint: 'Collection hubs', icon: Trophy, action: () => { setProfileMode('private'); setProfileSection('collections'); } },
-                { label: 'Activity', hint: 'Account activity', icon: ArrowUpDown, action: () => { setProfileMode('private'); setProfileSection('activity'); } },
-                { label: 'Public Profile', hint: profileMode === 'public' ? 'Currently viewing' : 'Preview your public page', icon: Globe2, action: () => setProfileMode('public') },
+                { label: 'My Collection', hint: 'Owned works', icon: Award, action: () => setActiveMenuPage('collection') },
+                { label: 'Created Works', hint: 'Your creations', icon: Sparkles, action: () => setActiveMenuPage('created') },
+                { label: 'Collections', hint: 'Collection hubs', icon: Trophy, action: () => setActiveMenuPage('collections') },
+                { label: 'Activity', hint: 'Account activity', icon: ArrowUpDown, action: () => setActiveMenuPage('activity') },
+                { label: 'Public Profile', hint: 'Your public-facing page', icon: Globe2, action: () => setActiveMenuPage('public') },
                 { label: 'P2P Trading', hint: 'Open your active trade', icon: ArrowRightLeft, action: () => setActiveTab('p2p_trade') },
                 { label: 'Payment Methods', hint: 'Manage saved payment details', icon: CreditCard, action: () => { window.dispatchEvent(new CustomEvent('aura-settings-tab', { detail: { tab: 'payments' } })); setSettingsModalOpen(true); } },
-                { label: 'Notifications', hint: 'Alerts & preferences', icon: Bell, action: () => { window.dispatchEvent(new CustomEvent('aura-settings-tab', { detail: { tab: 'preferences' } })); setSettingsModalOpen(true); } },
-                { label: 'Settings', hint: 'Profile, wallets & security', icon: Settings, action: () => { window.dispatchEvent(new CustomEvent('aura-settings-tab', { detail: { tab: 'profile' } })); setSettingsModalOpen(true); } },
+                { label: 'Notifications', hint: 'Alerts & preferences', icon: Bell, action: () => setActiveMenuPage('notifications') },
+                { label: 'Settings', hint: 'Profile, wallets & security', icon: Settings, action: () => setActiveMenuPage('settings') },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
