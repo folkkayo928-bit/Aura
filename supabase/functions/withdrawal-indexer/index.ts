@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
             throw new Error(refundError?.message || "WITHDRAWAL_REFUND_FAILED");
           }
           await client.rpc("aura_worker_delete_confirmation_message", { p_msg_id: msgId });
+          await notifyTelegramWithdrawal(client, String(withdrawal.user_id), "Withdrawal failed on-chain", `The ${String(withdrawal.amount)} USDT withdrawal transaction reverted. AURA has processed the refund path for the reserved amount and fee.`);
           failed++;
           continue;
         }
@@ -144,6 +145,7 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
           }).eq("id", withdrawalId).eq("status", "broadcast");
           await client.rpc("aura_worker_delete_confirmation_message", { p_msg_id: msgId });
+          await notifyTelegramWithdrawal(client, String(withdrawal.user_id), "Withdrawal needs review", "The blockchain transaction did not match the expected USDT token, destination, and amount. AURA has stopped automatic confirmation for security.");
           failed++;
           continue;
         }
@@ -161,6 +163,7 @@ Deno.serve(async (req) => {
             security_note: "On-chain USDT transfer confirmed with " + confirmations + " confirmations.",
           }).eq("id", withdrawalId).eq("status", "broadcast");
           await client.rpc("aura_worker_delete_confirmation_message", { p_msg_id: msgId });
+          await notifyTelegramWithdrawal(client, String(withdrawal.user_id), "Withdrawal confirmed", `${String(withdrawal.amount)} USDT is confirmed on ${chain.toUpperCase()} with ${confirmations} blockchain confirmations. Transaction: ${withdrawal.tx_hash}`);
           confirmed++;
         } else {
           pending++;
