@@ -31,7 +31,7 @@ function rpcUrl(chain: keyof typeof EVM, apiKey: string) {
   // BNB_MAINNET is currently disabled on the configured Alchemy app.
   // Use Alchemy's public BNB endpoint for BSC unless a dedicated RPC is set.
   // eth_getLogs remains chunked to the free-tier 10-block maximum below.
-  if (chain === "bsc") return "https://bnb-mainnet.g.alchemy.com/public";
+  if (chain === "bsc") return "https://bsc-rpc.publicnode.com";
   if (!apiKey) return "";
   return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
 }
