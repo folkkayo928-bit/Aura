@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -10,27 +10,52 @@ export const MfaSessionGate: React.FC<{ children: React.ReactNode }> = ({ childr
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [error, setError] = useState('');
 
+  const checkRunRef = useRef(0);
+
   const check = useCallback(async () => {
-    if (authLoading) return;
+    const checkRun = ++checkRunRef.current;
+    if (authLoading) {
+      setChecking(true);
+      return;
+    }
     if (!session) {
       setRequiresMfa(false);
+      setError('');
       setChecking(false);
       return;
     }
 
+    const targetUserId = session.user.id;
     setChecking(true);
     setError('');
 
     const { data, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (checkRun !== checkRunRef.current) return;
     if (aalError) {
       setError(aalError.message);
       setChecking(false);
       return;
     }
 
+    // MFA assurance is read from the global Supabase session. Confirm that it
+    // still belongs to the user for whom this check began before gating UI.
+    const { data: activeData, error: activeError } = await supabase.auth.getSession();
+    if (checkRun !== checkRunRef.current) return;
+    if (activeError) {
+      setError(activeError.message);
+      setChecking(false);
+      return;
+    }
+    if (activeData.session?.user.id !== targetUserId) {
+      setRequiresMfa(false);
+      setError('The active AURA account changed during the security check. Please retry.');
+      setChecking(false);
+      return;
+    }
+
     setRequiresMfa(data.nextLevel === 'aal2' && data.currentLevel !== 'aal2');
     setChecking(false);
-  }, [authLoading, session]);
+  }, [authLoading, session?.user?.id]);
 
   useEffect(() => {
     void check();
