@@ -2,11 +2,11 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { createPublicClient, createWalletClient, http, parseUnits, type Address } from "npm:viem@2";
 import { privateKeyToAccount } from "npm:viem@2/accounts";
 const ERC20_ABI = [{ type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }] }] as const;
-const CHAINS: Record<string, { id: number; name: string; token: Address; rpcEnv: string; native: string }> = {
- ethereum: { id: 1, name: "Ethereum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" as Address, rpcEnv: "AURA_EVM_RPC_ETHEREUM", native: "ETH", tokenDecimals: 6 },
- polygon: { id: 137, name: "Polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" as Address, rpcEnv: "AURA_EVM_RPC_POLYGON", native: "POL", tokenDecimals: 6 },
- arbitrum: { id: 42161, name: "Arbitrum", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" as Address, rpcEnv: "AURA_EVM_RPC_ARBITRUM", native: "ETH", tokenDecimals: 6 },
- bsc: { id: 56, name: "BNB Smart Chain", token: "0x55d398326f99059fF775485246999027B3197955" as Address, rpcEnv: "AURA_EVM_RPC_BSC", native: "BNB", tokenDecimals: 18 },
+const CHAINS: Record<string, { id: number; name: string; token: Address; rpcEnv: string; treasuryEnv: string; native: string; tokenDecimals: number }> = {
+ ethereum: { id: 1, name: "Ethereum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" as Address, rpcEnv: "AURA_EVM_RPC_ETHEREUM", treasuryEnv: "AURA_EVM_TREASURY_ETHEREUM", native: "ETH", tokenDecimals: 6 },
+ polygon: { id: 137, name: "Polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" as Address, rpcEnv: "AURA_EVM_RPC_POLYGON", treasuryEnv: "AURA_EVM_TREASURY_POLYGON", native: "POL", tokenDecimals: 6 },
+ arbitrum: { id: 42161, name: "Arbitrum", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" as Address, rpcEnv: "AURA_EVM_RPC_ARBITRUM", treasuryEnv: "AURA_EVM_TREASURY_ARBITRUM", native: "ETH", tokenDecimals: 6 },
+ bsc: { id: 56, name: "BNB Smart Chain", token: "0x55d398326f99059fF775485246999027B3197955" as Address, rpcEnv: "AURA_EVM_RPC_BSC", treasuryEnv: "AURA_EVM_TREASURY_BSC", native: "BNB", tokenDecimals: 18 },
 };
 function secretKey(){ const raw=Deno.env.get("SUPABASE_SECRET_KEYS")||""; try{return JSON.parse(raw).default as string}catch{return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||""} }
 function admin(){ return createClient(Deno.env.get("SUPABASE_URL")!, secretKey()); }
@@ -49,8 +49,11 @@ Deno.serve(async (req)=>{
     rejected++;processed++;continue; }
    const rpcUrl=Deno.env.get(cfg.rpcEnv)?.trim() || (String(w.chain).toLowerCase()==="bsc" ? "https://bsc-rpc.publicnode.com" : ""); const privateKey=Deno.env.get("AURA_EVM_PRIVATE_KEY");
    if(!rpcUrl||!privateKey){ await db.from("wallet_withdrawals").update({confirmation_attempts:Number(w.confirmation_attempts||0)+1,last_worker_error:"EVM broadcaster credentials are not configured; withdrawal remains queued.",next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); deferred++;processed++;continue; }
+   const treasuryAddress=Deno.env.get(cfg.treasuryEnv)?.trim() || "";
+   if(!/^0x[a-fA-F0-9]{40}$/.test(treasuryAddress)){ await db.from("wallet_withdrawals").update({confirmation_attempts:Number(w.confirmation_attempts||0)+1,last_worker_error:"Configured network treasury is missing or invalid; withdrawal was not broadcast.",next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); deferred++;processed++;continue; }
    try {
     const chain=chainObject(cfg,rpcUrl); const account=privateKeyToAccount(privateKey as `0x${string}`);
+    if(account.address.toLowerCase()!==treasuryAddress.toLowerCase()) throw new Error("Configured EVM signer does not match the selected network treasury; withdrawal was not broadcast.");
     const publicClient=createPublicClient({chain,transport:http(rpcUrl)}); const walletClient=createWalletClient({account,chain,transport:http(rpcUrl)});
     const amount=parseUnits(String(w.amount),cfg.tokenDecimals);
     const {request}=await publicClient.simulateContract({account,address:cfg.token,abi:ERC20_ABI,functionName:"transfer",args:[String(w.destination_address) as Address,amount]});
