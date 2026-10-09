@@ -64,7 +64,10 @@ async function rpc(url: string, method: string, params: unknown[], chain?: keyof
       return payload.result;
     } catch (error) {
       lastError = error;
-      console.warn("BSC read RPC endpoint failed; trying the next endpoint", {
+      console.warn(chain === "bsc"
+        ? "BSC read RPC endpoint failed; trying the next endpoint"
+        : "Read RPC endpoint failed", {
+        chain: chain || "unknown",
         method,
         endpoint: new URL(endpoint).host,
         error: String(error).slice(0, 400),
