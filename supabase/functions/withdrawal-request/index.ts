@@ -81,71 +81,117 @@ Deno.serve(async (req) => {
       return json({ error: confirmationError?.message || "CONFIRMATION_TOKEN_FAILED" }, 500);
     }
 
-    const { data: authUser, error: adminUserError } = await adminClient.auth.admin.getUserById(userData.user.id);
-    const email = authUser?.user?.email;
-    if (adminUserError || !email) {
+    const { data: profile, error: profileError } = await adminClient
+      .from("profiles").select("telegram_user_id").eq("id", userData.user.id).maybeSingle();
+    if (profileError) {
       await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
-      return json({ error: "ACCOUNT_EMAIL_UNAVAILABLE" }, 409);
+      return json({ error: "ACCOUNT_NOTIFICATION_SETTINGS_UNAVAILABLE" }, 503);
     }
 
-    const smtpHost = Deno.env.get("BREVO_SMTP_HOST") || "smtp-relay.brevo.com";
-    const smtpPort = Number(Deno.env.get("BREVO_SMTP_PORT") || "587");
-    const smtpUser = Deno.env.get("BREVO_SMTP_USER");
-    const smtpPassword = Deno.env.get("BREVO_SMTP_PASSWORD");
-    const from = Deno.env.get("BREVO_FROM_EMAIL") || "Aura@brevosend.com";
-    const fromName = Deno.env.get("BREVO_FROM_NAME") || "AURA";
-
-    if (!smtpUser || !smtpPassword || !from) {
-      await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
-      return json({ error: "EMAIL_PROVIDER_NOT_CONFIGURED" }, 503);
-    }
-
+    const telegramUserId = String(profile?.telegram_user_id || "").trim();
     const confirmUrl = `${url}/functions/v1/withdrawal-confirm?token=${encodeURIComponent(String(confirmation.token))}`;
-    const safeChain = escapeHtml(chain.toUpperCase());
-    const safeDestination = escapeHtml(destinationAddress);
-    const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#0b0b10;color:#f5f5f4;padding:32px">
-      <div style="max-width:560px;margin:auto;background:#15151c;border:1px solid #292933;border-radius:20px;padding:28px">
-        <h2 style="margin-top:0">Confirm your AURA withdrawal</h2>
-        <p>A withdrawal request was created for <strong>${amount.toFixed(6)} USDT</strong> on <strong>${safeChain}</strong>.</p>
-        <p>Destination: <code>${safeDestination}</code></p>
-        <p>Your funds are already reserved, but nothing will be broadcast to the blockchain until you confirm this email.</p>
-        <p><a href="${confirmUrl}" style="display:inline-block;padding:13px 18px;background:#fbbf24;color:#111;border-radius:12px;text-decoration:none;font-weight:700">Confirm withdrawal</a></p>
-        <p style="font-size:12px;color:#a8a29e">This confirmation expires in 30 minutes. If you did not request this withdrawal, ignore this email and cancel the reservation from AURA.</p>
-      </div>
-    </body></html>`;
+    let telegramSent = false;
+    let telegramError = "";
 
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: { user: smtpUser, pass: smtpPassword },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
-    });
+    // Telegram is the primary confirmation channel for Mini App users.
+    // The numeric ID comes from the server-side linked profile, never the request body.
+    if (/^\\d{1,20}$/.test(telegramUserId)) {
+      const { data: notifySecret, error: notifySecretError } = await adminClient.rpc("get_aura_telegram_notify_secret");
+      if (!notifySecretError && notifySecret) {
+        try {
+          const response = await fetch("https://aura-8bom.onrender.com/api/internal/telegram/withdrawal-notify", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-aura-telegram-notify-secret": String(notifySecret),
+            },
+            body: JSON.stringify({
+              telegram_user_id: telegramUserId,
+              title: "Confirm your USDT withdrawal",
+              message: `You requested ${amount.toFixed(6)} USDT on ${chain.toUpperCase()}.\\nDestination: ${destinationAddress}\\nYour funds are reserved. Nothing will be sent until you confirm. This link expires in 30 minutes.`,
+              confirm_url: confirmUrl,
+            }),
+            signal: AbortSignal.timeout(10000),
+          });
+          const result = await response.json().catch(() => ({}));
+          telegramSent = response.ok && result?.ok === true && result?.sent === true;
+          if (!telegramSent) telegramError = String(result?.error || `TELEGRAM_HTTP_${response.status}`);
+        } catch (error) {
+          telegramError = String(error instanceof Error ? error.message : error).slice(0, 300);
+        }
+      } else {
+        telegramError = "TELEGRAM_NOTIFY_TRANSPORT_NOT_CONFIGURED";
+      }
+    }
 
-    try {
-      await transporter.sendMail({
-        from: `"${fromName}" <${from}>`,
-        to: email,
-        subject: "Confirm your AURA withdrawal",
-        html,
-        headers: { "X-Entity-Ref-ID": `aura-withdrawal-${withdrawal.id}` },
+    // Email is an optional fallback, not a prerequisite for Telegram-linked accounts.
+    if (!telegramSent) {
+      const { data: authUser, error: adminUserError } = await adminClient.auth.admin.getUserById(userData.user.id);
+      const email = authUser?.user?.email;
+      const isSyntheticTelegramEmail = String(email || "").toLowerCase().endsWith("@users.aura");
+      if (adminUserError || !email || isSyntheticTelegramEmail) {
+        await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
+        return json({
+          error: telegramError || "NO_CONFIRMATION_CHANNEL",
+          message: "Telegram confirmation could not be delivered. Start the AURA bot in Telegram and retry, or add a real email address.",
+        }, 409);
+      }
+
+      const smtpHost = Deno.env.get("BREVO_SMTP_HOST") || "smtp-relay.brevo.com";
+      const smtpPort = Number(Deno.env.get("BREVO_SMTP_PORT") || "587");
+      const smtpUser = Deno.env.get("BREVO_SMTP_USER");
+      const smtpPassword = Deno.env.get("BREVO_SMTP_PASSWORD");
+      const from = Deno.env.get("BREVO_FROM_EMAIL") || "Aura@brevosend.com";
+      const fromName = Deno.env.get("BREVO_FROM_NAME") || "AURA";
+
+      if (!smtpUser || !smtpPassword || !from) {
+        await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
+        return json({ error: "EMAIL_PROVIDER_NOT_CONFIGURED" }, 503);
+      }
+
+      const safeChain = escapeHtml(chain.toUpperCase());
+      const safeDestination = escapeHtml(destinationAddress);
+      const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#0b0b10;color:#f5f5f4;padding:32px">
+        <div style="max-width:560px;margin:auto;background:#15151c;border:1px solid #292933;border-radius:20px;padding:28px">
+          <h2 style="margin-top:0">Confirm your AURA withdrawal</h2>
+          <p>A withdrawal request was created for <strong>${amount.toFixed(6)} USDT</strong> on <strong>${safeChain}</strong>.</p>
+          <p>Destination: <code>${safeDestination}</code></p>
+          <p>Your funds are reserved, but nothing will be broadcast until you confirm.</p>
+          <p><a href="${confirmUrl}" style="display:inline-block;padding:13px 18px;background:#fbbf24;color:#111;border-radius:12px;text-decoration:none;font-weight:700">Confirm withdrawal</a></p>
+          <p style="font-size:12px;color:#a8a29e">This confirmation expires in 30 minutes. If you did not request this withdrawal, do not confirm it.</p>
+        </div>
+      </body></html>`;
+
+      const transporter = nodemailer.createTransport({
+        host: smtpHost, port: smtpPort, secure: smtpPort === 465,
+        auth: { user: smtpUser, pass: smtpPassword },
+        connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
       });
-    } catch (mailError) {
-      await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
-      console.error("Brevo SMTP rejected withdrawal email", String(mailError).slice(0, 1000));
-      return json({ error: "EMAIL_DELIVERY_FAILED" }, 502);
-    } finally {
-      try { transporter.close(); } catch { /* best effort */ }
+      try {
+        await transporter.sendMail({
+          from: `"${fromName}" <${from}>`,
+          to: email,
+          subject: "Confirm your AURA withdrawal",
+          html,
+          headers: { "X-Entity-Ref-ID": `aura-withdrawal-${withdrawal.id}` },
+        });
+      } catch (mailError) {
+        await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
+        console.error("Withdrawal email fallback failed", String(mailError).slice(0, 1000));
+        return json({ error: "CONFIRMATION_DELIVERY_FAILED" }, 502);
+      } finally {
+        try { transporter.close(); } catch { /* best effort */ }
+      }
     }
 
     return json({
       success: true,
+      confirmationChannel: telegramSent ? "telegram" : "email",
+      telegramFallbackReason: telegramSent ? undefined : telegramError || undefined,
       withdrawal: {
         id: withdrawal.id,
         status: withdrawal.status,
-        emailConfirmationExpiresAt: confirmation.expires_at,
+        confirmationExpiresAt: confirmation.expires_at,
       },
     });
   } catch (error) {
