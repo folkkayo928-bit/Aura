@@ -36,9 +36,10 @@ async function notifyTelegramWithdrawal(client: ReturnType<typeof db>, userId: s
   }
 }
 const EVM = {
-  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
-  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
-  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" },
+  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
+  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
+  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
 } as const;
 
 async function rpc(url: string, method: string, params: unknown[]) {
@@ -55,11 +56,13 @@ async function rpc(url: string, method: string, params: unknown[]) {
 function hexToBigInt(value: string | null | undefined) {
   return value ? BigInt(value) : 0n;
 }
-function usdtToBaseUnits(value: unknown): bigint {
+function usdtToBaseUnits(value: unknown, decimals: number): bigint {
   const text = String(value);
   if (!/^\d+(?:\.\d{1,6})?$/.test(text)) throw new Error("INVALID_USDT_AMOUNT_PRECISION");
   const parts = text.split(".");
-  return BigInt(parts[0]) * 1_000_000n + BigInt(((parts[1] || "") + "000000").slice(0, 6));
+  const scale = 10n ** BigInt(decimals);
+  const fraction = BigInt(((parts[1] || "") + "0".repeat(decimals)).slice(0, decimals));
+  return BigInt(parts[0]) * scale + fraction;
 }
 function matchesExpectedUsdtTransfer(receipt: any, tokenAddress: string, destinationAddress: string, amount: bigint) {
   const destinationTopic = "0x" + destinationAddress.replace(/^0x/i, "").toLowerCase().padStart(64, "0");
@@ -135,7 +138,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const expectedAmount = usdtToBaseUnits(withdrawal.amount);
+        const expectedAmount = usdtToBaseUnits(withdrawal.amount, config.tokenDecimals);
         const matched = matchesExpectedUsdtTransfer(receipt, config.token, withdrawal.destination_address, expectedAmount);
         if (!matched) {
           await client.from("wallet_withdrawals").update({
