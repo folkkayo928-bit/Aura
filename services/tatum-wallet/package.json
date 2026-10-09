@@ -9,7 +9,7 @@
     "check": "node --check server.mjs"
   },
   "dependencies": {
-    "@tatumio/wallet-sdk": "^2.0.0",
+    "@tatumio/wallet-sdk": "^0.7.0",
     "express": "^4.21.2"
   }
 }
