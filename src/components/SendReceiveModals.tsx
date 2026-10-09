@@ -468,7 +468,7 @@ export const ReceiveModal: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {(['polygon', 'ethereum', 'arbitrum', 'bsc'] as const).map((chain) => (
                 <button
                   type="button"
@@ -476,7 +476,7 @@ export const ReceiveModal: React.FC = () => {
                   onClick={() => setSelectedNetwork(chain)}
                   className={`py-2.5 rounded-xl text-[10px] font-mono uppercase border transition-all ${selectedNetwork === chain ? 'border-cyan-400/80 bg-cyan-400/10 text-cyan-200 font-bold' : 'border-white/5 bg-white/[0.02] text-stone-400'}`}
                 >
-                  {chain}
+                  {chain === 'bsc' ? 'BNB SMART CHAIN' : chain.toUpperCase()}
                 </button>
               ))}
             </div>
