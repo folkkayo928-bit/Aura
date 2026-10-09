@@ -28,6 +28,10 @@ async function alchemyKey(client: ReturnType<typeof db>) {
 function rpcUrl(chain: keyof typeof EVM, apiKey: string) {
   const configured = Deno.env.get(EVM[chain].rpc)?.trim();
   if (configured) return configured;
+  // BNB_MAINNET is currently disabled on the configured Alchemy app.
+  // Use Alchemy's public BNB endpoint for BSC unless a dedicated RPC is set.
+  // eth_getLogs remains chunked to the free-tier 10-block maximum below.
+  if (chain === "bsc") return "https://bnb-mainnet.g.alchemy.com/public";
   if (!apiKey) return "";
   return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
 }
