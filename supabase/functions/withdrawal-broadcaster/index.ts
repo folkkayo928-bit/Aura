@@ -3,9 +3,10 @@ import { createPublicClient, createWalletClient, http, parseUnits, type Address 
 import { privateKeyToAccount } from "npm:viem@2/accounts";
 const ERC20_ABI = [{ type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }] }] as const;
 const CHAINS: Record<string, { id: number; name: string; token: Address; rpcEnv: string; native: string }> = {
- ethereum: { id: 1, name: "Ethereum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" as Address, rpcEnv: "AURA_EVM_RPC_ETHEREUM", native: "ETH" },
- polygon: { id: 137, name: "Polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" as Address, rpcEnv: "AURA_EVM_RPC_POLYGON", native: "POL" },
- arbitrum: { id: 42161, name: "Arbitrum", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" as Address, rpcEnv: "AURA_EVM_RPC_ARBITRUM", native: "ETH" },
+ ethereum: { id: 1, name: "Ethereum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" as Address, rpcEnv: "AURA_EVM_RPC_ETHEREUM", native: "ETH", tokenDecimals: 6 },
+ polygon: { id: 137, name: "Polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" as Address, rpcEnv: "AURA_EVM_RPC_POLYGON", native: "POL", tokenDecimals: 6 },
+ arbitrum: { id: 42161, name: "Arbitrum", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" as Address, rpcEnv: "AURA_EVM_RPC_ARBITRUM", native: "ETH", tokenDecimals: 6 },
+ bsc: { id: 56, name: "BNB Smart Chain", token: "0x55d398326f99059fF775485246999027B3197955" as Address, rpcEnv: "AURA_EVM_RPC_BSC", native: "BNB", tokenDecimals: 18 },
 };
 function secretKey(){ const raw=Deno.env.get("SUPABASE_SECRET_KEYS")||""; try{return JSON.parse(raw).default as string}catch{return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||""} }
 function admin(){ return createClient(Deno.env.get("SUPABASE_URL")!, secretKey()); }
@@ -51,7 +52,7 @@ Deno.serve(async (req)=>{
    try {
     const chain=chainObject(cfg,rpcUrl); const account=privateKeyToAccount(privateKey as `0x${string}`);
     const publicClient=createPublicClient({chain,transport:http(rpcUrl)}); const walletClient=createWalletClient({account,chain,transport:http(rpcUrl)});
-    const amount=parseUnits(String(w.amount),6);
+    const amount=parseUnits(String(w.amount),cfg.tokenDecimals);
     const {request}=await publicClient.simulateContract({account,address:cfg.token,abi:ERC20_ABI,functionName:"transfer",args:[String(w.destination_address) as Address,amount]});
     const txHash=await walletClient.writeContract(request);
     await db.from("wallet_withdrawals").update({status:"broadcast",tx_hash:txHash,broadcast_at:new Date().toISOString(),last_worker_error:null,next_attempt_at:null,updated_at:new Date().toISOString(),security_note:"Secure one-time confirmation token consumed; transaction broadcast through the configured server-side broadcaster."}).eq("id",withdrawalId).eq("status","queued");
