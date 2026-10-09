@@ -69,13 +69,18 @@ export const WalletView: React.FC = () => {
     setWithdrawalHistoryOpen(true);
     setWithdrawalHistoryBusy(true);
     setWithdrawalHistoryError('');
-    const { data, error } = await supabase.rpc('my_withdrawal_history_v2', { p_limit: 100 });
-    setWithdrawalHistoryBusy(false);
-    if (error) {
-      setWithdrawalHistoryError('Could not load withdrawal history. Please refresh and try again.');
-      return;
+    try {
+      const { data, error } = await supabase.rpc('my_withdrawal_history_v2', { p_limit: 100 });
+      if (error) {
+        setWithdrawalHistoryError('Could not load withdrawal history. Please refresh and try again.');
+        return;
+      }
+      setWithdrawalHistory(data || []);
+    } catch {
+      setWithdrawalHistoryError('Connection problem while loading withdrawal history. Please try again.');
+    } finally {
+      setWithdrawalHistoryBusy(false);
     }
-    setWithdrawalHistory(data || []);
   };
 
 
@@ -637,6 +642,7 @@ export const WalletView: React.FC = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="font-mono text-sm text-stone-100">{Number(w.amount || 0).toFixed(6)} {w.token_symbol || 'USDT'}</div>
+                        <div className="mt-1 text-[10px] text-stone-500">Network fee: {Number(w.network_fee || 0).toFixed(6)} USDT · Total reserved: {(Number(w.amount || 0) + Number(w.network_fee || 0)).toFixed(6)} USDT</div>
                         <div className="mt-1 text-[10px] uppercase tracking-wider text-stone-500">{w.chain} · {String(w.status || '').replaceAll('_', ' ')}</div>
                       </div>
                       <div className="text-right text-[9px] text-stone-600">{w.created_at ? new Date(w.created_at).toLocaleString() : ''}</div>
