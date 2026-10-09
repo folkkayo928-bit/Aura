@@ -1,0 +1,15 @@
+{
+  "name": "aura-tatum-wallet-service",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs"
+  },
+  "dependencies": {
+    "@tatumio/wallet-sdk": "^2.0.0",
+    "express": "^4.21.2"
+  }
+}
