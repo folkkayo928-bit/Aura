@@ -25,26 +25,47 @@ async function alchemyKey(client: ReturnType<typeof db>) {
   const { data } = await client.rpc("get_aura_alchemy_api_key");
   return String(data || "").trim();
 }
-const BSC_READ_RPC_FALLBACKS = [
-  "https://bsc.meowrpc.com",
-  "https://bsc-mainnet.public.blastapi.io",
-  "https://bsc-rpc.publicnode.com",
-  "https://public.1rpc.io/bnb",
-];
-function rpcUrl(chain: keyof typeof EVM, apiKey: string) {
+type Chain = keyof typeof EVM;
+
+const EVM_READ_RPC_FALLBACKS: Record<Chain, string[]> = {
+  ethereum: [
+    "https://ethereum-rpc.publicnode.com",
+    "https://1rpc.io/eth",
+  ],
+  polygon: [
+    "https://polygon-bor-rpc.publicnode.com",
+    "https://polygon-rpc.com",
+    "https://1rpc.io/matic",
+  ],
+  arbitrum: [
+    "https://arbitrum-one-rpc.publicnode.com",
+    "https://arb1.arbitrum.io/rpc",
+    "https://1rpc.io/arb",
+  ],
+  bsc: [
+    "https://bsc.meowrpc.com",
+    "https://bsc-mainnet.public.blastapi.io",
+    "https://bsc-rpc.publicnode.com",
+    "https://public.1rpc.io/bnb",
+  ],
+};
+
+const preferredReadRpc: Partial<Record<Chain, string>> = {};
+
+function rpcUrl(chain: Chain, apiKey: string) {
   const configured = Deno.env.get(EVM[chain].rpc)?.trim();
   if (configured) return configured;
-  // The configured Alchemy application did not have BNB Mainnet enabled.
-  // Start BSC reads on a log-capable provider; RPC calls fail over below.
-  if (chain === "bsc") return BSC_READ_RPC_FALLBACKS[0];
-  if (!apiKey) return "";
-  return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
+  if (apiKey) return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
+  return EVM_READ_RPC_FALLBACKS[chain][0] || "";
 }
-let preferredBscReadRpc: string | null = null;
-async function rpc(url: string, method: string, params: unknown[], chain?: keyof typeof EVM) {
-  const endpoints = chain === "bsc"
-    ? [...new Set([...(preferredBscReadRpc ? [preferredBscReadRpc] : []), url, ...BSC_READ_RPC_FALLBACKS])]
-    : [url];
+
+async function rpc(url: string, method: string, params: unknown[], chain?: Chain) {
+  const fallbacks = chain ? EVM_READ_RPC_FALLBACKS[chain] : [];
+  const endpoints = [...new Set([
+    ...(chain && preferredReadRpc[chain] ? [preferredReadRpc[chain]!] : []),
+    ...(url ? [url] : []),
+    ...fallbacks,
+  ])];
   let lastError: unknown = new Error("RPC_UNAVAILABLE");
   for (const endpoint of endpoints) {
     try {
@@ -62,13 +83,11 @@ async function rpc(url: string, method: string, params: unknown[], chain?: keyof
       if (payload.error) {
         throw new Error("RPC_ERROR:" + String(payload.error.message || "unknown").slice(0, 300));
       }
-      if (chain === "bsc") preferredBscReadRpc = endpoint;
+      if (chain) preferredReadRpc[chain] = endpoint;
       return payload.result;
     } catch (error) {
       lastError = error;
-      console.warn(chain === "bsc"
-        ? "BSC read RPC endpoint failed; trying the next endpoint"
-        : "Read RPC endpoint failed", {
+      console.warn("EVM read RPC endpoint failed; trying the next endpoint", {
         chain: chain || "unknown",
         method,
         endpoint: new URL(endpoint).host,
@@ -78,6 +97,31 @@ async function rpc(url: string, method: string, params: unknown[], chain?: keyof
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
+
+async function firstBlockAtOrAfterTimestamp(
+  url: string,
+  chain: Chain,
+  latest: bigint,
+  targetTimestamp: bigint,
+): Promise<bigint> {
+  let low = 0n;
+  let high = latest;
+  while (low < high) {
+    const middle = (low + high) / 2n;
+    const block = await rpc(
+      url,
+      "eth_getBlockByNumber",
+      ["0x" + middle.toString(16), false],
+      chain,
+    );
+    if (!block?.timestamp) throw new Error("BLOCK_TIMESTAMP_UNAVAILABLE");
+    if (hexToBigInt(String(block.timestamp)) < targetTimestamp) low = middle + 1n;
+    else high = middle;
+  }
+  // Start a little before wallet creation to avoid missing a deposit at the boundary.
+  return low > 100n ? low - 100n : 0n;
+}
+
 function padTopicAddress(address: string) {
   return "0x" + address.toLowerCase().replace(/^0x/, "").padStart(64, "0");
 }
@@ -103,24 +147,25 @@ Deno.serve(async (req) => {
   try {
     const alchemy = await alchemyKey(client);
     const { data: wallets, error: walletError } = await client
-      .from("onchain_wallets").select("user_id,chain,address")
+      .from("onchain_wallets").select("user_id,chain,address,created_at")
       .in("chain", Object.keys(EVM));
     if (walletError) throw walletError;
 
-    const byChain = new Map<string, Array<{ user_id: string; address: string }>>();
+    const byChain = new Map<string, Array<{ user_id: string; address: string; created_at: string }>>();
     for (const wallet of wallets || []) {
       const chain = String(wallet.chain).toLowerCase();
       if (!/^0x[0-9a-fA-F]{40}$/.test(wallet.address || "")) continue;
       const list = byChain.get(chain) || [];
-      list.push({ user_id: wallet.user_id, address: wallet.address.toLowerCase() });
+      list.push({ user_id: wallet.user_id, address: wallet.address.toLowerCase(), created_at: String(wallet.created_at || new Date().toISOString()) });
       byChain.set(chain, list);
     }
 
     let detected = 0, confirmed = 0, credited = 0, pending = 0;
-    const scanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_DEPOSIT_SCAN_BLOCKS") || "40"), 1), 200);
-    // BSC produces hundreds of blocks per minute; keep the per-minute scanner ahead of the chain.
-    // Permit higher values up to 1000, but do not let configuration fall below 500.
+    const standardScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_DEPOSIT_SCAN_BLOCKS") || "200"), 100), 1000);
+    const arbitrumScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_ARBITRUM_DEPOSIT_SCAN_BLOCKS") || "500"), 200), 1000);
+    // BSC and Arbitrum produce blocks quickly; larger bounded windows reduce cursor lag.
     const bscScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_BSC_DEPOSIT_SCAN_BLOCKS") || "500"), 500), 1000);
+    const chainResults: Array<Record<string, unknown>> = [];
 
     for (const [chain, tracked] of byChain) {
       const typedChain = chain as keyof typeof EVM;
@@ -128,20 +173,45 @@ Deno.serve(async (req) => {
       if (!cfg || tracked.length === 0) continue;
       const rpcEndpoint = rpcUrl(typedChain, alchemy);
       if (!rpcEndpoint) continue;
-      const chainScanBlocks = typedChain === "bsc" ? bscScanBlocks : scanBlocks;
+      const chainScanBlocks = typedChain === "bsc"
+        ? bscScanBlocks
+        : typedChain === "arbitrum"
+          ? arbitrumScanBlocks
+          : standardScanBlocks;
 
       try {
       const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", [], typedChain));
+      const tokenDecimalsResult = await rpc(rpcEndpoint, "eth_call", [
+        { to: cfg.token, data: "0x313ce567" },
+        "latest",
+      ], typedChain);
+      const tokenDecimals = Number(hexToBigInt(String(tokenDecimalsResult || "0x0")));
+      if (!Number.isInteger(tokenDecimals) || tokenDecimals < 0 || tokenDecimals > 36) {
+        throw new Error("INVALID_TOKEN_DECIMALS");
+      }
+      if (tokenDecimals !== cfg.tokenDecimals) {
+        throw new Error(`TOKEN_DECIMALS_MISMATCH:configured=${cfg.tokenDecimals},actual=${tokenDecimals}`);
+      }
+
       const cursorQuery = await client.from("wallet_deposit_scan_cursors")
         .select("last_scanned_block").eq("chain", chain).maybeSingle();
       if (cursorQuery.error) throw cursorQuery.error;
       const cursorValue = cursorQuery.data?.last_scanned_block;
-      const from = cursorValue !== null && cursorValue !== undefined
-        ? BigInt(cursorValue) + 1n
-        : latest >= BigInt(chainScanBlocks - 1)
-          ? latest - BigInt(chainScanBlocks - 1)
-          : 0n;
-      if (from > latest) continue;
+      let from: bigint;
+      if (cursorValue !== null && cursorValue !== undefined) {
+        from = BigInt(cursorValue) + 1n;
+      } else {
+        const oldestWalletCreatedAt = tracked.reduce((oldest, wallet) =>
+          Date.parse(wallet.created_at) < Date.parse(oldest) ? wallet.created_at : oldest,
+          tracked[0].created_at,
+        );
+        const targetTimestamp = BigInt(Math.max(0, Math.floor(Date.parse(oldestWalletCreatedAt) / 1000) - 600));
+        from = await firstBlockAtOrAfterTimestamp(rpcEndpoint, typedChain, latest, targetTimestamp);
+      }
+      if (from > latest) {
+        chainResults.push({ chain, ok: true, from: from.toString(), to: latest.toString(), scanned_blocks: 0 });
+        continue;
+      }
       const scanToBlock = from + BigInt(chainScanBlocks) - 1n < latest
         ? from + BigInt(chainScanBlocks) - 1n
         : latest;
@@ -194,8 +264,8 @@ Deno.serve(async (req) => {
         // floor the amount credited to the wallet's supported 8-decimal precision.
         // Reject only deposits too small to represent at that precision.
         const walletDecimals = 8;
-        const walletPrecisionScale = cfg.tokenDecimals > walletDecimals
-          ? 10n ** BigInt(cfg.tokenDecimals - walletDecimals)
+        const walletPrecisionScale = tokenDecimals > walletDecimals
+          ? 10n ** BigInt(tokenDecimals - walletDecimals)
           : 1n;
         const creditUnits = (item.amount_units / walletPrecisionScale) * walletPrecisionScale;
         if (creditUnits <= 0n) {
@@ -206,12 +276,12 @@ Deno.serve(async (req) => {
           console.warn("Deposit amount normalized down to AURA wallet precision", {
             tx_hash: item.tx_hash,
             chain,
-            on_chain_amount: decimalFromUnits(item.amount_units, cfg.tokenDecimals),
+            on_chain_amount: decimalFromUnits(item.amount_units, tokenDecimals),
             credited_amount: decimalFromUnits(creditUnits, cfg.tokenDecimals),
             discarded_subprecision_units: (item.amount_units - creditUnits).toString(),
           });
         }
-        const amount = decimalFromUnits(creditUnits, cfg.tokenDecimals);
+        const amount = decimalFromUnits(creditUnits, tokenDecimals);
 
         const { data: existing } = await client.from("wallet_deposits")
           .select("id,status,credited_at")
@@ -237,8 +307,17 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }, { onConflict: "chain" });
       if (cursorWriteError) throw cursorWriteError;
+      chainResults.push({
+        chain,
+        ok: true,
+        from: from.toString(),
+        to: scanToBlock.toString(),
+        scanned_blocks: Number(scanToBlock - from + 1n),
+        rpc_host: new URL(preferredReadRpc[typedChain] || rpcEndpoint).host,
+      });
       } catch (chainError) {
         console.warn("Deposit scan skipped for chain", chain, String(chainError).slice(0, 500));
+        chainResults.push({ chain, ok: false, error: String(chainError).slice(0, 500) });
       }
     }
 
@@ -305,7 +384,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    return Response.json({ ok: true, chains: [...byChain.keys()], scanned_wallets: wallets?.length || 0, detected, confirmed, credited, pending });
+    return Response.json({
+      ok: chainResults.every((result) => result.ok === true),
+      chains: [...byChain.keys()],
+      chain_results: chainResults,
+      scanned_wallets: wallets?.length || 0,
+      detected,
+      confirmed,
+      credited,
+      pending,
+    });
   } catch (error) {
     console.error("deposit-indexer failed", error);
     return Response.json({ error: "DEPOSIT_INDEXER_ERROR" }, { status: 500 });
