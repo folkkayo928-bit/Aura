@@ -54,7 +54,7 @@ Deno.serve(async (req)=>{
     const amount=parseUnits(String(w.amount),6);
     const {request}=await publicClient.simulateContract({account,address:cfg.token,abi:ERC20_ABI,functionName:"transfer",args:[String(w.destination_address) as Address,amount]});
     const txHash=await walletClient.writeContract(request);
-    await db.from("wallet_withdrawals").update({status:"broadcast",tx_hash:txHash,broadcast_at:new Date().toISOString(),last_worker_error:null,next_attempt_at:null,updated_at:new Date().toISOString(),security_note:"Email confirmed and transaction broadcast through the configured server-side broadcaster."}).eq("id",withdrawalId).eq("status","queued");
+    await db.from("wallet_withdrawals").update({status:"broadcast",tx_hash:txHash,broadcast_at:new Date().toISOString(),last_worker_error:null,next_attempt_at:null,updated_at:new Date().toISOString(),security_note:"Secure one-time confirmation token consumed; transaction broadcast through the configured server-side broadcaster."}).eq("id",withdrawalId).eq("status","queued");
     await db.rpc("aura_worker_enqueue_confirmation",{p_withdrawal_id:withdrawalId,p_delay_seconds:30}); await db.rpc("aura_worker_delete_withdrawal_message",{p_msg_id:msgId});
     await notifyTelegramWithdrawal(db, String(w.user_id), "Withdrawal broadcast", `${Number(w.amount).toFixed(6)} USDT is now broadcast on ${cfg.name}. Transaction: ${txHash}`);
     broadcast++;processed++;
