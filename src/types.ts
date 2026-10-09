@@ -2,7 +2,7 @@ export type ArtworkCategory = 'generative' | 'sculpture' | 'minimalist' | 'kinet
 
 export type FeedSection = 'trending' | 'rising' | 'new' | 'loved' | 'recommended' | 'watchlist' | 'drops';
 
-export type CryptoNetwork = 'ton' | 'polygon' | 'ethereum' | 'arbitrum' | 'solana';
+export type CryptoNetwork = 'ton' | 'polygon' | 'ethereum' | 'arbitrum' | 'bsc' | 'solana';
 
 export type MediaType = 'image' | 'gif' | 'video' | 'ui_design' | '3d' | 'brand_streetwear';
 
