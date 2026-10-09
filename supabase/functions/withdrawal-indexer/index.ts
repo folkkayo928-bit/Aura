@@ -21,7 +21,7 @@ async function notifyTelegramWithdrawal(client: ReturnType<typeof db>, userId: s
       .select("telegram_user_id").eq("id", userId).maybeSingle();
     if (profileError) throw profileError;
     const telegramUserId = String(profile?.telegram_user_id || "").trim();
-    if (!/^\\d{1,20}$/.test(telegramUserId)) return;
+    if (!/^\d{1,20}$/.test(telegramUserId)) return;
     const { data: secret, error: secretError } = await client.rpc("get_aura_telegram_notify_secret");
     if (secretError || !secret) return;
     const response = await fetch("https://aura-8bom.onrender.com/api/internal/telegram/withdrawal-notify", {
