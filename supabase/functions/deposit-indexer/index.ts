@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
           const { data: profile } = await client.from("profiles")
             .select("telegram_user_id,telegram_bot_alerts").eq("id", deposit.user_id).maybeSingle();
           const telegramUserId = String(profile?.telegram_user_id || "").trim();
-          if (/^\\d{1,20}$/.test(telegramUserId) && profile?.telegram_bot_alerts !== false) {
+          if (/^\d{1,20}$/.test(telegramUserId) && profile?.telegram_bot_alerts !== false) {
             const { error: queueError } = await client.from("aura_telegram_notification_queue").insert({
               user_id: deposit.user_id,
               event_type: "deposit_confirmed",
