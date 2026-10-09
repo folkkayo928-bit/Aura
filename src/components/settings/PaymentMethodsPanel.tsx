@@ -78,7 +78,18 @@ export const PaymentMethodsPanel: React.FC = () => {
     if (method.length < 2) { setError('Choose or enter a payment method.'); return; }
 
     setSaving(true);
+    // Resolve the authenticated Supabase user explicitly: user_id is required
+    // by p2p_payment_methods and must never be sent as the string "undefined".
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (authError || !userId) {
+      setSaving(false);
+      setError('Your AURA session is missing or expired. Sign in again, then save your payment method.');
+      return;
+    }
+
     const payload = {
+      user_id: userId,
       method_type: method,
       label,
       account_holder_name: holder,
@@ -89,8 +100,16 @@ export const PaymentMethodsPanel: React.FC = () => {
     };
 
     const result = editing
-      ? await supabase.from('p2p_payment_methods').update(payload).eq('id', editing.id)
-      : await supabase.from('p2p_payment_methods').insert({ ...payload });
+      ? await supabase.from('p2p_payment_methods').update({
+          method_type: payload.method_type,
+          label: payload.label,
+          account_holder_name: payload.account_holder_name,
+          account_identifier: payload.account_identifier,
+          instructions: payload.instructions,
+          is_active: payload.is_active,
+          updated_at: payload.updated_at,
+        }).eq('id', editing.id).eq('user_id', userId)
+      : await supabase.from('p2p_payment_methods').insert(payload);
 
     setSaving(false);
     if (result.error) {
