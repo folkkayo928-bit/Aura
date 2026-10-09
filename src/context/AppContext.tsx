@@ -1388,7 +1388,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Receive displays AURA deep links for easy sharing (aura.tg://handle).
     // Resolve them to the underlying handle before calling the database RPC,
     // which accepts a handle or Vault ID rather than the URI scheme.
-const rawRecipient = recipient.trim();
+    const rawRecipient = recipient.trim();
     const deepLinkPrefix = 'aura.tg://';
     const normalizedRecipient = rawRecipient.slice(0, deepLinkPrefix.length).toLowerCase() === deepLinkPrefix
       ? rawRecipient.slice(deepLinkPrefix.length).trim()
@@ -1423,7 +1423,7 @@ const rawRecipient = recipient.trim();
     if (wallet.error || !wallet.data) addNotification('Transfer Completed', 'The transfer was completed. Refresh your wallet to update the displayed balance.', 'community');
     else setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
     if (!ledger.error && ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
-    addNotification('Sent Successfully', 'Transferred ' + amount.toFixed(8).replace(/\.?0+$/, '') + ' USDT to ' + recipient.trim() + '.', 'convert');
+    addNotification('Sent Successfully', 'Transferred ' + amount.toFixed(8).replace(/\.?0+$/, '') + ' USDT to ' + normalizedRecipient + '.', 'convert');
     return true;
   };
 
