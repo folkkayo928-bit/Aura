@@ -7,24 +7,28 @@ const CHAINS = {
     alchemy: "eth-mainnet",
     token: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     treasury: "AURA_EVM_TREASURY_ETHEREUM",
+    tokenDecimals: 6,
   },
   polygon: {
     rpc: "AURA_EVM_RPC_POLYGON",
     alchemy: "polygon-mainnet",
     token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     treasury: "AURA_EVM_TREASURY_POLYGON",
+    tokenDecimals: 6,
   },
   arbitrum: {
     rpc: "AURA_EVM_RPC_ARBITRUM",
     alchemy: "arb-mainnet",
     token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     treasury: "AURA_EVM_TREASURY_ARBITRUM",
+    tokenDecimals: 6,
   },
   bsc: {
     rpc: "AURA_EVM_RPC_BSC",
     alchemy: "bnb-mainnet",
     token: "0x55d398326f99059fF775485246999027B3197955",
     treasury: "AURA_EVM_TREASURY_BSC",
+    tokenDecimals: 18,
   },
 } as const;
 
@@ -67,6 +71,9 @@ async function custodySecret(client: ReturnType<typeof db>, name: "xprv" | "mnem
 function rpcEndpoint(chain: keyof typeof CHAINS, apiKey: string) {
   const configured = Deno.env.get(CHAINS[chain].rpc)?.trim();
   if (configured) return configured;
+  // The configured Alchemy app has BNB_MAINNET disabled. Use its public BNB
+  // endpoint for unsigned reads and locally signed transaction submission.
+  if (chain === "bsc") return "https://bnb-mainnet.g.alchemy.com/public";
   if (!apiKey) return "";
   return `https://${CHAINS[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
 }
@@ -208,7 +215,9 @@ Deno.serve(async (req) => {
             throw new Error("NO_USDT_BALANCE_AT_CUSTODY_ADDRESS");
           }
 
-          const usdtAmount = parseUnits(String(deposit.amount), 6);
+          const actualDecimals = Number(await token.decimals());
+          if (actualDecimals !== cfg.tokenDecimals) throw new Error("TOKEN_DECIMALS_MISMATCH");
+          const usdtAmount = parseUnits(String(deposit.amount), cfg.tokenDecimals);
           const amount = tokenBalance < usdtAmount ? tokenBalance : usdtAmount;
           if (amount <= 0n) throw new Error("INVALID_SWEEP_AMOUNT");
 
@@ -251,7 +260,7 @@ Deno.serve(async (req) => {
             deposit_id: deposit.id,
             status: "swept",
             tx_hash: tx.hash,
-            amount: formatUnits(amount, 6),
+            amount: formatUnits(amount, cfg.tokenDecimals),
           });
         } catch (error) {
           failed++;
