@@ -10,6 +10,26 @@ const CHAINS: Record<string, { id: number; name: string; token: Address; rpcEnv:
 function secretKey(){ const raw=Deno.env.get("SUPABASE_SECRET_KEYS")||""; try{return JSON.parse(raw).default as string}catch{return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||""} }
 function admin(){ return createClient(Deno.env.get("SUPABASE_URL")!, secretKey()); }
 async function authorized(req: Request, client: ReturnType<typeof admin>){ const provided=req.headers.get("x-aura-worker-secret")||""; const {data,error}=await client.rpc("get_aura_worker_secret"); return !error && !!data && provided.length>0 && provided===data; }
+async function notifyTelegramWithdrawal(client: ReturnType<typeof db>, userId: string, title: string, message: string) {
+  try {
+    const { data: profile, error: profileError } = await client.from("profiles")
+      .select("telegram_user_id").eq("id", userId).maybeSingle();
+    if (profileError) throw profileError;
+    const telegramUserId = String(profile?.telegram_user_id || "").trim();
+    if (!/^\\d{1,20}$/.test(telegramUserId)) return;
+    const { data: secret, error: secretError } = await client.rpc("get_aura_telegram_notify_secret");
+    if (secretError || !secret) return;
+    const response = await fetch("https://aura-8bom.onrender.com/api/internal/telegram/withdrawal-notify", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-aura-telegram-notify-secret": String(secret) },
+      body: JSON.stringify({ telegram_user_id: telegramUserId, title, message }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) console.warn("Telegram withdrawal status notification was not delivered", response.status);
+  } catch (error) {
+    console.warn("Telegram withdrawal status notification failed", String(error).slice(0, 500));
+  }
+}
 function chainObject(c:any,rpc:string){ return {id:c.id,name:c.name,nativeCurrency:{name:c.native,symbol:c.native,decimals:18},rpcUrls:{default:{http:[rpc]},public:{http:[rpc]}}} as const; }
 Deno.serve(async (req)=>{
  if(req.method!=="POST") return Response.json({error:"METHOD_NOT_ALLOWED"},{status:405});
