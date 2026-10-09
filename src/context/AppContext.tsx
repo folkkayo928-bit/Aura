@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { createNeutralAvatar } from '../lib/avatar';
@@ -405,6 +405,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeP2POrder, setActiveP2POrder] = useState<P2POrder | null>(null);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Track the authenticated account by stable ID, not Session object identity.
+  // Token refreshes must not reset UI, but switching accounts must clear private state.
+  const previousUserIdRef = useRef<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [feedFilter, setFeedFilter] = useState<FeedSection>('trending');
@@ -573,6 +576,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     let cancelled = false;
+    const currentUserId = user?.id || null;
+    if (previousUserIdRef.current !== currentUserId) {
+      previousUserIdRef.current = currentUserId;
+
+      // Immediately discard account-scoped UI state before loading the next
+      // session. This prevents the previous Telegram account's balance, profile,
+      // external wallets, notifications, or active trade flashing on this device.
+      setWalletBalance(0);
+      setTransactions([]);
+      setConnectedWallets([]);
+      setNotifications([]);
+      setActiveP2POrder(null);
+      setP2pOffers([]);
+      setArtworks([]);
+      setCollections([]);
+      setUpcomingDrops([]);
+      setUserProfile({
+        name: 'AURA Collector',
+        telegramHandle: '@collector',
+        avatar: createNeutralAvatar('aura-session-loading'),
+        coverImage: '',
+        bio: 'Collecting digital art on AURA.',
+        vaultId: 'Loading AURA vault…',
+        joinedDate: 'Member',
+        defaultCurrency: 'USD',
+        notificationsEnabled: true,
+        telegramBotAlerts: true,
+        twoFactorEnabled: false,
+        biometricAuth: false,
+      });
+    }
+
     const loadBackendState = async () => {
       const [publicArtworkRes, publicCollectionRes, publicP2pRes] = await Promise.all([
         supabase
