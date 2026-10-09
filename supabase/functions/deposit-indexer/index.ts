@@ -30,22 +30,21 @@ type Chain = keyof typeof EVM;
 const EVM_READ_RPC_FALLBACKS: Record<Chain, string[]> = {
   ethereum: [
     "https://ethereum-rpc.publicnode.com",
-    "https://1rpc.io/eth",
+    "https://eth.drpc.org",
   ],
   polygon: [
+    "https://polygon.drpc.org",
     "https://polygon-bor-rpc.publicnode.com",
-    "https://polygon-rpc.com",
-    "https://1rpc.io/matic",
   ],
   arbitrum: [
-    "https://arbitrum-one-rpc.publicnode.com",
     "https://arb1.arbitrum.io/rpc",
-    "https://1rpc.io/arb",
+    "https://arbitrum.drpc.org",
+    "https://arbitrum-one.public.blastapi.io",
+    "https://arbitrum-one-rpc.publicnode.com",
   ],
   bsc: [
-    "https://bsc.meowrpc.com",
-    "https://bsc-mainnet.public.blastapi.io",
     "https://bsc-rpc.publicnode.com",
+    "https://bsc-mainnet.public.blastapi.io",
     "https://public.1rpc.io/bnb",
   ],
 };
@@ -73,7 +72,7 @@ async function rpc(url: string, method: string, params: unknown[], chain?: Chain
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(5000),
       });
       if (!response.ok) {
         const detail = (await response.text().catch(() => "")).slice(0, 300);
