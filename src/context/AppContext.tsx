@@ -1385,8 +1385,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const sendInternalFunds = async (recipient: string, amount: number, idempotencyKey?: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
     if (!recipient.trim()) { addNotification('Transfer Error', 'Enter an AURA handle or Vault ID.', 'community'); return false; }
-    if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 1_000_000) !== amount * 1_000_000) {
-      addNotification('Transfer Error', 'Enter a valid USDT amount with at most 6 decimal places.', 'community'); return false;
+    const amountAtWalletPrecision = Number.isFinite(amount) ? Number(amount.toFixed(8)) : Number.NaN;
+    if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount - amountAtWalletPrecision) > 1e-12) {
+      addNotification('Transfer Error', 'Enter a valid USDT amount with at most 8 decimal places.', 'community'); return false;
     }
     if (!idempotencyKey) { addNotification('Transfer Error', 'Could not secure this transfer request. Please try again.', 'community'); return false; }
     const { data, error } = await supabase.rpc('internal_transfer', { p_recipient: recipient.trim(), p_amount_usdt: amount, p_idempotency_key: idempotencyKey });
@@ -1399,7 +1400,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         SENDER_WALLET_NOT_ACTIVE: 'Your AURA wallet is locked or unavailable.',
         RECIPIENT_WALLET_NOT_ACTIVE: 'The recipient wallet is locked or unavailable.',
         RECIPIENT_WALLET_NOT_FOUND: 'The recipient does not have an active AURA wallet.',
-        INVALID_AMOUNT_PRECISION: 'USDT transfers support up to 6 decimal places.',
+        INVALID_AMOUNT_PRECISION: 'AURA ID transfers support up to 8 decimal places.',
         IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_DETAILS: 'This transfer request ID was already used with different details. Start a new transfer.',
       };
       const code = Object.keys(friendly).find((key) => message.includes(key));
@@ -1413,7 +1414,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (wallet.error || !wallet.data) addNotification('Transfer Completed', 'The transfer was completed. Refresh your wallet to update the displayed balance.', 'community');
     else setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
     if (!ledger.error && ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
-    addNotification('Sent Successfully', 'Transferred ' + amount.toFixed(6).replace(/\.?0+$/, '') + ' USDT to ' + recipient.trim() + '.', 'convert');
+    addNotification('Sent Successfully', 'Transferred ' + amount.toFixed(8).replace(/\.?0+$/, '') + ' USDT to ' + recipient.trim() + '.', 'convert');
     return true;
   };
 
