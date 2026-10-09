@@ -25,29 +25,53 @@ async function alchemyKey(client: ReturnType<typeof db>) {
   const { data } = await client.rpc("get_aura_alchemy_api_key");
   return String(data || "").trim();
 }
+const BSC_READ_RPC_FALLBACKS = [
+  "https://public.1rpc.io/bnb",
+  "https://bsc-rpc.publicnode.com",
+  "https://bsc.meowrpc.com",
+  "https://bsc-mainnet.public.blastapi.io",
+];
 function rpcUrl(chain: keyof typeof EVM, apiKey: string) {
   const configured = Deno.env.get(EVM[chain].rpc)?.trim();
   if (configured) return configured;
-  // BNB_MAINNET is currently disabled on the configured Alchemy app.
-  // Use Alchemy's public BNB endpoint for BSC unless a dedicated RPC is set.
-  // eth_getLogs remains chunked to the free-tier 10-block maximum below.
-  if (chain === "bsc") return "https://bsc-rpc.publicnode.com";
+  // The configured Alchemy application did not have BNB Mainnet enabled.
+  // Start BSC reads on a log-capable provider; RPC calls fail over below.
+  if (chain === "bsc") return BSC_READ_RPC_FALLBACKS[0];
   if (!apiKey) return "";
   return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
 }
-async function rpc(url: string, method: string, params: unknown[]) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  });
-  if (!response.ok) {
-    const detail = (await response.text().catch(() => "")).slice(0, 300);
-    throw new Error("RPC_HTTP_" + response.status + ":" + detail);
+async function rpc(url: string, method: string, params: unknown[], chain?: keyof typeof EVM) {
+  const endpoints = chain === "bsc"
+    ? [...new Set([url, ...BSC_READ_RPC_FALLBACKS])]
+    : [url];
+  let lastError: unknown = new Error("RPC_UNAVAILABLE");
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        const detail = (await response.text().catch(() => "")).slice(0, 300);
+        throw new Error("RPC_HTTP_" + response.status + ":" + detail);
+      }
+      const payload = await response.json();
+      if (payload.error) {
+        throw new Error("RPC_ERROR:" + String(payload.error.message || "unknown").slice(0, 300));
+      }
+      return payload.result;
+    } catch (error) {
+      lastError = error;
+      console.warn("BSC read RPC endpoint failed; trying the next endpoint", {
+        method,
+        endpoint: new URL(endpoint).host,
+        error: String(error).slice(0, 400),
+      });
+    }
   }
-  const payload = await response.json();
-  if (payload.error) throw new Error("RPC_ERROR:" + String(payload.error.message || "unknown").slice(0, 300));
-  return payload.result;
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 function padTopicAddress(address: string) {
   return "0x" + address.toLowerCase().replace(/^0x/, "").padStart(64, "0");
@@ -97,7 +121,7 @@ Deno.serve(async (req) => {
       if (!rpcEndpoint) continue;
 
       try {
-      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", []));
+      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", [], chain as keyof typeof EVM));
       const from = latest >= BigInt(scanBlocks - 1) ? latest - BigInt(scanBlocks - 1) : 0n;
       const recipientTopics = [...new Set(tracked.map((w) => padTopicAddress(w.address)))];
 
@@ -114,7 +138,7 @@ Deno.serve(async (req) => {
           toBlock: "0x" + chunkTo.toString(16),
           address: cfg.token,
           topics: [ERC20_TRANSFER_TOPIC, null, recipientTopics],
-        }]);
+        }], chain as keyof typeof EVM);
         if (Array.isArray(chunkLogs)) logs.push(...chunkLogs);
         chunkFrom = chunkTo + 1n;
       }
@@ -137,7 +161,7 @@ Deno.serve(async (req) => {
 
       for (const item of grouped.values()) {
         if (item.amount_units <= 0n) continue;
-        const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [item.tx_hash]);
+        const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [item.tx_hash], chain as keyof typeof EVM);
         if (!receipt || receipt.status !== "0x1") continue;
 
         const confirmations = latest >= hexToBigInt(receipt.blockNumber)
@@ -187,10 +211,10 @@ Deno.serve(async (req) => {
       if (!rpcEndpoint) continue;
 
       try {
-      const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [deposit.tx_hash]);
+      const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [deposit.tx_hash], chain);
       if (!receipt || receipt.status !== "0x1") { pending++; continue; }
 
-      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", []));
+      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", [], chain));
       const mined = hexToBigInt(receipt.blockNumber);
       const confirmations = latest >= mined ? Number(latest - mined + 1n) : 0;
       const required = Number(deposit.required_confirmations || cfg.confirmations);
