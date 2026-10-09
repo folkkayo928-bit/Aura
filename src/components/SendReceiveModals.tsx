@@ -44,6 +44,7 @@ export const SendModal: React.FC = () => {
   const [amount, setAmount] = useState('');
   const [sentSuccessTxHash, setSentSuccessTxHash] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [transferRequestId, setTransferRequestId] = useState(() => crypto.randomUUID());
 
   if (!sendModalOpen) return null;
@@ -54,13 +55,43 @@ export const SendModal: React.FC = () => {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recipient.trim() || numAmount <= 0) return;
+    setSendError(null);
 
-    if (mode === 'internal') {
-      setIsSubmitting(true);
-      const ok = await sendInternalFunds(recipient.trim(), numAmount, transferRequestId);
-      setIsSubmitting(false);
-      if (ok) {
+    const destination = recipient.trim();
+    if (!destination) {
+      setSendError(mode === 'external' ? 'Enter the destination wallet address.' : 'Enter the recipient username or AURA Vault ID.');
+      return;
+    }
+    if (!amount.trim() || !Number.isFinite(numAmount) || numAmount <= 0) {
+      setSendError('Enter a valid USDT amount greater than zero.');
+      return;
+    }
+
+    const allowedDecimals = mode === 'internal' ? 8 : 6;
+    if (Math.abs(numAmount - Number(numAmount.toFixed(allowedDecimals))) > 1e-12) {
+      setSendError(mode === 'internal'
+        ? 'AURA username/Vault ID transfers support up to 8 decimal places.'
+        : 'On-chain withdrawal requests support up to 6 decimal places.');
+      return;
+    }
+    if (mode === 'external' && !/^0x[a-fA-F0-9]{40}$/.test(destination)) {
+      setSendError('Enter a valid 42-character EVM address starting with 0x.');
+      return;
+    }
+    if (numAmount > walletBalance) {
+      setSendError(`Insufficient AURA wallet balance. Available: ${formatWalletAmount(walletBalance, 8)} USDT.`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (mode === 'internal') {
+        const ok = await sendInternalFunds(destination, numAmount, transferRequestId);
+        if (!ok) {
+          setSendError('AURA did not confirm this transfer. Check the in-app notification and refresh Wallet/History before retrying.');
+          return;
+        }
+
         setTransferRequestId(crypto.randomUUID());
         setSentSuccessTxHash('internal');
         setTimeout(() => {
@@ -68,26 +99,51 @@ export const SendModal: React.FC = () => {
           setSendModalOpen(false);
           setRecipient('');
           setAmount('');
+          setSendError(null);
         }, 1800);
-      }
-    } else {
-      setIsSubmitting(true);
-      const res = await requestWalletWithdrawal({
-        chain: network,
-        destinationAddress: recipient.trim(),
-        amount: numAmount,
-        networkFee: 0,
-      });
-      setIsSubmitting(false);
-      if (res.success) {
+      } else {
+        const res = await requestWalletWithdrawal({
+          chain: network,
+          destinationAddress: destination,
+          amount: numAmount,
+          networkFee: 0,
+        });
+        if (!res.success) {
+          const rawError = String(res.error || 'WITHDRAWAL_REQUEST_FAILED');
+          const code = rawError.toUpperCase();
+          const knownErrors: Array<[string, string]> = [
+            ['AUTH_REQUIRED', 'Your AURA session has expired. Sign in again and retry.'],
+            ['INVALID_EVM_DESTINATION_ADDRESS', 'Enter a valid destination address for the selected network.'],
+            ['INVALID_DESTINATION_ADDRESS', 'Enter a valid destination address for the selected network.'],
+            ['INVALID_AMOUNT_PRECISION', 'Use no more than 6 decimal places for an on-chain withdrawal.'],
+            ['INSUFFICIENT_FUNDS', 'Your available AURA balance is not enough for this withdrawal.'],
+            ['MFA_REQUIRED_FOR_WITHDRAWAL', 'Complete the required account verification before requesting a withdrawal.'],
+            ['NO_CONFIRMATION_CHANNEL', 'Start the AURA Telegram bot or add a real email address to your account before withdrawing.'],
+            ['EMAIL_PROVIDER_NOT_CONFIGURED', 'Withdrawal confirmation delivery is temporarily unavailable. Your request was not completed.'],
+            ['CONFIRMATION_DELIVERY_FAILED', 'AURA could not deliver the secure confirmation. Your request was not completed. Please retry later.'],
+            ['ACCOUNT_NOTIFICATION_SETTINGS_UNAVAILABLE', 'AURA could not load your withdrawal confirmation settings. Please try again later.'],
+            ['CHAIN_NOT_YET_SUPPORTED_FOR_REAL_WITHDRAWAL', 'Real withdrawals are not enabled for this network yet.'],
+            ['UNSUPPORTED_REAL_WITHDRAWAL_CHAIN', 'Real withdrawals are not enabled for this network yet.'],
+          ];
+          const match = knownErrors.find(([key]) => code.includes(key));
+          setSendError(match ? match[1] : rawError.replace(/[_-]+/g, ' ').slice(0, 260));
+          return;
+        }
+
         setSentSuccessTxHash('withdrawal-requested');
         setTimeout(() => {
           setSentSuccessTxHash(null);
           setSendModalOpen(false);
           setRecipient('');
           setAmount('');
+          setSendError(null);
         }, 2500);
       }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unexpected error';
+      setSendError(`AURA could not submit the request: ${detail}. No success was reported. Check Wallet/History before trying again.`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -135,7 +191,7 @@ export const SendModal: React.FC = () => {
             <div className="grid grid-cols-2 gap-1 p-1 bg-white/5 rounded-2xl border border-white/5">
               <button
                 type="button"
-                onClick={() => setMode('external')}
+                onClick={() => { setMode('external'); setSendError(null); }}
                 className={`py-2 text-xs font-semibold rounded-xl transition-all ${
                   mode === 'external'
                     ? 'bg-amber-400 text-stone-950 shadow-sm'
@@ -146,7 +202,7 @@ export const SendModal: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setMode('internal')}
+                onClick={() => { setMode('internal'); setSendError(null); }}
                 className={`py-2 text-xs font-semibold rounded-xl transition-all ${
                   mode === 'internal'
                     ? 'bg-amber-400 text-stone-950 shadow-sm'
@@ -166,7 +222,7 @@ export const SendModal: React.FC = () => {
                     <button
                       type="button"
                       key={net}
-                      onClick={() => setNetwork(net)}
+                      onClick={() => { setNetwork(net); setSendError(null); }}
                       className={`p-2 rounded-xl text-xs font-mono uppercase border transition-all text-center ${
                         network === net
                           ? 'border-amber-400/80 bg-amber-400/10 text-amber-300 font-bold'
@@ -195,7 +251,7 @@ export const SendModal: React.FC = () => {
                     : '@username or aura.tg://...'
                 }
                 value={recipient}
-                onChange={(e) => { setRecipient(e.target.value); setTransferRequestId(crypto.randomUUID()); }}
+                onChange={(e) => { setRecipient(e.target.value); setTransferRequestId(crypto.randomUUID()); setSendError(null); }}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
                 required
               />
@@ -214,7 +270,7 @@ export const SendModal: React.FC = () => {
                   min={mode === 'internal' ? '0.00000001' : '0.000001'}
                   placeholder="0.00"
                   value={amount}
-                  onChange={(e) => { setAmount(e.target.value); setTransferRequestId(crypto.randomUUID()); }}
+                  onChange={(e) => { setAmount(e.target.value); setTransferRequestId(crypto.randomUUID()); setSendError(null); }}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-stone-100 focus:outline-none focus:border-amber-400/60 font-mono"
                   required
                 />
@@ -241,9 +297,15 @@ export const SendModal: React.FC = () => {
               <p className="pt-1 text-[10px] text-stone-500">AURA will not pretend the network fee is $0. The actual chain fee is handled by the broadcaster.</p>
             </div>
 
+            {sendError && (
+              <div role="alert" aria-live="polite" className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-3 text-xs leading-relaxed text-rose-200">
+                {sendError}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={isSubmitting || !recipient || numAmount <= 0 || totalCost > walletBalance}
+              disabled={isSubmitting}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98] disabled:opacity-40"
             >
               {isSubmitting ? 'Submitting securely…' : mode === 'external' ? `Request ${network.toUpperCase()} Withdrawal` : 'Transfer Instantly'}
