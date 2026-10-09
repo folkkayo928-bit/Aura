@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     if (!chain || !destinationAddress || !Number.isFinite(amount) || amount <= 0) {
       return json({ error: "INVALID_WITHDRAWAL_REQUEST" }, 400);
     }
-    if (!["ethereum", "polygon", "arbitrum"].includes(chain)) {
+    if (!["ethereum", "polygon", "arbitrum", "bsc"].includes(chain)) {
       return json({ error: "CHAIN_NOT_YET_SUPPORTED_FOR_REAL_WITHDRAWAL" }, 400);
     }
     if (!/^0x[a-fA-F0-9]{40}$/.test(destinationAddress)) {
