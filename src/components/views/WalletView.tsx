@@ -5,6 +5,11 @@ import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
 import { TransactionHistoryModal } from '../wallet/TransactionHistoryModal';
+
+const formatExactUsdtBalance = (value: number): string => {
+  if (!Number.isFinite(value)) return '0';
+  return value.toFixed(8).replace(/\.?0+$/, '');
+};
 import {
   Send,
   QrCode,
@@ -121,7 +126,7 @@ export const WalletView: React.FC = () => {
                 <span className="text-[10px] text-emerald-400 font-mono">₮ 1:1 USD</span>
               </div>
               <span className="font-serif text-lg font-bold text-stone-100 tabular-nums">
-                ${walletBalance.toFixed(2)}
+                ${formatExactUsdtBalance(walletBalance)}
               </span>
               <span className="text-[10px] text-stone-400 font-mono block mt-0.5">
                 Tap for Token Contracts →
@@ -166,7 +171,7 @@ export const WalletView: React.FC = () => {
 
           <div className="text-right">
             <span className="font-serif text-base font-bold text-stone-100 tabular-nums block">
-              ${walletBalance.toFixed(2)}
+              ${formatExactUsdtBalance(walletBalance)}
             </span>
             <span className="text-[10px] text-emerald-400 font-mono">Details →</span>
           </div>
