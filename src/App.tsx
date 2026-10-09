@@ -74,10 +74,6 @@ const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ childre
       setIdentityStatus('error');
       return;
     }
-      setIdentityStatus('ready');
-      return;
-    }
-
     if (authLoading || switchingAccount.current) {
       setIdentityStatus('checking');
       return;
