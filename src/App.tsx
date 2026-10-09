@@ -39,14 +39,20 @@ import { MakeOfferModal } from './components/marketplace/MakeOfferModal';
 import { X } from 'lucide-react';
 import { AdminView } from './components/admin/AdminView';
 
-const TelegramWebAppBridge: React.FC = () => {
+const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { setIsTelegramShellMode, setTelegramViewMode, updateUserProfile } = useApp();
-  const { user, signInWithTelegram, signOut, closeAuth } = useAuth();
+  const { user, loading: authLoading, signInWithTelegram, signOut, closeAuth } = useAuth();
   const autoAuthAttempted = React.useRef<string | null>(null);
+  const switchingAccount = React.useRef(false);
+  const [identityStatus, setIdentityStatus] = React.useState<'checking' | 'ready' | 'error'>('checking');
+  const [identityError, setIdentityError] = React.useState('');
 
   React.useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    if (!tg) return;
+    if (!tg) {
+      setIdentityStatus('ready');
+      return;
+    }
 
     tg.ready();
     tg.expand();
@@ -59,37 +65,80 @@ const TelegramWebAppBridge: React.FC = () => {
     const initData = String(tg.initData || '').trim();
     const tgUser = tg.initDataUnsafe?.user;
     const telegramId = String(tgUser?.id || '').trim();
-    // Only telegram_id is trusted here. Never use Supabase/provider `sub` as a
-    // Telegram identity because it can represent a different subject namespace.
+
+    // Without signed Mini App initData, don't guess which Telegram identity is
+    // active. The server verifies initData before it issues a Supabase session.
+    if (!initData || !/^\\d{1,20}$/.test(telegramId)) {
+      setIdentityStatus('ready');
+      return;
+    }
+
+    if (authLoading || switchingAccount.current) {
+      setIdentityStatus('checking');
+      return;
+    }
+
+    // A persisted Supabase session belongs to a specific Telegram numeric ID.
+    // Never let MFA or the wallet UI render until that ID matches this Mini App.
     const sessionTelegramId = String(user?.user_metadata?.telegram_id || '').trim();
     let signedOutForTelegramId = '';
     try { signedOutForTelegramId = sessionStorage.getItem('aura_telegram_signed_out_id') || ''; } catch {}
 
-    // Telegram's numeric user ID is the immutable external identity. Never
-    // reuse another Telegram account's persisted Supabase session in the same
-    // Mini App webview. A different Telegram ID means this is a different AURA account.
-    const telegramSessionMismatch = Boolean(
-      initData && telegramId && user && sessionTelegramId !== telegramId
-    );
-    const shouldAutoAuth = Boolean(
-      initData && telegramId && !user && signedOutForTelegramId !== telegramId
-    );
+    const telegramSessionMismatch = Boolean(user && sessionTelegramId !== telegramId);
+    const shouldAutoAuth = Boolean(!user && signedOutForTelegramId !== telegramId);
 
     if ((shouldAutoAuth || telegramSessionMismatch) && autoAuthAttempted.current !== telegramId) {
       autoAuthAttempted.current = telegramId;
+      switchingAccount.current = true;
+      setIdentityStatus('checking');
+      setIdentityError('');
+
       void (async () => {
-        // Fully clear the previous account before authenticating the Telegram
-        // identity currently opening AURA. This prevents cross-account reuse
-        // of the persisted Supabase session in Telegram's shared WebView.
-        if (telegramSessionMismatch && user) await signOut();
-        const result = await signInWithTelegram();
-        if (!result.error && result.telegramId === telegramId) {
-          try { sessionStorage.removeItem('aura_telegram_signed_out_id'); } catch {}
-          closeAuth();
-        } else if (!result.error) {
-          await signOut();
+        let matchedSession = false;
+        let errorMessage = '';
+        try {
+          // Sign out the old identity before creating a session for this one.
+          if (telegramSessionMismatch && user) await signOut();
+
+          const result = await signInWithTelegram();
+          if (result.error) {
+            errorMessage = result.error;
+          } else if (result.telegramId !== telegramId) {
+            errorMessage = 'The Telegram account returned by authentication did not match this Mini App.';
+            await signOut();
+          } else {
+            const { data: activeSession, error: sessionError } = await (await import('./lib/supabase')).supabase.auth.getUser();
+            const activeTelegramId = String(activeSession.user?.user_metadata?.telegram_id || '').trim();
+            if (sessionError || !activeSession.user || activeTelegramId !== telegramId) {
+              errorMessage = 'AURA could not verify that the active session belongs to this Telegram account.';
+              await signOut();
+            } else {
+              matchedSession = true;
+              try { sessionStorage.removeItem('aura_telegram_signed_out_id'); } catch {}
+              closeAuth();
+            }
+          }
+        } catch (error) {
+          errorMessage = error instanceof Error ? error.message : 'Telegram account verification failed.';
+        } finally {
+          switchingAccount.current = false;
+          if (matchedSession) {
+            setIdentityError('');
+            setIdentityStatus('ready');
+          } else {
+            setIdentityError(errorMessage || 'AURA could not securely switch to this Telegram account. Reload to retry.');
+            setIdentityStatus('error');
+          }
         }
       })();
+      return;
+    }
+
+    if (telegramSessionMismatch) {
+      // An attempted switch failed. Showing the stale session is never safe,
+      // particularly when the old account has a verified authenticator factor.
+      setIdentityError('The saved AURA session belongs to a different Telegram account. Reload to verify the current account.');
+      setIdentityStatus('error');
       return;
     }
 
@@ -100,9 +149,36 @@ const TelegramWebAppBridge: React.FC = () => {
         ...(tgUser.username ? { telegramHandle: `@${tgUser.username}` } : {}),
       });
     }
-  }, [user, signInWithTelegram, closeAuth, setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
 
-  return null;
+    setIdentityStatus('ready');
+  }, [user, authLoading, signInWithTelegram, signOut, closeAuth, setIsTelegramShellMode, setTelegramViewMode, updateUserProfile]);
+
+  if (identityStatus === 'checking') {
+    return (
+      <div className="fixed inset-0 z-[110] bg-[#09090d] flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 rounded-full border-2 border-amber-300/25 border-t-amber-300 animate-spin" />
+          <p className="mt-4 text-xs text-stone-400">Verifying your Telegram account securely…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (identityStatus === 'error') {
+    return (
+      <div className="fixed inset-0 z-[110] bg-[#09090d] flex items-center justify-center p-6">
+        <div className="w-full max-w-sm rounded-3xl border border-rose-500/20 bg-[#12121a] p-6 text-center">
+          <h2 className="text-lg font-serif text-stone-100">Account verification needed</h2>
+          <p className="mt-3 text-xs leading-5 text-stone-400">{identityError}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-5 w-full rounded-xl bg-amber-400 py-3 text-xs font-bold text-stone-950">
+            Reload and retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 };
 
 const AppContent: React.FC = () => {
@@ -170,8 +246,8 @@ const AppContent: React.FC = () => {
   const telegramAccountRequired = isTelegramShellMode && !authLoading && !user;
 
   return (
-    <MfaSessionGate>
-      <TelegramWebAppBridge />
+    <TelegramWebAppBridge>
+      <MfaSessionGate>
       {telegramAccountRequired ? (
         <div className="min-h-screen bg-[#09090d] px-5 pt-24 text-center text-stone-100">
           <div className="mx-auto max-w-sm rounded-3xl border border-amber-400/15 bg-white/[0.03] p-7 shadow-2xl">
@@ -234,7 +310,8 @@ const AppContent: React.FC = () => {
         </>
       )}
       <AuthModal />
-    </MfaSessionGate>
+      </MfaSessionGate>
+    </TelegramWebAppBridge>
   );
 }
 
