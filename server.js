@@ -183,7 +183,7 @@ app.post('/api/internal/telegram/withdrawal-notify', async (req, res) => {
   const title = String(req.body?.title || '').trim().slice(0, 120);
   const message = String(req.body?.message || '').trim().slice(0, 1800);
   const confirmUrl = String(req.body?.confirm_url || '').trim();
-  if (!/^\\d{1,20}$/.test(chatId) || !title || !message) {
+  if (!/^\d{1,20}$/.test(chatId) || !title || !message) {
     return res.status(400).json({ ok: false, error: 'INVALID_NOTIFICATION' });
   }
 
@@ -210,7 +210,7 @@ app.post('/api/internal/telegram/withdrawal-notify', async (req, res) => {
       : (WEBAPP_URL ? [[{ text: '🚀 Open AURA', web_app: { url: WEBAPP_URL } }]] : []);
     await telegram('sendMessage', {
       chat_id: chatId,
-      text: `✨ AURA VAULT\\n\\n${title}\\n\\n${message}\\n\\n🔐 If you did not request this, do not confirm it.`,
+      text: `✨ AURA VAULT\n\n${title}\n\n${message}\n\n🔐 If you did not request this, do not confirm it.`,
       disable_web_page_preview: true,
       ...(keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {}),
     });
@@ -245,7 +245,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
       await telegram('answerCallbackQuery', { callback_query_id: callback.id, text: 'AURA Support' });
       await telegram('sendMessage', {
         chat_id: callbackChatId,
-        text: '💬 AURA Support\\n\\nReply here and our team can assist you. A dedicated support link can also be configured for the Contact Us button.',
+        text: '💬 AURA Support\n\nReply here and our team can assist you. A dedicated support link can also be configured for the Contact Us button.',
       });
     } catch (error) {
       console.error('Telegram contact callback error:', error);
@@ -256,7 +256,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
 
   try {
     if (text === '/start' || text.startsWith('/start ') || text === '/app') {
-      const welcomeText = '✨ Welcome to AURA Vault.\\n\\nCollect, create, trade, and manage digital art from one secure Mini App.\\n\\nEnter the AURA community and explore the full platform.';
+      const welcomeText = '✨ Welcome to AURA Vault.\n\nCollect, create, trade, and manage digital art from one secure Mini App.\n\nEnter the AURA community and explore the full platform.';
       const buttons = [];
       if (WEBAPP_URL) buttons.push({ text: '🚀 Open AURA', web_app: { url: WEBAPP_URL } });
       buttons.push(
