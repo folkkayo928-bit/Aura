@@ -96,7 +96,7 @@ export const MfaSessionGate: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [check]);
 
   if (requiresMfa) {
-    return <MfaChallengeGate key={session.user.id} userId={session.user.id} onVerified={handleMfaVerified} />;
+    return <MfaChallengeGate key={session?.user?.id ?? 'no-session'} userId={session?.user?.id ?? ''} onVerified={handleMfaVerified} />;
   }
 
   return <>{children}</>;
