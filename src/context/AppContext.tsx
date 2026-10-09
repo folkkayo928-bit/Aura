@@ -187,12 +187,13 @@ const mapLedgerToTransaction = (row: any): Transaction => {
   const amount = Number(row.amount_usdt || 0);
   let type: Transaction['type'] = 'receive';
   const kind = String(row.kind || '').toLowerCase();
-  if (kind.includes('collect')) type = 'collect';
+  if (kind === 'internal_transfer') type = row.direction === 'debit' ? 'send' : 'receive';
+  else if (kind.includes('collect')) type = 'collect';
   else if (kind.includes('convert')) type = 'convert';
-  else if (kind.includes('send') || kind.includes('transfer') || kind.includes('withdrawal')) type = 'send';
-  else if (kind.includes('create')) type = 'create';
   else if (kind.includes('p2p_buy')) type = 'p2p_buy';
   else if (kind.includes('p2p_sell')) type = 'p2p_sell';
+  else if (kind.includes('send') || kind.includes('transfer') || kind.includes('withdrawal')) type = row.direction === 'credit' ? 'receive' : 'send';
+  else if (kind.includes('create')) type = 'create';
   const rawStatus = String(row.status || row.transaction_status || '').toLowerCase();
   const status: Transaction['status'] =
     kind === 'withdrawal_reserve' || kind === 'p2p_escrow_lock' ||
