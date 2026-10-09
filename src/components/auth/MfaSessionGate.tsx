@@ -87,8 +87,16 @@ export const MfaSessionGate: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   }
 
+  const handleMfaVerified = useCallback(() => {
+    // Re-read the current account's assurance level after verification.
+    // Stable callback identity prevents MfaChallengeGate from restarting its
+    // factor lookup/challenge effect on every parent render.
+    setRequiresMfa(false);
+    void check();
+  }, [check]);
+
   if (requiresMfa) {
-    return <MfaChallengeGate onVerified={() => { setRequiresMfa(false); void check(); }} />;
+    return <MfaChallengeGate onVerified={handleMfaVerified} />;
   }
 
   return <>{children}</>;
