@@ -289,7 +289,7 @@ const AppContent: React.FC = () => {
           <SendModal />
           <ReceiveModal />
           <BuyModal />
-          <SettingsModal />
+          <SettingsModal key={user?.id ?? 'signed-out'} />
           <SeedPhraseModal />
           {p2pModalOpen && (
             <div className="fixed inset-0 z-50 overflow-y-auto bg-[#09090d]/95 backdrop-blur-2xl flex flex-col no-scrollbar">
