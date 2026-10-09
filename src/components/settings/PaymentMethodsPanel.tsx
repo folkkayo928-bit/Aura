@@ -99,7 +99,10 @@ export const PaymentMethodsPanel: React.FC = () => {
       updated_at: new Date().toISOString(),
     };
 
-    const result = editing
+    // The add form uses an empty object as its editing sentinel. Treat it as
+    // a create unless it contains a real row UUID; otherwise .eq('id', undefined)
+    // becomes the database error: invalid input syntax for type uuid: "undefined".
+    const result = editing?.id
       ? await supabase.from('p2p_payment_methods').update({
           method_type: payload.method_type,
           label: payload.label,
