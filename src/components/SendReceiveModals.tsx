@@ -115,7 +115,7 @@ export const SendModal: React.FC = () => {
             </p>
             {sentSuccessTxHash !== 'internal' && (
               <div className="p-2.5 rounded-xl bg-white/5 font-mono text-[10px] text-cyan-300 break-all border border-white/5">
-                Confirm the withdrawal email sent to your account. Blockchain broadcast occurs only after confirmation.
+                Check Telegram for your secure withdrawal confirmation. If Telegram is unavailable and you added an email, AURA may use email as a fallback. Blockchain broadcast occurs only after confirmation.
               </div>
             )}
           </div>
@@ -151,8 +151,8 @@ export const SendModal: React.FC = () => {
             {mode === 'external' && (
               <div>
                 <label className="text-xs text-stone-400 block mb-1 font-medium">Select Blockchain Network</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['polygon', 'arbitrum', 'ethereum'] as const).map((net) => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {(['polygon', 'arbitrum', 'ethereum', 'bsc'] as const).map((net) => (
                     <button
                       type="button"
                       key={net}
@@ -468,8 +468,8 @@ export const ReceiveModal: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
-              {(['polygon', 'ethereum', 'arbitrum'] as const).map((chain) => (
+            <div className="grid grid-cols-2 gap-1.5">
+              {(['polygon', 'ethereum', 'arbitrum', 'bsc'] as const).map((chain) => (
                 <button
                   type="button"
                   key={chain}
