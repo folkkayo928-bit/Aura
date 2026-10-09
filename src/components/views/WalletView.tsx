@@ -21,6 +21,8 @@ import {
   Lock,
   BadgeCheck,
   History,
+  RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 
 export const WalletView: React.FC = () => {
@@ -61,17 +63,18 @@ export const WalletView: React.FC = () => {
   const [withdrawalHistoryOpen, setWithdrawalHistoryOpen] = useState(false);
   const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
   const [withdrawalHistoryBusy, setWithdrawalHistoryBusy] = useState(false);
+  const [withdrawalHistoryError, setWithdrawalHistoryError] = useState('');
 
   const openWithdrawalHistory = async () => {
     setWithdrawalHistoryOpen(true);
     setWithdrawalHistoryBusy(true);
-    const { data, error } = await supabase
-      .from('wallet_withdrawals')
-      .select('id,chain,token_symbol,destination_address,amount,network_fee,status,email_confirmed_at,tx_hash,rejection_reason,created_at,updated_at')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    setWithdrawalHistoryError('');
+    const { data, error } = await supabase.rpc('my_withdrawal_history_v2', { p_limit: 100 });
     setWithdrawalHistoryBusy(false);
-    if (error) return;
+    if (error) {
+      setWithdrawalHistoryError('Could not load withdrawal history. Please refresh and try again.');
+      return;
+    }
     setWithdrawalHistory(data || []);
   };
 
@@ -615,25 +618,40 @@ export const WalletView: React.FC = () => {
                 <h3 className="text-lg font-semibold text-stone-100">Withdrawal history</h3>
                 <p className="text-[10px] text-stone-500 mt-1">Only requests belonging to your AURA account are shown.</p>
               </div>
-              <button onClick={() => setWithdrawalHistoryOpen(false)} className="text-stone-400 text-sm">Close</button>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => void openWithdrawalHistory()} disabled={withdrawalHistoryBusy} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-stone-400 disabled:opacity-40" aria-label="Refresh withdrawal history">
+                  <RefreshCw className={'h-3.5 w-3.5 ' + (withdrawalHistoryBusy ? 'animate-spin' : '')} />
+                </button>
+                <button onClick={() => setWithdrawalHistoryOpen(false)} className="text-stone-400 text-sm">Close</button>
+              </div>
             </div>
             <div className="overflow-y-auto p-4 space-y-2">
               {withdrawalHistoryBusy && <div className="py-8 text-center text-xs text-stone-500">Loading withdrawal history…</div>}
-              {!withdrawalHistoryBusy && withdrawalHistory.length === 0 && <div className="py-8 text-center text-xs text-stone-500">No withdrawal requests yet.</div>}
-              {!withdrawalHistoryBusy && withdrawalHistory.map((w) => (
-                <div key={w.id} className="rounded-2xl border border-white/10 bg-white/[.02] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-mono text-sm text-stone-100">{Number(w.amount || 0).toFixed(2)} {w.token_symbol || 'USDT'}</div>
-                      <div className="mt-1 text-[10px] uppercase tracking-wider text-stone-500">{w.chain} · {String(w.status || '').replaceAll('_', ' ')}</div>
+              {withdrawalHistoryError && <div className="rounded-xl border border-rose-400/20 bg-rose-400/[0.04] p-3 text-xs text-rose-300">{withdrawalHistoryError}</div>}
+              {!withdrawalHistoryBusy && !withdrawalHistoryError && withdrawalHistory.length === 0 && <div className="py-8 text-center text-xs text-stone-500">No withdrawal requests yet.</div>}
+              {!withdrawalHistoryBusy && withdrawalHistory.map((w) => {
+                const explorerBase: Record<string, string> = { ethereum: 'https://etherscan.io/tx/', polygon: 'https://polygonscan.com/tx/', arbitrum: 'https://arbiscan.io/tx/' };
+                const explorer = w.tx_hash && explorerBase[String(w.chain || '').toLowerCase()] ? explorerBase[String(w.chain).toLowerCase()] + w.tx_hash : null;
+                return (
+                  <div key={w.id} className="rounded-2xl border border-white/10 bg-white/[.02] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-mono text-sm text-stone-100">{Number(w.amount || 0).toFixed(6)} {w.token_symbol || 'USDT'}</div>
+                        <div className="mt-1 text-[10px] uppercase tracking-wider text-stone-500">{w.chain} · {String(w.status || '').replaceAll('_', ' ')}</div>
+                      </div>
+                      <div className="text-right text-[9px] text-stone-600">{w.created_at ? new Date(w.created_at).toLocaleString() : ''}</div>
                     </div>
-                    <div className="text-right text-[9px] text-stone-600">{w.created_at ? new Date(w.created_at).toLocaleString() : ''}</div>
+                    <div className="mt-3 text-[10px] text-stone-500 break-all">{w.destination_address}</div>
+                    <div className="mt-3 space-y-1 text-[10px] text-stone-500">
+                      <div>Email confirmation: <span className="text-stone-300">{w.email_confirmed_at ? new Date(w.email_confirmed_at).toLocaleString() : 'Not confirmed yet'}</span></div>
+                      <div>Blockchain broadcast: <span className="text-stone-300">{w.broadcast_at ? new Date(w.broadcast_at).toLocaleString() : 'Not broadcast yet'}</span></div>
+                      <div>On-chain confirmation: <span className="text-stone-300">{w.confirmed_onchain_at ? new Date(w.confirmed_onchain_at).toLocaleString() : 'Awaiting confirmation'}</span></div>
+                    </div>
+                    {w.tx_hash && <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-cyan-300 break-all"><span>Tx: {w.tx_hash}</span>{explorer && <a href={explorer} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-amber-300">Explorer <ExternalLink className="h-3 w-3" /></a>}</div>}
+                    {w.rejection_reason && <div className="mt-2 text-[10px] text-rose-300">Reason: {w.rejection_reason}</div>}
                   </div>
-                  <div className="mt-3 text-[10px] text-stone-500 break-all">{w.destination_address}</div>
-                  {w.tx_hash && <div className="mt-2 text-[10px] text-cyan-300 break-all">Tx: {w.tx_hash}</div>}
-                  {w.rejection_reason && <div className="mt-2 text-[10px] text-rose-300">Reason: {w.rejection_reason}</div>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
