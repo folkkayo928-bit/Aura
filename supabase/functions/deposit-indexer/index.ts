@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
       const rpcEndpoint = rpcUrl(chain as keyof typeof EVM, alchemy);
       if (!rpcEndpoint) continue;
 
+      try {
       const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", []));
       const from = latest >= BigInt(scanBlocks - 1) ? latest - BigInt(scanBlocks - 1) : 0n;
       const recipientTopics = [...new Set(tracked.map((w) => padTopicAddress(w.address)))];
@@ -157,6 +158,9 @@ Deno.serve(async (req) => {
           if (!error) detected++;
         }
       }
+      } catch (chainError) {
+        console.warn("Deposit scan skipped for chain", chain, String(chainError).slice(0, 500));
+      }
     }
 
     const { data: pendingDeposits, error: pendingError } = await client
@@ -171,6 +175,7 @@ Deno.serve(async (req) => {
       const rpcEndpoint = rpcUrl(chain, alchemy);
       if (!rpcEndpoint) continue;
 
+      try {
       const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [deposit.tx_hash]);
       if (!receipt || receipt.status !== "0x1") { pending++; continue; }
 
@@ -214,6 +219,10 @@ Deno.serve(async (req) => {
         } catch (notificationError) {
           console.warn("Telegram deposit notification enqueue failed", String(notificationError).slice(0, 500));
         }
+      }
+      } catch (depositError) {
+        console.warn("Pending deposit processing deferred", String(deposit.chain), String(depositError).slice(0, 500));
+        pending++;
       }
     }
 
