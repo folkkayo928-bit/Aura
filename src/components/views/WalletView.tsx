@@ -635,7 +635,7 @@ export const WalletView: React.FC = () => {
               {withdrawalHistoryError && <div className="rounded-xl border border-rose-400/20 bg-rose-400/[0.04] p-3 text-xs text-rose-300">{withdrawalHistoryError}</div>}
               {!withdrawalHistoryBusy && !withdrawalHistoryError && withdrawalHistory.length === 0 && <div className="py-8 text-center text-xs text-stone-500">No withdrawal requests yet.</div>}
               {!withdrawalHistoryBusy && withdrawalHistory.map((w) => {
-                const explorerBase: Record<string, string> = { ethereum: 'https://etherscan.io/tx/', polygon: 'https://polygonscan.com/tx/', arbitrum: 'https://arbiscan.io/tx/' };
+                const explorerBase: Record<string, string> = { ethereum: 'https://etherscan.io/tx/', polygon: 'https://polygonscan.com/tx/', arbitrum: 'https://arbiscan.io/tx/', bsc: 'https://bscscan.com/tx/' };
                 const explorer = w.tx_hash && explorerBase[String(w.chain || '').toLowerCase()] ? explorerBase[String(w.chain).toLowerCase()] + w.tx_hash : null;
                 return (
                   <div key={w.id} className="rounded-2xl border border-white/10 bg-white/[.02] p-4">
