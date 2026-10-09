@@ -24,6 +24,7 @@ const explorerUrl = (chain: string | null | undefined, hash: string | null | und
     ethereum: 'https://etherscan.io/tx/',
     polygon: 'https://polygonscan.com/tx/',
     arbitrum: 'https://arbiscan.io/tx/',
+    bsc: 'https://bscscan.com/tx/',
   };
   return explorers[String(chain).toLowerCase()] ? explorers[String(chain).toLowerCase()] + hash : null;
 };
