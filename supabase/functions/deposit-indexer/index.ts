@@ -160,10 +160,11 @@ Deno.serve(async (req) => {
     }
 
     let detected = 0, confirmed = 0, credited = 0, pending = 0;
-    const standardScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_DEPOSIT_SCAN_BLOCKS") || "200"), 100), 1000);
-    const arbitrumScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_ARBITRUM_DEPOSIT_SCAN_BLOCKS") || "500"), 200), 1000);
-    // BSC and Arbitrum produce blocks quickly; larger bounded windows reduce cursor lag.
-    const bscScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_BSC_DEPOSIT_SCAN_BLOCKS") || "500"), 500), 1000);
+    // Startup backfills begin near wallet creation, so allow enough filtered history
+    // per minute to catch up without silently jumping over unscanned blocks.
+    const standardScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_DEPOSIT_SCAN_BLOCKS") || "2000"), 1000), 5000);
+    const arbitrumScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_ARBITRUM_DEPOSIT_SCAN_BLOCKS") || "5000"), 2000), 10000);
+    const bscScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_BSC_DEPOSIT_SCAN_BLOCKS") || "5000"), 2000), 10000);
     const chainResults: Array<Record<string, unknown>> = [];
 
     for (const [chain, tracked] of byChain) {
@@ -220,7 +221,8 @@ Deno.serve(async (req) => {
       // because its blocks arrive much faster than the once-per-minute cron.
       // Small chunks keep this compatible with restrictive RPC providers.
       const logs: any[] = [];
-      const maxLogRange = 10n;
+      // Filtered logs for all four configured USDT contracts were tested at 100-block ranges.
+      const maxLogRange = 100n;
       for (let chunkFrom = from; chunkFrom <= scanToBlock;) {
         const chunkTo = chunkFrom + maxLogRange - 1n < scanToBlock
           ? chunkFrom + maxLogRange - 1n
