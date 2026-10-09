@@ -37,9 +37,12 @@ async function rpc(url: string, method: string, params: unknown[]) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
-  if (!response.ok) throw new Error("RPC_HTTP_" + response.status);
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error("RPC_HTTP_" + response.status + ":" + detail);
+  }
   const payload = await response.json();
-  if (payload.error) throw new Error(payload.error.message || "RPC_ERROR");
+  if (payload.error) throw new Error("RPC_ERROR:" + String(payload.error.message || "unknown").slice(0, 300));
   return payload.result;
 }
 function padTopicAddress(address: string) {
