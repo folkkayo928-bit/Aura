@@ -26,10 +26,10 @@ async function alchemyKey(client: ReturnType<typeof db>) {
   return String(data || "").trim();
 }
 const BSC_READ_RPC_FALLBACKS = [
-  "https://public.1rpc.io/bnb",
-  "https://bsc-rpc.publicnode.com",
   "https://bsc.meowrpc.com",
   "https://bsc-mainnet.public.blastapi.io",
+  "https://bsc-rpc.publicnode.com",
+  "https://public.1rpc.io/bnb",
 ];
 function rpcUrl(chain: keyof typeof EVM, apiKey: string) {
   const configured = Deno.env.get(EVM[chain].rpc)?.trim();
@@ -116,26 +116,42 @@ Deno.serve(async (req) => {
 
     let detected = 0, confirmed = 0, credited = 0, pending = 0;
     const scanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_DEPOSIT_SCAN_BLOCKS") || "40"), 1), 200);
+    const bscScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_BSC_DEPOSIT_SCAN_BLOCKS") || "200"), 40), 200);
 
     for (const [chain, tracked] of byChain) {
-      const cfg = EVM[chain as keyof typeof EVM];
+      const typedChain = chain as keyof typeof EVM;
+      const cfg = EVM[typedChain];
       if (!cfg || tracked.length === 0) continue;
-      const rpcEndpoint = rpcUrl(chain as keyof typeof EVM, alchemy);
+      const rpcEndpoint = rpcUrl(typedChain, alchemy);
       if (!rpcEndpoint) continue;
+      const chainScanBlocks = typedChain === "bsc" ? bscScanBlocks : scanBlocks;
 
       try {
-      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", [], chain as keyof typeof EVM));
-      const from = latest >= BigInt(scanBlocks - 1) ? latest - BigInt(scanBlocks - 1) : 0n;
+      const latest = hexToBigInt(await rpc(rpcEndpoint, "eth_blockNumber", [], typedChain));
+      const cursorQuery = await client.from("wallet_deposit_scan_cursors")
+        .select("last_scanned_block").eq("chain", chain).maybeSingle();
+      if (cursorQuery.error) throw cursorQuery.error;
+      const cursorValue = cursorQuery.data?.last_scanned_block;
+      const from = cursorValue !== null && cursorValue !== undefined
+        ? BigInt(cursorValue) + 1n
+        : latest >= BigInt(chainScanBlocks - 1)
+          ? latest - BigInt(chainScanBlocks - 1)
+          : 0n;
+      if (from > latest) continue;
+      const scanToBlock = from + BigInt(chainScanBlocks) - 1n < latest
+        ? from + BigInt(chainScanBlocks) - 1n
+        : latest;
       const recipientTopics = [...new Set(tracked.map((w) => padTopicAddress(w.address)))];
 
-      // Alchemy Free tier limits eth_getLogs to a 10-block range. Scan the
-      // configured window in small chunks so deposits are not missed after a delayed run.
+      // Persist only a successfully scanned range. BSC gets a larger window
+      // because its blocks arrive much faster than the once-per-minute cron.
+      // Small chunks keep this compatible with restrictive RPC providers.
       const logs: any[] = [];
       const maxLogRange = 10n;
-      for (let chunkFrom = from; chunkFrom <= latest;) {
-        const chunkTo = chunkFrom + maxLogRange - 1n < latest
+      for (let chunkFrom = from; chunkFrom <= scanToBlock;) {
+        const chunkTo = chunkFrom + maxLogRange - 1n < scanToBlock
           ? chunkFrom + maxLogRange - 1n
-          : latest;
+          : scanToBlock;
         const chunkLogs = await rpc(rpcEndpoint, "eth_getLogs", [{
           fromBlock: "0x" + chunkFrom.toString(16),
           toBlock: "0x" + chunkTo.toString(16),
@@ -195,7 +211,12 @@ Deno.serve(async (req) => {
           if (error && !String(error.message).toLowerCase().includes("duplicate")) throw error;
           if (!error) detected++;
         }
-      }
+      const { error: cursorWriteError } = await client.from("wallet_deposit_scan_cursors").upsert({
+        chain,
+        last_scanned_block: scanToBlock.toString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "chain" });
+      if (cursorWriteError) throw cursorWriteError;
       } catch (chainError) {
         console.warn("Deposit scan skipped for chain", chain, String(chainError).slice(0, 500));
       }
