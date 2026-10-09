@@ -42,9 +42,19 @@ export const PaymentMethodsPanel: React.FC = () => {
 
   const load = async () => {
     setLoading(true);
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (authError || !userId) {
+      setMethods([]);
+      setLoading(false);
+      if (authError) setError('Could not verify your AURA session. Sign in again to manage payment methods.');
+      return;
+    }
+
     const { data, error: loadError } = await supabase
       .from('p2p_payment_methods')
       .select('id,method_type,label,account_holder_name,account_identifier,instructions,is_active')
+      .eq('user_id', userId)
       .eq('is_active', true)
       .order('updated_at', { ascending: false });
     if (loadError) setError(loadError.message);
@@ -52,7 +62,21 @@ export const PaymentMethodsPanel: React.FC = () => {
     setLoading(false);
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    // Clear private payment details immediately whenever the signed-in account changes.
+    // Defer the reload outside Supabase's auth callback to avoid auth-lock deadlocks.
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setMethods([]);
+      if (!session?.user) {
+        setLoading(false);
+        setEditing(null);
+        return;
+      }
+      window.setTimeout(() => { void load(); }, 0);
+    });
+    return () => authListener.subscription.unsubscribe();
+  }, []);
 
   const startEdit = (row: PaymentMethodRow) => {
     const isPreset = PRESET_PAYMENT_METHODS.some((p) => p.id === row.method_type);
@@ -125,10 +149,17 @@ export const PaymentMethodsPanel: React.FC = () => {
 
   const remove = async (id: string) => {
     setError('');
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (authError || !userId) {
+      setError('Your AURA session is missing or expired. Sign in again, then remove the payment method.');
+      return;
+    }
     const { error: removeError } = await supabase
       .from('p2p_payment_methods')
       .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
     if (removeError) { setError(removeError.message); return; }
     setMethods((current) => current.filter((m) => m.id !== id));
     if (editing?.id === id) resetForm();
