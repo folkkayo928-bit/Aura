@@ -40,9 +40,10 @@ function rpcUrl(chain: keyof typeof EVM, apiKey: string) {
   if (!apiKey) return "";
   return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
 }
+let preferredBscReadRpc: string | null = null;
 async function rpc(url: string, method: string, params: unknown[], chain?: keyof typeof EVM) {
   const endpoints = chain === "bsc"
-    ? [...new Set([url, ...BSC_READ_RPC_FALLBACKS])]
+    ? [...new Set([...(preferredBscReadRpc ? [preferredBscReadRpc] : []), url, ...BSC_READ_RPC_FALLBACKS])]
     : [url];
   let lastError: unknown = new Error("RPC_UNAVAILABLE");
   for (const endpoint of endpoints) {
@@ -61,6 +62,7 @@ async function rpc(url: string, method: string, params: unknown[], chain?: keyof
       if (payload.error) {
         throw new Error("RPC_ERROR:" + String(payload.error.message || "unknown").slice(0, 300));
       }
+      if (chain === "bsc") preferredBscReadRpc = endpoint;
       return payload.result;
     } catch (error) {
       lastError = error;
