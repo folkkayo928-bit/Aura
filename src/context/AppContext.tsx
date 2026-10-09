@@ -1385,14 +1385,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const sendInternalFunds = async (recipient: string, amount: number, idempotencyKey?: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
 
-    // Receive displays AURA deep links for easy sharing (aura.tg://handle).
-    // Resolve them to the underlying handle before calling the database RPC,
-    // which accepts a handle or Vault ID rather than the URI scheme.
-    const rawRecipient = recipient.trim();
-    const deepLinkPrefix = 'aura.tg://';
-    const normalizedRecipient = rawRecipient.slice(0, deepLinkPrefix.length).toLowerCase() === deepLinkPrefix
-      ? rawRecipient.slice(deepLinkPrefix.length).trim()
-      : rawRecipient;
+    // Preserve the full aura.tg:// Vault ID: the database resolves this exact
+    // value against profiles.vault_id. Stripping the scheme breaks Vault-ID lookup.
+    const normalizedRecipient = recipient.trim();
     if (!normalizedRecipient) { addNotification('Transfer Error', 'Enter an AURA handle or Vault ID.', 'community'); return false; }
     const amountAtWalletPrecision = Number.isFinite(amount) ? Number(amount.toFixed(8)) : Number.NaN;
     if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount - amountAtWalletPrecision) > 1e-12) {
