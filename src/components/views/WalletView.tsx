@@ -232,7 +232,7 @@ export const WalletView: React.FC = () => {
             </div>
             <div>
               <div className="text-sm font-semibold text-stone-100">Withdraw USDT</div>
-              <div className="text-[11px] text-stone-400">Secure request · email confirmation required</div>
+              <div className="text-[11px] text-stone-400">Secure request · confirm via Telegram or email</div>
             </div>
           </div>
           <ChevronRight className="w-5 h-5 text-stone-500" />
@@ -548,7 +548,7 @@ export const WalletView: React.FC = () => {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-lg font-semibold text-stone-100">Withdraw USDT</h3>
-                <p className="text-[11px] text-stone-400 mt-1">Funds are reserved until email confirmation. If you enabled Google Authenticator, AURA will also require your current 6-digit authenticator code before the request can continue.</p>
+                <p className="text-[11px] text-stone-400 mt-1">Funds are reserved until you confirm through Telegram or email. If you enabled Google Authenticator, AURA will also require your current 6-digit authenticator code before the request can continue.</p>
               </div>
               <button onClick={() => setWithdrawOpen(false)} className="text-stone-400 text-sm">Close</button>
             </div>
@@ -649,7 +649,7 @@ export const WalletView: React.FC = () => {
                     </div>
                     <div className="mt-3 text-[10px] text-stone-500 break-all">{w.destination_address}</div>
                     <div className="mt-3 space-y-1 text-[10px] text-stone-500">
-                      <div>Email confirmation: <span className="text-stone-300">{w.email_confirmed_at ? new Date(w.email_confirmed_at).toLocaleString() : 'Not confirmed yet'}</span></div>
+                      <div>Confirmation: <span className="text-stone-300">{w.email_confirmed_at ? new Date(w.email_confirmed_at).toLocaleString() : 'Not confirmed yet'}</span></div>
                       <div>Blockchain broadcast: <span className="text-stone-300">{w.broadcast_at ? new Date(w.broadcast_at).toLocaleString() : 'Not broadcast yet'}</span></div>
                       <div>On-chain confirmation: <span className="text-stone-300">{w.confirmed_onchain_at ? new Date(w.confirmed_onchain_at).toLocaleString() : 'Awaiting confirmation'}</span></div>
                     </div>
