@@ -187,14 +187,29 @@ Deno.serve(async (req) => {
 
         const confirmations = latest >= hexToBigInt(receipt.blockNumber)
           ? Number(latest - hexToBigInt(receipt.blockNumber) + 1n) : 0;
-        const amount = decimalFromUnits(item.amount_units, cfg.tokenDecimals);
-        // AURA wallet accounting supports at most six USDT decimals.
-        // Do not silently round or mis-credit BSC's 18-decimal token amounts.
-        const walletPrecisionScale = 10n ** BigInt(cfg.tokenDecimals - 6);
-        if (cfg.tokenDecimals > 6 && item.amount_units % walletPrecisionScale !== 0n) {
-          console.warn("Deposit amount exceeds AURA wallet precision; manual reconciliation required", item.tx_hash);
+        // Wallet balances and ledger rows are stored as NUMERIC(..., 8).
+        // Keep the original on-chain amount available from the tx hash, but
+        // floor the amount credited to the wallet's supported 8-decimal precision.
+        // Reject only deposits too small to represent at that precision.
+        const walletDecimals = 8;
+        const walletPrecisionScale = cfg.tokenDecimals > walletDecimals
+          ? 10n ** BigInt(cfg.tokenDecimals - walletDecimals)
+          : 1n;
+        const creditUnits = (item.amount_units / walletPrecisionScale) * walletPrecisionScale;
+        if (creditUnits <= 0n) {
+          console.warn("Deposit is below AURA wallet precision; manual reconciliation required", item.tx_hash);
           continue;
         }
+        if (creditUnits !== item.amount_units) {
+          console.warn("Deposit amount normalized down to AURA wallet precision", {
+            tx_hash: item.tx_hash,
+            chain,
+            on_chain_amount: decimalFromUnits(item.amount_units, cfg.tokenDecimals),
+            credited_amount: decimalFromUnits(creditUnits, cfg.tokenDecimals),
+            discarded_subprecision_units: (item.amount_units - creditUnits).toString(),
+          });
+        }
+        const amount = decimalFromUnits(creditUnits, cfg.tokenDecimals);
 
         const { data: existing } = await client.from("wallet_deposits")
           .select("id,status,credited_at")
