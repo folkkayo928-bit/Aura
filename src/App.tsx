@@ -99,7 +99,14 @@ const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ childre
         let errorMessage = '';
         try {
           // Sign out the old identity before creating a session for this one.
-          if (telegramSessionMismatch && user) await signOut();
+          // AuthContext records explicit Telegram sign-outs to prevent auto-login;
+          // this is an account switch, so clear that marker after signOut or a
+          // transient auth/network error would block the current account on reload.
+          if (telegramSessionMismatch && user) {
+            try { sessionStorage.removeItem('aura_telegram_signed_out_id'); } catch {}
+            await signOut();
+            try { sessionStorage.removeItem('aura_telegram_signed_out_id'); } catch {}
+          }
 
           const result = await signInWithTelegram();
           if (result.error) {
