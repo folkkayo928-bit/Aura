@@ -213,6 +213,7 @@ Deno.serve(async (req) => {
           if (error && !String(error.message).toLowerCase().includes("duplicate")) throw error;
           if (!error) detected++;
         }
+      }
       const { error: cursorWriteError } = await client.from("wallet_deposit_scan_cursors").upsert({
         chain,
         last_scanned_block: scanToBlock.toString(),
