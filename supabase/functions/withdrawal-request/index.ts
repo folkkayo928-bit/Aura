@@ -1,5 +1,142 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer";
+import { createPublicClient, http, parseUnits, type Address } from "npm:viem@2";
+import { privateKeyToAccount } from "npm:viem@2/accounts";
+
+const ERC20_ABI = [{
+  type: "function",
+  name: "balanceOf",
+  stateMutability: "view",
+  inputs: [{ name: "account", type: "address" }],
+  outputs: [{ name: "", type: "uint256" }],
+}, {
+  type: "function",
+  name: "transfer",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }],
+  outputs: [{ name: "", type: "bool" }],
+}] as const;
+
+const WITHDRAWAL_CHAINS = {
+  ethereum: {
+    id: 1, name: "Ethereum", native: "ETH", decimals: 6,
+    token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" as Address,
+    rpcEnv: "AURA_EVM_RPC_ETHEREUM", treasuryEnv: "AURA_EVM_TREASURY_ETHEREUM",
+    fallbackRpc: "https://ethereum-rpc.publicnode.com",
+  },
+  polygon: {
+    id: 137, name: "Polygon", native: "POL", decimals: 6,
+    token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" as Address,
+    rpcEnv: "AURA_EVM_RPC_POLYGON", treasuryEnv: "AURA_EVM_TREASURY_POLYGON",
+    fallbackRpc: "https://polygon-bor-rpc.publicnode.com",
+  },
+  arbitrum: {
+    id: 42161, name: "Arbitrum", native: "ETH", decimals: 6,
+    token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" as Address,
+    rpcEnv: "AURA_EVM_RPC_ARBITRUM", treasuryEnv: "AURA_EVM_TREASURY_ARBITRUM",
+    fallbackRpc: "https://arb1.arbitrum.io/rpc",
+  },
+  bsc: {
+    id: 56, name: "BNB Smart Chain", native: "BNB", decimals: 18,
+    token: "0x55d398326f99059fF775485246999027B3197955" as Address,
+    rpcEnv: "AURA_EVM_RPC_BSC", treasuryEnv: "AURA_EVM_TREASURY_BSC",
+    fallbackRpc: "https://bsc-rpc.publicnode.com",
+  },
+} as const;
+
+async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAINS, destination: string, amount: number) {
+  const config = WITHDRAWAL_CHAINS[chainName];
+  const privateKey = Deno.env.get("AURA_EVM_PRIVATE_KEY")?.trim();
+  if (!privateKey) {
+    return {
+      status: 503,
+      error: "WITHDRAWAL_BROADCASTER_NOT_CONFIGURED",
+      message: "AURA's secure withdrawal signer is not configured. No funds have been reserved; please try again later.",
+    };
+  }
+
+  const treasury = Deno.env.get(config.treasuryEnv)?.trim();
+  if (!treasury || !/^0x[a-fA-F0-9]{40}$/.test(treasury)) {
+    return {
+      status: 503,
+      error: "WITHDRAWAL_TREASURY_NOT_CONFIGURED",
+      message: "The selected network's AURA treasury is not configured. No funds have been reserved.",
+    };
+  }
+
+  let signer;
+  try {
+    signer = privateKeyToAccount(privateKey as `0x${string}`);
+  } catch {
+    return {
+      status: 503,
+      error: "WITHDRAWAL_SIGNER_INVALID",
+      message: "AURA could not validate its secure withdrawal signer. No funds have been reserved.",
+    };
+  }
+
+  if (signer.address.toLowerCase() !== treasury.toLowerCase()) {
+    return {
+      status: 503,
+      error: "WITHDRAWAL_TREASURY_SIGNER_MISMATCH",
+      message: "AURA's withdrawal signer does not match the configured network treasury. No funds have been reserved.",
+    };
+  }
+
+  const rpcUrl = Deno.env.get(config.rpcEnv)?.trim() || config.fallbackRpc;
+  try {
+    const chain = {
+      id: config.id,
+      name: config.name,
+      nativeCurrency: { name: config.native, symbol: config.native, decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    } as const;
+    const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 10_000 }) });
+    const tokenAmount = parseUnits(String(amount), config.decimals);
+    const [balance, nativeBalance] = await Promise.all([
+      client.readContract({
+        address: config.token,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [signer.address],
+      }),
+      client.getBalance({ address: signer.address }),
+    ]);
+
+    if (balance < tokenAmount) {
+      return {
+        status: 409,
+        error: "WITHDRAWAL_LIQUIDITY_UNAVAILABLE",
+        message: `AURA's ${config.name} treasury does not currently have enough USDT available. No funds have been reserved.`,
+      };
+    }
+
+    if (nativeBalance === 0n) {
+      return {
+        status: 409,
+        error: "WITHDRAWAL_GAS_UNAVAILABLE",
+        message: `AURA's ${config.name} treasury has no native gas token available. No funds have been reserved.`,
+      };
+    }
+
+    // Estimate the actual USDT send before reserving the user's internal funds.
+    await client.estimateContractGas({
+      account: signer,
+      address: config.token,
+      abi: ERC20_ABI,
+      functionName: "transfer",
+      args: [destination as Address, tokenAmount],
+    });
+
+    return null;
+  } catch {
+    return {
+      status: 503,
+      error: "WITHDRAWAL_READINESS_CHECK_FAILED",
+      message: "AURA could not verify the selected network's USDT and gas readiness. No funds have been reserved.",
+    };
+  }
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -56,6 +193,20 @@ Deno.serve(async (req) => {
     }
     if (!/^0x[a-fA-F0-9]{40}$/.test(destinationAddress)) {
       return json({ error: "INVALID_EVM_DESTINATION_ADDRESS" }, 400);
+    }
+
+    // Never reserve internal USDT until the actual network signer, treasury,
+    // token liquidity, and gas readiness have been verified for this chain.
+    const readinessError = await withdrawalReadinessError(
+      chain as keyof typeof WITHDRAWAL_CHAINS,
+      destinationAddress,
+      amount,
+    );
+    if (readinessError) {
+      return json({
+        error: readinessError.error,
+        message: readinessError.message,
+      }, readinessError.status);
     }
 
     const { data: userData, error: userError } = await userClient.auth.getUser();
