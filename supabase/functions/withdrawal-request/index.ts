@@ -83,7 +83,19 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
     };
   }
 
-  const rpcUrl = Deno.env.get(config.rpcEnv)?.trim() || config.fallbackRpc;
+  // Match the broadcaster's actual RPC behavior. Only BSC currently has an
+  // explicitly supported built-in RPC fallback; don't reserve funds when the
+  // worker would otherwise leave the request queued forever.
+  const configuredRpc = Deno.env.get(config.rpcEnv)?.trim();
+  const rpcUrl = configuredRpc || (chainName === "bsc" ? config.fallbackRpc : "");
+  if (!rpcUrl) {
+    return {
+      status: 503,
+      error: "WITHDRAWAL_RPC_NOT_CONFIGURED",
+      message: `AURA's ${config.name} RPC is not configured. No funds have been reserved.`,
+    };
+  }
+
   try {
     const chain = {
       id: config.id,
@@ -111,22 +123,25 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
       };
     }
 
-    if (nativeBalance === 0n) {
+    // Estimate the actual USDT send and require enough native token for gas
+    // before any internal funds are reserved.
+    const [gasEstimate, gasPrice] = await Promise.all([
+      client.estimateContractGas({
+        account: signer,
+        address: config.token,
+        abi: ERC20_ABI,
+        functionName: "transfer",
+        args: [destination as Address, tokenAmount],
+      }),
+      client.getGasPrice(),
+    ]);
+    if (nativeBalance < gasEstimate * gasPrice) {
       return {
         status: 409,
         error: "WITHDRAWAL_GAS_UNAVAILABLE",
-        message: `AURA's ${config.name} treasury has no native gas token available. No funds have been reserved.`,
+        message: `AURA's ${config.name} treasury does not have enough native gas token available. No funds have been reserved.`,
       };
     }
-
-    // Estimate the actual USDT send before reserving the user's internal funds.
-    await client.estimateContractGas({
-      account: signer,
-      address: config.token,
-      abi: ERC20_ABI,
-      functionName: "transfer",
-      args: [destination as Address, tokenAmount],
-    });
 
     return null;
   } catch {
