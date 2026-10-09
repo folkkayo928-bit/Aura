@@ -1420,9 +1420,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const sendInternalFunds = async (recipient: string, amount: number, idempotencyKey?: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
 
-    // Preserve the full aura.tg:// Vault ID: the database resolves this exact
-    // value against profiles.vault_id. Stripping the scheme breaks Vault-ID lookup.
-    const normalizedRecipient = recipient.trim();
+    // Vault IDs in the database use the canonical aura.tg://<10-character-id>
+    // form. Accept that exact value, a bare 10-character ID, or an older
+    // aura.tg://vault/<id> share format. Keep @handles unchanged.
+    const enteredRecipient = recipient.trim();
+    const vaultIdMatch = enteredRecipient.match(/^(?:aura\.tg:\/\/(?:vault\/)?)?([a-z0-9_-]{10})$/i);
+    const normalizedRecipient = vaultIdMatch
+      ? `aura.tg://${vaultIdMatch[1]}`
+      : enteredRecipient;
     if (!normalizedRecipient) { addNotification('Transfer Error', 'Enter an AURA handle or Vault ID.', 'community'); return false; }
     const amountAtWalletPrecision = Number.isFinite(amount) ? Number(amount.toFixed(8)) : Number.NaN;
     if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount - amountAtWalletPrecision) > 1e-12) {
