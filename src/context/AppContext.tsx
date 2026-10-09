@@ -1384,13 +1384,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const sendInternalFunds = async (recipient: string, amount: number, idempotencyKey?: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
-    if (!recipient.trim()) { addNotification('Transfer Error', 'Enter an AURA handle or Vault ID.', 'community'); return false; }
+
+    // Receive displays AURA deep links for easy sharing (aura.tg://handle).
+    // Resolve them to the underlying handle before calling the database RPC,
+    // which accepts a handle or Vault ID rather than the URI scheme.
+    const normalizedRecipient = recipient.trim().replace(/^aura\\.tg:\/\//i, '').trim();
+    if (!normalizedRecipient) { addNotification('Transfer Error', 'Enter an AURA handle or Vault ID.', 'community'); return false; }
     const amountAtWalletPrecision = Number.isFinite(amount) ? Number(amount.toFixed(8)) : Number.NaN;
     if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount - amountAtWalletPrecision) > 1e-12) {
       addNotification('Transfer Error', 'Enter a valid USDT amount with at most 8 decimal places.', 'community'); return false;
     }
     if (!idempotencyKey) { addNotification('Transfer Error', 'Could not secure this transfer request. Please try again.', 'community'); return false; }
-    const { data, error } = await supabase.rpc('internal_transfer', { p_recipient: recipient.trim(), p_amount_usdt: amount, p_idempotency_key: idempotencyKey });
+    const { data, error } = await supabase.rpc('internal_transfer', { p_recipient: normalizedRecipient, p_amount_usdt: amount, p_idempotency_key: idempotencyKey });
     if (error || !(data as any)?.ok) {
       const message = error?.message || 'TRANSFER_FAILED';
       const friendly: Record<string, string> = {
