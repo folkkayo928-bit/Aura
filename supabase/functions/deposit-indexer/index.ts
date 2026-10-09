@@ -96,12 +96,23 @@ Deno.serve(async (req) => {
       const from = latest >= BigInt(scanBlocks - 1) ? latest - BigInt(scanBlocks - 1) : 0n;
       const recipientTopics = [...new Set(tracked.map((w) => padTopicAddress(w.address)))];
 
-      const logs = await rpc(rpcEndpoint, "eth_getLogs", [{
-        fromBlock: "0x" + from.toString(16),
-        toBlock: "0x" + latest.toString(16),
-        address: cfg.token,
-        topics: [ERC20_TRANSFER_TOPIC, null, recipientTopics],
-      }]);
+      // Alchemy Free tier limits eth_getLogs to a 10-block range. Scan the
+      // configured window in small chunks so deposits are not missed after a delayed run.
+      const logs: any[] = [];
+      const maxLogRange = 10n;
+      for (let chunkFrom = from; chunkFrom <= latest;) {
+        const chunkTo = chunkFrom + maxLogRange - 1n < latest
+          ? chunkFrom + maxLogRange - 1n
+          : latest;
+        const chunkLogs = await rpc(rpcEndpoint, "eth_getLogs", [{
+          fromBlock: "0x" + chunkFrom.toString(16),
+          toBlock: "0x" + chunkTo.toString(16),
+          address: cfg.token,
+          topics: [ERC20_TRANSFER_TOPIC, null, recipientTopics],
+        }]);
+        if (Array.isArray(chunkLogs)) logs.push(...chunkLogs);
+        chunkFrom = chunkTo + 1n;
+      }
 
       const userByAddress = new Map(tracked.map((w) => [w.address, w.user_id]));
       const grouped = new Map<string, { user_id: string; destination_address: string; tx_hash: string; amount_units: bigint }>();
