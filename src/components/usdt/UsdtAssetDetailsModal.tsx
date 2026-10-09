@@ -48,6 +48,11 @@ export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ is
       standard: 'Arbitrum One',
       explorer: 'https://arbiscan.io/token/0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
     },
+    bsc: {
+      address: '0x55d398326f99059fF775485246999027B3197955',
+      standard: 'BEP-20 · BNB Smart Chain',
+      explorer: 'https://bscscan.com/token/0x55d398326f99059ff775485246999027b3197955',
+    },
     solana: {
       address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
       standard: 'SPL Token',
@@ -163,18 +168,18 @@ export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ is
           </div>
 
           {/* Network Switcher */}
-          <div className="grid grid-cols-3 gap-1 p-1 bg-white/5 rounded-xl border border-white/5 font-mono text-[11px]">
-            {(['ton', 'polygon', 'ethereum'] as const).map((net) => (
+          <div className="grid grid-cols-3 gap-1 p-1 bg-white/5 rounded-xl border border-white/5 font-mono text-[10px]">
+            {(['ton', 'polygon', 'ethereum', 'arbitrum', 'bsc', 'solana'] as const).map((net) => (
               <button
                 key={net}
                 onClick={() => setSelectedNetwork(net)}
-                className={`py-1 rounded-lg uppercase transition-all ${
+                className={`py-1.5 rounded-lg uppercase transition-all ${
                   selectedNetwork === net
                     ? 'bg-emerald-500 text-stone-950 font-bold'
                     : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
-                {net === 'ton' ? 'TON' : net === 'polygon' ? 'Polygon' : 'ETH'}
+                {net === 'ton' ? 'TON' : net === 'polygon' ? 'Polygon' : net === 'ethereum' ? 'ETH' : net === 'arbitrum' ? 'Arbitrum' : net === 'bsc' ? 'BNB Chain' : 'Solana'}
               </button>
             ))}
           </div>
