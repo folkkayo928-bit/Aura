@@ -69,7 +69,11 @@ const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Without signed Mini App initData, don't guess which Telegram identity is
     // active. The server verifies initData before it issues a Supabase session.
-    if (!initData || !/^\\d{1,20}$/.test(telegramId)) {
+    if (!initData || !/^\d{1,20}$/.test(telegramId)) {
+      setIdentityError('Telegram did not provide a valid signed Mini App session. Reopen AURA from Telegram and retry.');
+      setIdentityStatus('error');
+      return;
+    }
       setIdentityStatus('ready');
       return;
     }
