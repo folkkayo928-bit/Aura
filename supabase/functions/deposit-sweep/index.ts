@@ -147,7 +147,10 @@ Deno.serve(async (req) => {
         .from("wallet_deposits")
         .select("id,user_id,amount,destination_address,sweep_status,sweep_tx_hash")
         .eq("chain", chain)
-        .eq("status", "confirmed")
+        // Credits are stored with status="credited" after the internal ledger
+        // posts. Accept the earlier "confirmed" state too, but always require
+        // credited_at so uncredited deposits can never be swept.
+        .in("status", ["confirmed", "credited"])
         .not("credited_at", "is", null)
         .in("sweep_status", ["pending", "failed"])
         .is("sweep_tx_hash", null)
