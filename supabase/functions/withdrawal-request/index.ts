@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     // Telegram is the primary confirmation channel for Mini App users.
     // The numeric ID comes from the server-side linked profile, never the request body.
-    if (/^\\d{1,20}$/.test(telegramUserId)) {
+    if (/^\d{1,20}$/.test(telegramUserId)) {
       const { data: notifySecret, error: notifySecretError } = await adminClient.rpc("get_aura_telegram_notify_secret");
       if (!notifySecretError && notifySecret) {
         try {
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               telegram_user_id: telegramUserId,
               title: "Confirm your USDT withdrawal",
-              message: `You requested ${amount.toFixed(6)} USDT on ${chain.toUpperCase()}.\\nDestination: ${destinationAddress}\\nYour funds are reserved. Nothing will be sent until you confirm. This link expires in 30 minutes.`,
+              message: `You requested ${amount.toFixed(6)} USDT on ${chain.toUpperCase()}.\nDestination: ${destinationAddress}\nYour funds are reserved. Nothing will be sent until you confirm. This link expires in 30 minutes.`,
               confirm_url: confirmUrl,
             }),
             signal: AbortSignal.timeout(10000),
