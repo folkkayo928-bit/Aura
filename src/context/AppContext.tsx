@@ -1388,7 +1388,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Receive displays AURA deep links for easy sharing (aura.tg://handle).
     // Resolve them to the underlying handle before calling the database RPC,
     // which accepts a handle or Vault ID rather than the URI scheme.
-    const normalizedRecipient = recipient.trim().replace(/^aura\\.tg:\/\//i, '').trim();
+const rawRecipient = recipient.trim();
+    const deepLinkPrefix = 'aura.tg://';
+    const normalizedRecipient = rawRecipient.slice(0, deepLinkPrefix.length).toLowerCase() === deepLinkPrefix
+      ? rawRecipient.slice(deepLinkPrefix.length).trim()
+      : rawRecipient;
     if (!normalizedRecipient) { addNotification('Transfer Error', 'Enter an AURA handle or Vault ID.', 'community'); return false; }
     const amountAtWalletPrecision = Number.isFinite(amount) ? Number(amount.toFixed(8)) : Number.NaN;
     if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount - amountAtWalletPrecision) > 1e-12) {
