@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { supabase } from './lib/supabase';
 import { AuthModal } from './components/auth/AuthModal';
 import { MfaSessionGate } from './components/auth/MfaSessionGate';
 import { P2POffer } from './types';
@@ -107,7 +108,7 @@ const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ childre
             errorMessage = 'The Telegram account returned by authentication did not match this Mini App.';
             await signOut();
           } else {
-            const { data: activeSession, error: sessionError } = await (await import('./lib/supabase')).supabase.auth.getUser();
+            const { data: activeSession, error: sessionError } = await supabase.auth.getUser();
             const activeTelegramId = String(activeSession.user?.user_metadata?.telegram_id || '').trim();
             if (sessionError || !activeSession.user || activeTelegramId !== telegramId) {
               errorMessage = 'AURA could not verify that the active session belongs to this Telegram account.';
