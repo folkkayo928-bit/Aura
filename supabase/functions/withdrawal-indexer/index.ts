@@ -103,12 +103,12 @@ Deno.serve(async (req) => {
           continue;
         }
         if (receipt.status !== "0x1") {
-          await client.from("wallet_withdrawals").update({
-            status: "rejected",
-            rejection_reason: "ONCHAIN_TRANSACTION_REVERTED",
-            last_worker_error: "The broadcast transaction was mined but reverted.",
-            updated_at: new Date().toISOString(),
-          }).eq("id", withdrawalId).eq("status", "broadcast");
+          const { data: refundResult, error: refundError } = await client.rpc("refund_reverted_wallet_withdrawal", {
+            p_withdrawal_id: withdrawalId,
+          });
+          if (refundError || !refundResult?.ok) {
+            throw new Error(refundError?.message || "WITHDRAWAL_REFUND_FAILED");
+          }
           await client.rpc("aura_worker_delete_confirmation_message", { p_msg_id: msgId });
           failed++;
           continue;
