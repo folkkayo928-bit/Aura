@@ -118,7 +118,9 @@ Deno.serve(async (req) => {
 
     let detected = 0, confirmed = 0, credited = 0, pending = 0;
     const scanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_DEPOSIT_SCAN_BLOCKS") || "40"), 1), 200);
-    const bscScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_BSC_DEPOSIT_SCAN_BLOCKS") || "200"), 40), 200);
+    // BSC produces hundreds of blocks per minute; keep the per-minute scanner ahead of the chain.
+    // Permit higher values up to 1000, but do not let configuration fall below 500.
+    const bscScanBlocks = Math.min(Math.max(Number(Deno.env.get("AURA_BSC_DEPOSIT_SCAN_BLOCKS") || "500"), 500), 1000);
 
     for (const [chain, tracked] of byChain) {
       const typedChain = chain as keyof typeof EVM;
