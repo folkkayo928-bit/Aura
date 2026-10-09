@@ -3,10 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
 const EVM = {
-  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", alchemy: "eth-mainnet", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
-  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", alchemy: "polygon-mainnet", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
-  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", alchemy: "arb-mainnet", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9" },
-  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", alchemy: "bnb-mainnet", token: "0x55d398326f99059fF775485246999027B3197955" },
+  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", alchemy: "eth-mainnet", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
+  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", alchemy: "polygon-mainnet", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
+  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", alchemy: "arb-mainnet", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", alchemy: "bnb-mainnet", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
 } as const;
 
 function secretKey() {
@@ -138,7 +138,14 @@ Deno.serve(async (req) => {
 
         const confirmations = latest >= hexToBigInt(receipt.blockNumber)
           ? Number(latest - hexToBigInt(receipt.blockNumber) + 1n) : 0;
-        const amount = decimalFromUnits(item.amount_units);
+        const amount = decimalFromUnits(item.amount_units, cfg.tokenDecimals);
+        // AURA wallet accounting supports at most six USDT decimals.
+        // Do not silently round or mis-credit BSC's 18-decimal token amounts.
+        const walletPrecisionScale = 10n ** BigInt(cfg.tokenDecimals - 6);
+        if (cfg.tokenDecimals > 6 && item.amount_units % walletPrecisionScale !== 0n) {
+          console.warn("Deposit amount exceeds AURA wallet precision; manual reconciliation required", item.tx_hash);
+          continue;
+        }
 
         const { data: existing } = await client.from("wallet_deposits")
           .select("id,status,credited_at")
