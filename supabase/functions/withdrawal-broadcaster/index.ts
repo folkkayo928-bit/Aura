@@ -47,7 +47,7 @@ Deno.serve(async (req)=>{
    if(!cfg){ await db.from("wallet_withdrawals").update({status:"rejected",rejection_reason:"CHAIN_BROADCASTER_NOT_CONFIGURED",last_worker_error:"No secure broadcaster adapter is configured for this chain.",updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); await db.rpc("aura_worker_delete_withdrawal_message",{p_msg_id:msgId});
     await notifyTelegramWithdrawal(db, String(w.user_id), "Withdrawal could not be processed", "This withdrawal network is not currently configured for secure broadcasting. Please contact AURA support; your reserved funds require review.");
     rejected++;processed++;continue; }
-   const rpcUrl=Deno.env.get(cfg.rpcEnv)?.trim() || (String(w.chain).toLowerCase()==="bsc" ? "https://bnb-mainnet.g.alchemy.com/public" : ""); const privateKey=Deno.env.get("AURA_EVM_PRIVATE_KEY");
+   const rpcUrl=Deno.env.get(cfg.rpcEnv)?.trim() || (String(w.chain).toLowerCase()==="bsc" ? "https://bsc-rpc.publicnode.com" : ""); const privateKey=Deno.env.get("AURA_EVM_PRIVATE_KEY");
    if(!rpcUrl||!privateKey){ await db.from("wallet_withdrawals").update({confirmation_attempts:Number(w.confirmation_attempts||0)+1,last_worker_error:"EVM broadcaster credentials are not configured; withdrawal remains queued.",next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); deferred++;processed++;continue; }
    try {
     const chain=chainObject(cfg,rpcUrl); const account=privateKeyToAccount(privateKey as `0x${string}`);
