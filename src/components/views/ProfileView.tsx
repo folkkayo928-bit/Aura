@@ -13,13 +13,11 @@ import {
   FileCheck,
   CheckCircle2,
   Copy,
-  Check,
   X,
   Settings,
   Key,
   Link as LinkIcon,
   ArrowUpDown,
-  Share2,
   Globe2,
   LockKeyhole,
   Users,
@@ -54,7 +52,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
   const { user, signOut } = useAuth();
   const [selectedCertArtwork, setSelectedCertArtwork] = useState<Artwork | null>(null);
   const [copied, setCopied] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileMode, setProfileMode] = useState<'private' | 'public'>('private');
   const [profileSection, setProfileSection] = useState<'collection' | 'created' | 'collections' | 'activity'>('collection');
@@ -154,28 +151,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
       </div>
 
       {/* CLEAN PROFILE ACTION BAR */}
-      <div className="flex items-center gap-2 px-1">
+      <div className="px-1">
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-semibold text-stone-100 hover:bg-white/[0.07]"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs font-semibold text-stone-100 hover:bg-white/[0.07]"
         >
           <Menu className="h-4 w-4 text-amber-300" />
           Profile menu
-        </button>
-        <button
-          type="button"
-          onClick={async () => {
-            const shareUrl = window.location.origin + '/#profile/' + encodeURIComponent(userProfile.telegramHandle.replace('@', ''));
-            try {
-              if (navigator.share) await navigator.share({ title: userProfile.name + ' · AURA', text: userProfile.bio, url: shareUrl });
-              else { await navigator.clipboard?.writeText(shareUrl); setShareCopied(true); setTimeout(() => setShareCopied(false), 1800); }
-            } catch {}
-          }}
-          className="shrink-0 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-amber-300"
-          aria-label="Share profile"
-        >
-          {shareCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
         </button>
       </div>
 
@@ -183,7 +166,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
       {menuOpen && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm" onClick={() => setMenuOpen(false)}>
           <div
-            className="w-full max-w-xl rounded-t-3xl border border-white/10 bg-[#12121a] p-4 pb-7 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+            className="w-full max-w-xl max-h-[90dvh] overflow-y-auto overscroll-contain rounded-t-3xl border border-white/10 bg-[#12121a] p-4 pb-7 shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/15" />
