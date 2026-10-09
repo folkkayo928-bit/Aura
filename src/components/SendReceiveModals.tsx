@@ -1,4 +1,14 @@
 import React, { useState } from 'react';
+
+const formatWalletAmount = (value: number, decimals: 6 | 8 = 8): string => {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  // wallet_accounts.balance_usdt is NUMERIC(..., 8). Slice the stored precision
+  // instead of rounding upward when filling a Max amount for a 6-decimal network.
+  const stored = value.toFixed(8);
+  const [whole, fraction = ''] = stored.split('.');
+  const visibleFraction = fraction.slice(0, decimals).replace(/0+$/, '');
+  return visibleFraction ? `${whole}.${visibleFraction}` : whole;
+};
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -195,13 +205,13 @@ export const SendModal: React.FC = () => {
             <div>
               <div className="flex items-center justify-between text-xs text-stone-400 mb-1.5">
                 <span>Amount (USDT)</span>
-                <span className="font-mono">Available: ${walletBalance.toFixed(2)}</span>
+                <span className="font-mono">Available: ${formatWalletAmount(walletBalance, mode === 'internal' ? 8 : 6)}</span>
               </div>
               <div className="relative">
                 <input
                   type="number"
-                  step="0.000001"
-                  min="0.000001"
+                  step={mode === 'internal' ? '0.00000001' : '0.000001'}
+                  min={mode === 'internal' ? '0.00000001' : '0.000001'}
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => { setAmount(e.target.value); setTransferRequestId(crypto.randomUUID()); }}
@@ -210,7 +220,7 @@ export const SendModal: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setAmount(Math.max(0, walletBalance).toFixed(2))}
+                  onClick={() => setAmount(formatWalletAmount(Math.max(0, walletBalance), mode === 'internal' ? 8 : 6))}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/10 text-stone-300 hover:text-white"
                 >
                   Max
