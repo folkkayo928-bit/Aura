@@ -173,6 +173,60 @@ app.post('/api/internal/telegram/drop-notify', async (req, res) => {
   return res.json({ ok: true, sent, failed, sent_ids: sentIds });
 });
 
+app.post('/api/internal/telegram/withdrawal-notify', async (req, res) => {
+  if (!TELEGRAM_NOTIFY_SECRET || req.get('x-aura-telegram-notify-secret') !== TELEGRAM_NOTIFY_SECRET) {
+    return res.sendStatus(403);
+  }
+  if (!BOT_TOKEN) return res.status(503).json({ ok: false, error: 'TELEGRAM_BOT_NOT_CONFIGURED' });
+
+  const chatId = String(req.body?.telegram_user_id || '').trim();
+  const title = String(req.body?.title || '').trim().slice(0, 120);
+  const message = String(req.body?.message || '').trim().slice(0, 1800);
+  const confirmUrl = String(req.body?.confirm_url || '').trim();
+  if (!/^\\d{1,20}$/.test(chatId) || !title || !message) {
+    return res.status(400).json({ ok: false, error: 'INVALID_NOTIFICATION' });
+  }
+
+  let safeConfirmUrl = '';
+  if (confirmUrl) {
+    try {
+      const parsed = new URL(confirmUrl);
+      if (parsed.protocol !== 'https:' ||
+          !parsed.hostname.endsWith('.supabase.co') ||
+          parsed.pathname !== '/functions/v1/withdrawal-confirm' ||
+          !parsed.searchParams.get('token') ||
+          parsed.searchParams.get('token').length < 32) {
+        return res.status(400).json({ ok: false, error: 'INVALID_CONFIRMATION_URL' });
+      }
+      safeConfirmUrl = parsed.toString();
+    } catch {
+      return res.status(400).json({ ok: false, error: 'INVALID_CONFIRMATION_URL' });
+    }
+  }
+
+  try {
+    const keyboard = safeConfirmUrl
+      ? [[{ text: '🔐 Confirm withdrawal', url: safeConfirmUrl }]]
+      : (WEBAPP_URL ? [[{ text: '🚀 Open AURA', web_app: { url: WEBAPP_URL } }]] : []);
+    await telegram('sendMessage', {
+      chat_id: chatId,
+      text: `✨ AURA VAULT\\n\\n${title}\\n\\n${message}\\n\\n🔐 If you did not request this, do not confirm it.`,
+      disable_web_page_preview: true,
+      ...(keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+    });
+    return res.json({ ok: true, sent: true });
+  } catch (error) {
+    const description = String(error?.message || error);
+    console.error('Telegram withdrawal notification failed', { chatId, error: description });
+    return res.status(502).json({
+      ok: false,
+      error: description.toLowerCase().includes('blocked') || description.toLowerCase().includes('chat not found')
+        ? 'TELEGRAM_CHAT_UNAVAILABLE'
+        : 'TELEGRAM_DELIVERY_FAILED',
+    });
+  }
+});
+
 app.post('/api/telegram/webhook', async (req, res) => {
   if (WEBHOOK_SECRET && req.get('x-telegram-bot-api-secret-token') !== WEBHOOK_SECRET) {
     return res.sendStatus(403);
