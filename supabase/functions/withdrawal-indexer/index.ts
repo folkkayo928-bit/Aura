@@ -15,6 +15,26 @@ async function authorized(client: ReturnType<typeof db>, req: Request) {
   const { data, error } = await client.rpc("get_aura_worker_secret");
   return !error && !!data && provided.length > 0 && provided === data;
 }
+async function notifyTelegramWithdrawal(client: ReturnType<typeof db>, userId: string, title: string, message: string) {
+  try {
+    const { data: profile, error: profileError } = await client.from("profiles")
+      .select("telegram_user_id").eq("id", userId).maybeSingle();
+    if (profileError) throw profileError;
+    const telegramUserId = String(profile?.telegram_user_id || "").trim();
+    if (!/^\\d{1,20}$/.test(telegramUserId)) return;
+    const { data: secret, error: secretError } = await client.rpc("get_aura_telegram_notify_secret");
+    if (secretError || !secret) return;
+    const response = await fetch("https://aura-8bom.onrender.com/api/internal/telegram/withdrawal-notify", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-aura-telegram-notify-secret": String(secret) },
+      body: JSON.stringify({ telegram_user_id: telegramUserId, title, message }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) console.warn("Telegram withdrawal status notification was not delivered", response.status);
+  } catch (error) {
+    console.warn("Telegram withdrawal status notification failed", String(error).slice(0, 500));
+  }
+}
 const EVM = {
   ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
   polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
