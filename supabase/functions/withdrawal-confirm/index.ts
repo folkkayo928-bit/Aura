@@ -7,7 +7,7 @@ function secretKey() {
 
 Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
-  const appUrl = Deno.env.get("AURA_APP_URL") || "https://aura-3idc.netlify.app";
+  const appUrl = Deno.env.get("AURA_APP_URL") || "https://aura-8bom.onrender.com";
   const token = req.method === "GET"
     ? new URL(req.url).searchParams.get("token")
     : String((await req.json().catch(() => ({}))).token || "");
