@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55aeb5b6f7e";
+const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
 const EVM = {
   ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", alchemy: "eth-mainnet", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: pendingDeposits, error: pendingError } = await client
-      .from("wallet_deposits").select("id,chain,tx_hash,required_confirmations,status")
+      .from("wallet_deposits").select("id,user_id,amount,chain,tx_hash,required_confirmations,status")
       .in("status", ["detected", "confirmed"]).limit(100);
     if (pendingError) throw pendingError;
 
@@ -181,7 +181,26 @@ Deno.serve(async (req) => {
         "credit_confirmed_wallet_deposit", { p_deposit_id: deposit.id },
       );
       if (creditError) throw creditError;
-      if (creditResult?.ok && !creditResult?.already_credited) credited++;
+      if (creditResult?.ok && !creditResult?.already_credited) {
+        credited++;
+        // Notification failures must never undo or block an already completed deposit credit.
+        try {
+          const { data: profile } = await client.from("profiles")
+            .select("telegram_user_id,telegram_bot_alerts").eq("id", deposit.user_id).maybeSingle();
+          const telegramUserId = String(profile?.telegram_user_id || "").trim();
+          if (/^\\d{1,20}$/.test(telegramUserId) && profile?.telegram_bot_alerts !== false) {
+            const { error: queueError } = await client.from("aura_telegram_notification_queue").insert({
+              user_id: deposit.user_id,
+              event_type: "deposit_confirmed",
+              title: "USDT deposit confirmed",
+              message: `Your ${String(deposit.amount)} USDT deposit on ${chain.toUpperCase()} is confirmed and has been credited to your AURA Vault. Transaction: ${String(deposit.tx_hash)}`,
+            });
+            if (queueError) console.warn("Unable to queue Telegram deposit notification", queueError.message);
+          }
+        } catch (notificationError) {
+          console.warn("Telegram deposit notification enqueue failed", String(notificationError).slice(0, 500));
+        }
+      }
     }
 
     return Response.json({ ok: true, chains: [...byChain.keys()], scanned_wallets: wallets?.length || 0, detected, confirmed, credited, pending });
