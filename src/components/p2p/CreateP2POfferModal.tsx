@@ -123,7 +123,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
           <div>
             <label className="text-xs text-stone-400 block mb-1 font-medium">Fiat Currency</label>
-            <select value={fiatCurrency} onChange={(e) => setFiatCurrency(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-amber-400/60">
+            <select value={fiatCurrency} onChange={(e) => setFiatCurrency(e.target.value as typeof fiatCurrency)} className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:outline-none focus:border-amber-400/60">
               <option value="ETB">🇪🇹 ETB — Ethiopian Birr</option>
               <option value="USD">🇺🇸 USD — US Dollar</option>
               <option value="EUR">🇪🇺 EUR — Euro</option>
