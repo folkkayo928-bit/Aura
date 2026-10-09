@@ -43,7 +43,9 @@ Deno.serve(async (req)=>{
    const {data:w,error:wError}=await db.from("wallet_withdrawals").select("*").eq("id",withdrawalId).maybeSingle(); if(wError) throw wError;
    if(!w||w.status!=="queued"){await db.rpc("aura_worker_delete_withdrawal_message",{p_msg_id:msgId});continue;}
    const cfg=CHAINS[String(w.chain).toLowerCase()];
-   if(!cfg){ await db.from("wallet_withdrawals").update({status:"rejected",rejection_reason:"CHAIN_BROADCASTER_NOT_CONFIGURED",last_worker_error:"No secure broadcaster adapter is configured for this chain.",updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); await db.rpc("aura_worker_delete_withdrawal_message",{p_msg_id:msgId}); rejected++;processed++;continue; }
+   if(!cfg){ await db.from("wallet_withdrawals").update({status:"rejected",rejection_reason:"CHAIN_BROADCASTER_NOT_CONFIGURED",last_worker_error:"No secure broadcaster adapter is configured for this chain.",updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); await db.rpc("aura_worker_delete_withdrawal_message",{p_msg_id:msgId});
+    await notifyTelegramWithdrawal(db, String(w.user_id), "Withdrawal could not be processed", "This withdrawal network is not currently configured for secure broadcasting. Please contact AURA support; your reserved funds require review.");
+    rejected++;processed++;continue; }
    const rpcUrl=Deno.env.get(cfg.rpcEnv); const privateKey=Deno.env.get("AURA_EVM_PRIVATE_KEY");
    if(!rpcUrl||!privateKey){ await db.from("wallet_withdrawals").update({confirmation_attempts:Number(w.confirmation_attempts||0)+1,last_worker_error:"EVM broadcaster credentials are not configured; withdrawal remains queued.",next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); deferred++;processed++;continue; }
    try {
@@ -54,6 +56,7 @@ Deno.serve(async (req)=>{
     const txHash=await walletClient.writeContract(request);
     await db.from("wallet_withdrawals").update({status:"broadcast",tx_hash:txHash,broadcast_at:new Date().toISOString(),last_worker_error:null,next_attempt_at:null,updated_at:new Date().toISOString(),security_note:"Email confirmed and transaction broadcast through the configured server-side broadcaster."}).eq("id",withdrawalId).eq("status","queued");
     await db.rpc("aura_worker_enqueue_confirmation",{p_withdrawal_id:withdrawalId,p_delay_seconds:30}); await db.rpc("aura_worker_delete_withdrawal_message",{p_msg_id:msgId});
+    await notifyTelegramWithdrawal(db, String(w.user_id), "Withdrawal broadcast", `${Number(w.amount).toFixed(6)} USDT is now broadcast on ${cfg.name}. Transaction: ${txHash}`);
     broadcast++;processed++;
    } catch(error){ const message=String(error instanceof Error?error.message:error).slice(0,1500); await db.from("wallet_withdrawals").update({confirmation_attempts:Number(w.confirmation_attempts||0)+1,last_worker_error:message,next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq("id",withdrawalId).eq("status","queued"); deferred++;processed++; console.error("Broadcast attempt failed",withdrawalId,message); }
   }
