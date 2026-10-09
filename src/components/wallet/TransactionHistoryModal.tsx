@@ -117,15 +117,17 @@ export const TransactionHistoryModal: React.FC<{ open: boolean; onClose: () => v
       txHash: row.tx_hash || null,
       destination: row.destination_address || null,
       reference: row.id,
-      detail: row.confirmed_onchain_at
-        ? 'On-chain confirmed'
-        : row.broadcast_at
-          ? 'Broadcast; awaiting chain confirmation'
-          : row.email_confirmed_at
-            ? 'Email confirmed; waiting for broadcast'
-            : row.rejection_reason
-              ? 'Rejected: ' + String(row.rejection_reason)
-              : 'Request / email confirmation status',
+      detail: 'Requested: ' + Number(row.amount || 0).toFixed(6) + ' USDT · Network fee: ' + Number(row.network_fee || 0).toFixed(6) + ' USDT · ' + (
+        row.confirmed_onchain_at
+          ? 'On-chain confirmed'
+          : row.broadcast_at
+            ? 'Broadcast; awaiting chain confirmation'
+            : row.email_confirmed_at
+              ? 'Email confirmed; waiting for broadcast'
+              : row.rejection_reason
+                ? 'Rejected: ' + String(row.rejection_reason)
+                : 'Awaiting email confirmation'
+      ),
       createdAt: String(row.created_at),
     }));
 
