@@ -136,7 +136,7 @@ interface AppContextType {
   p2pModalOpen: boolean;
   setP2pModalOpen: (open: boolean) => void;
   topUpBalance: (amount: number) => void;
-  sendInternalFunds: (recipient: string, amount: number) => Promise<boolean>;
+  sendInternalFunds: (recipient: string, amount: number, idempotencyKey?: string) => Promise<boolean>;
   sendExternalCrypto: (params: {
     network: CryptoNetwork;
     destinationAddress: string;
@@ -1381,22 +1381,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return;
   };
 
-  const sendInternalFunds = async (recipient: string, amount: number): Promise<boolean> => {
+  const sendInternalFunds = async (recipient: string, amount: number, idempotencyKey?: string): Promise<boolean> => {
     if (!user) { openAuth('signin'); return false; }
-    if (walletBalance < amount) {
-      addNotification('Transfer Error', 'Insufficient AURA wallet balance.', 'community');
+    if (!recipient.trim()) { addNotification('Transfer Error', 'Enter an AURA handle or Vault ID.', 'community'); return false; }
+    if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 1_000_000) !== amount * 1_000_000) {
+      addNotification('Transfer Error', 'Enter a valid USDT amount with at most 6 decimal places.', 'community'); return false;
+    }
+    if (!idempotencyKey) { addNotification('Transfer Error', 'Could not secure this transfer request. Please try again.', 'community'); return false; }
+    const { data, error } = await supabase.rpc('internal_transfer', { p_recipient: recipient.trim(), p_amount_usdt: amount, p_idempotency_key: idempotencyKey });
+    if (error || !(data as any)?.ok) {
+      const message = error?.message || 'TRANSFER_FAILED';
+      const friendly: Record<string, string> = {
+        RECIPIENT_NOT_FOUND: 'Recipient not found. Use a valid @handle or AURA Vault ID.',
+        SELF_TRANSFER_NOT_ALLOWED: 'You cannot transfer USDT to your own account.',
+        INSUFFICIENT_FUNDS: 'Insufficient available AURA wallet balance.',
+        SENDER_WALLET_NOT_ACTIVE: 'Your AURA wallet is locked or unavailable.',
+        RECIPIENT_WALLET_NOT_ACTIVE: 'The recipient wallet is locked or unavailable.',
+        RECIPIENT_WALLET_NOT_FOUND: 'The recipient does not have an active AURA wallet.',
+        INVALID_AMOUNT_PRECISION: 'USDT transfers support up to 6 decimal places.',
+        IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_DETAILS: 'This transfer request ID was already used with different details. Start a new transfer.',
+      };
+      const code = Object.keys(friendly).find((key) => message.includes(key));
+      addNotification('Transfer Failed', code ? friendly[code] : message, 'community');
       return false;
     }
-    const { error } = await supabase.rpc('internal_transfer', { p_recipient: recipient.trim(), p_amount_usdt: amount });
-    if (error) {
-      addNotification('Transfer Failed', error.message.includes('RECIPIENT_NOT_FOUND') ? 'Recipient not found. Use an @handle or AURA Vault ID.' : error.message, 'community');
-      return false;
-    }
-    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
-    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
-    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
-    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
-    addNotification('Sent Successfully', `Transferred ${amount.toFixed(2)} USDT to ${recipient}.`, 'convert');
+    const [wallet, ledger] = await Promise.all([
+      supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
+      supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+    ]);
+    if (wallet.error || !wallet.data) addNotification('Transfer Completed', 'The transfer was completed. Refresh your wallet to update the displayed balance.', 'community');
+    else setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+    if (!ledger.error && ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    addNotification('Sent Successfully', 'Transferred ' + amount.toFixed(6).replace(/\.?0+$/, '') + ' USDT to ' + recipient.trim() + '.', 'convert');
     return true;
   };
 
