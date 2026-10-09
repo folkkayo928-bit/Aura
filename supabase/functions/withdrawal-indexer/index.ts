@@ -112,7 +112,8 @@ Deno.serve(async (req) => {
         console.error("Unsupported withdrawal chain", withdrawalId, chain);
         continue;
       }
-      const rpcUrl = Deno.env.get(config.rpc);
+      const configuredRpc = Deno.env.get(config.rpc)?.trim();
+      const rpcUrl = configuredRpc || (chain === "bsc" ? "https://bnb-mainnet.g.alchemy.com/public" : "");
       if (!rpcUrl) {
         pending++;
         console.error("Missing RPC configuration for withdrawal chain", chain);
