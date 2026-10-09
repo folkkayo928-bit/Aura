@@ -73,7 +73,7 @@ function rpcEndpoint(chain: keyof typeof CHAINS, apiKey: string) {
   if (configured) return configured;
   // The configured Alchemy app has BNB_MAINNET disabled. Use its public BNB
   // endpoint for unsigned reads and locally signed transaction submission.
-  if (chain === "bsc") return "https://bnb-mainnet.g.alchemy.com/public";
+  if (chain === "bsc") return "https://bsc-rpc.publicnode.com";
   if (!apiKey) return "";
   return `https://${CHAINS[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
 }
