@@ -34,6 +34,7 @@ export const SendModal: React.FC = () => {
   const [amount, setAmount] = useState('');
   const [sentSuccessTxHash, setSentSuccessTxHash] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [transferRequestId, setTransferRequestId] = useState(() => crypto.randomUUID());
 
   if (!sendModalOpen) return null;
 
@@ -46,8 +47,11 @@ export const SendModal: React.FC = () => {
     if (!recipient.trim() || numAmount <= 0) return;
 
     if (mode === 'internal') {
-      const ok = await sendInternalFunds(recipient.trim(), numAmount);
+      setIsSubmitting(true);
+      const ok = await sendInternalFunds(recipient.trim(), numAmount, transferRequestId);
+      setIsSubmitting(false);
       if (ok) {
+        setTransferRequestId(crypto.randomUUID());
         setSentSuccessTxHash('internal');
         setTimeout(() => {
           setSentSuccessTxHash(null);
@@ -181,7 +185,7 @@ export const SendModal: React.FC = () => {
                     : '@username or aura.tg://...'
                 }
                 value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
+                onChange={(e) => { setRecipient(e.target.value); setTransferRequestId(crypto.randomUUID()); }}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
                 required
               />
@@ -196,10 +200,11 @@ export const SendModal: React.FC = () => {
               <div className="relative">
                 <input
                   type="number"
-                  step="any"
+                  step="0.000001"
+                  min="0.000001"
                   placeholder="0.00"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => { setAmount(e.target.value); setTransferRequestId(crypto.randomUUID()); }}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-stone-100 focus:outline-none focus:border-amber-400/60 font-mono"
                   required
                 />
@@ -231,7 +236,7 @@ export const SendModal: React.FC = () => {
               disabled={isSubmitting || !recipient || numAmount <= 0 || totalCost > walletBalance}
               className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold text-xs transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98] disabled:opacity-40"
             >
-              {isSubmitting ? 'Submitting…' : mode === 'external' ? `Request ${network.toUpperCase()} Withdrawal` : 'Transfer Instantly'}
+              {isSubmitting ? 'Submitting securely…' : mode === 'external' ? `Request ${network.toUpperCase()} Withdrawal` : 'Transfer Instantly'}
             </button>
           </form>
         )}
