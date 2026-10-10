@@ -240,7 +240,18 @@ export const SendModal: React.FC = () => {
                       {net}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    disabled
+                    title="Solana transfers are not enabled in AURA yet"
+                    className="p-2 rounded-xl text-xs font-mono uppercase border border-white/5 bg-white/[0.02] text-stone-600 opacity-70 cursor-not-allowed"
+                  >
+                    Solana · Soon
+                  </button>
                 </div>
+                <p className="mt-1.5 text-[10px] text-stone-500">
+                  Solana is shown for clarity, but AURA on-chain withdrawals currently support EVM networks only. Solana sending is not enabled.
+                </p>
               </div>
             )}
 
@@ -559,7 +570,18 @@ export const ReceiveModal: React.FC = () => {
                   {chain === 'bsc' ? 'BNB SMART CHAIN' : chain.toUpperCase()}
                 </button>
               ))}
+              <button
+                type="button"
+                disabled
+                title="Solana USDT deposits are not enabled in AURA yet"
+                className="py-2.5 rounded-xl text-[10px] font-mono uppercase border border-white/5 bg-white/[0.02] text-stone-600 opacity-70 cursor-not-allowed"
+              >
+                Solana · Soon
+              </button>
             </div>
+            <p className="text-[10px] text-stone-500">
+              Solana is not enabled for AURA deposits yet. Use only the supported networks above; never send Solana assets to an EVM address.
+            </p>
 
             <div className="flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/5 px-3 py-2">
               <span className="text-[10px] uppercase font-mono text-stone-400">Asset</span>
