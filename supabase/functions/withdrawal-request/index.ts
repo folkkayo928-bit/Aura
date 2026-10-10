@@ -61,6 +61,7 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
   let signerAddress: Address | null = null;
   let signer;
   let invalidPrivateKey = false;
+  let thirdwebSmartWallet = false;
 
   if (privateKey) {
     try {
@@ -91,16 +92,19 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
         }
         const payload = await response.json();
         const wallets = payload?.result?.wallets;
-        if (!Array.isArray(wallets) || !wallets.some((wallet: any) =>
-          String(wallet?.address || "").toLowerCase() === treasury.toLowerCase()
-        )) {
+        const matchedWallet = Array.isArray(wallets) ? wallets.find((wallet: any) =>
+          String(wallet?.address || "").toLowerCase() === treasury.toLowerCase() ||
+          String(wallet?.smartWalletAddress || "").toLowerCase() === treasury.toLowerCase()
+        ) : null;
+        if (!matchedWallet) {
           return {
             status: 503,
             error: "THIRDWEB_SERVER_WALLET_NOT_REGISTERED",
-            message: "The configured treasury address is not registered as a thirdweb Server Wallet in this project. No funds have been reserved.",
+            message: "The configured treasury address is neither the address nor the smart-account address of a Server Wallet registered in this Thirdweb project. No funds have been reserved.",
           };
         }
         signerAddress = thirdwebAddress as Address;
+        thirdwebSmartWallet = String(matchedWallet?.smartWalletAddress || "").toLowerCase() === treasury.toLowerCase();
       } catch {
         return {
           status: 503,
@@ -181,7 +185,9 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
       }),
       client.getGasPrice(),
     ]);
-    if (nativeBalance < gasEstimate * gasPrice) {
+    // A Thirdweb smart Server Wallet can use configured paymaster sponsorship.
+    // An EOA Server Wallet/native signer must hold the chain's native gas token.
+    if (!thirdwebSmartWallet && nativeBalance < gasEstimate * gasPrice) {
       return {
         status: 409,
         error: "WITHDRAWAL_GAS_UNAVAILABLE",
