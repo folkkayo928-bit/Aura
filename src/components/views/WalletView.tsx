@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
-import { AURA_THIRDWEB_TEST_CHAIN, getThirdwebClient } from '../../lib/thirdweb';
+import { AURA_THIRDWEB_TEST_CHAIN, getThirdwebClient } from '../../../lib/thirdweb';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
