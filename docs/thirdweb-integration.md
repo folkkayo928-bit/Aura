@@ -22,6 +22,23 @@ Evaluate thirdweb for in-app wallets/smart accounts, NFT minting, IPFS artwork s
 4. Never put a thirdweb Secret Key in a `VITE_*` variable or frontend code. Any backend-only secret must be configured in the hosting provider's server-side environment.
 5. Install dependencies and run the normal build/lint checks before merging.
 
+## Base Sepolia wallet preview test checklist
+
+Run this checklist only in an isolated preview deployment of this feature branch, never by merging it to production just to test it.
+
+- [ ] Confirm the preview URL is restricted to the intended test environment and the public thirdweb Client ID has the expected allowed origins.
+- [ ] Open the Wallet screen with the Client ID configured; verify the testnet preview is visible.
+- [ ] Open the Wallet screen without the Client ID configured; verify the normal AURA wallet UI still renders and no crash occurs.
+- [ ] Connect a disposable MetaMask test wallet and confirm the wallet UI identifies the external connection.
+- [ ] Repeat with a disposable Phantom test wallet where the browser/extension supports it.
+- [ ] Verify the selected chain is Base Sepolia; reject any request to switch to a production chain for this preview.
+- [ ] Disconnect and reload; confirm auto-connect remains disabled and no wallet is silently reconnected.
+- [ ] Confirm connecting/disconnecting does not change AURA's Supabase session, internal USDT balance, ledger, deposit/withdrawal state, or P2P state.
+- [ ] Confirm no signing, minting, swap, bridge, send, or withdrawal action is initiated from the preview.
+- [ ] Review browser console/network requests for errors and ensure no thirdweb Secret Key or wallet private material appears in client bundles or logs.
+
+Do not call the preview validated until these checks have been performed in a real browser. CI passing confirms typecheck/build only, not extension behavior or on-chain transactions.
+
 ## Safe implementation order
 
 1. Validate client initialization on Base Sepolia.
