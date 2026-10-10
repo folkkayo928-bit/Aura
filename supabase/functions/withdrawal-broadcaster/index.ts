@@ -68,7 +68,7 @@ async function fetchThirdwebTransaction(secret: string, id: string) {
   if (!payload?.result) throw new Error("THIRDWEB_TRANSACTION_LOOKUP_MISSING_RESULT");
   return payload.result as Record<string, unknown>;
 }
-async function isRegisteredThirdwebServerWallet(secret: string, address: string) {
+async function resolveThirdwebServerWallet(secret: string, address: string): Promise<{ registered: boolean; smartAccount: boolean }> {
   const response = await fetch("https://api.thirdweb.com/v1/wallets/server?limit=100&page=1", {
     method: "GET",
     headers: { "x-secret-key": secret },
@@ -77,7 +77,17 @@ async function isRegisteredThirdwebServerWallet(secret: string, address: string)
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error("THIRDWEB_SERVER_WALLET_LOOKUP_FAILED_HTTP_" + response.status);
   const wallets = payload?.result?.wallets;
-  return Array.isArray(wallets) && wallets.some((wallet: any) => String(wallet?.address || "").toLowerCase() === address.toLowerCase());
+  if (!Array.isArray(wallets)) return { registered: false, smartAccount: false };
+  const target = address.toLowerCase();
+  const wallet = wallets.find((item: any) =>
+    String(item?.address || "").toLowerCase() === target ||
+    String(item?.smartWalletAddress || "").toLowerCase() === target
+  );
+  if (!wallet) return { registered: false, smartAccount: false };
+  return {
+    registered: true,
+    smartAccount: String(wallet?.smartWalletAddress || "").toLowerCase() === target,
+  };
 }
 async function updateDeferred(db: ReturnType<typeof admin>, w: any, message: string, delayMs = 300000) {
   await db.from("wallet_withdrawals").update({
@@ -239,9 +249,14 @@ Deno.serve(async (req) => {
 
       let mode: "native" | "thirdweb" | null = null;
       let account: ReturnType<typeof privateKeyToAccount> | null = null;
+      let thirdwebSmartWallet = false;
       if (thirdwebSecret && /^0x[a-fA-F0-9]{40}$/.test(thirdwebAddress) && thirdwebAddress.toLowerCase() === treasuryAddress.toLowerCase()) {
         try {
-          if (await isRegisteredThirdwebServerWallet(thirdwebSecret, thirdwebAddress)) mode = "thirdweb";
+          const resolved = await resolveThirdwebServerWallet(thirdwebSecret, thirdwebAddress);
+          if (resolved.registered) {
+            mode = "thirdweb";
+            thirdwebSmartWallet = resolved.smartAccount;
+          }
         } catch (error) {
           console.warn("Could not validate thirdweb Server Wallet configuration", String(error).slice(0, 300));
         }
@@ -276,7 +291,9 @@ Deno.serve(async (req) => {
           publicClient.getGasPrice(),
         ]);
         if (balance < amount) throw new Error("WITHDRAWAL_LIQUIDITY_UNAVAILABLE: selected treasury lacks sufficient USDT.");
-        if (nativeBalance < gasEstimate * gasPrice) throw new Error("WITHDRAWAL_GAS_UNAVAILABLE: selected treasury lacks native gas token.");
+        // Smart Server Wallets may execute through Thirdweb account abstraction
+        // and configured paymaster sponsorship; EOA routes must hold native gas.
+        if (!thirdwebSmartWallet && nativeBalance < gasEstimate * gasPrice) throw new Error("WITHDRAWAL_GAS_UNAVAILABLE: selected treasury lacks native gas token.");
         if (mode === "native") {
           const { request } = await publicClient.simulateContract({
             account: account!, address: cfg.token, abi: ERC20_ABI,
