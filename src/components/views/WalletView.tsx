@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
+import { AURA_THIRDWEB_TEST_CHAIN, getThirdwebClient } from '../../lib/thirdweb';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
@@ -55,6 +56,8 @@ export const WalletView: React.FC = () => {
   const ownedArtworks = artworks.filter((a) => a.isOwned);
   const digitalArtValuation = ownedArtworks.reduce((acc, a) => acc + a.currentValue, 0);
   const totalNetWorth = walletBalance + digitalArtValuation;
+  const thirdwebClient = getThirdwebClient();
+  const thirdwebConfigured = Boolean(thirdwebClient);
 
   const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -379,6 +382,30 @@ export const WalletView: React.FC = () => {
               </div>
             ))
           )}
+        </div>
+      </div>
+
+      {/* THIRDWEB TESTNET READINESS: no wallet signing or transactions enabled */}
+      <div className="px-1">
+        <div className="rounded-3xl border border-violet-400/20 bg-violet-400/[0.04] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-mono uppercase tracking-widest text-stone-200">thirdweb connection</div>
+              <div className="mt-1 text-sm font-semibold text-stone-100">Testnet setup</div>
+            </div>
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-mono ${thirdwebConfigured ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
+              {thirdwebConfigured ? 'CLIENT CONFIGURED' : 'CLIENT ID MISSING'}
+            </span>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs">
+            <span className="text-stone-400">Network</span>
+            <span className="font-mono text-violet-200">{AURA_THIRDWEB_TEST_CHAIN.name}</span>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-stone-400">
+            {thirdwebConfigured
+              ? 'The public thirdweb client initialized. This is a testnet-only readiness check; wallet signing, swaps, bridges, and mainnet transactions remain disabled.'
+              : 'Add VITE_THIRDWEB_CLIENT_ID to the Render environment and redeploy to initialize thirdweb. No transactions are enabled here.'}
+          </p>
         </div>
       </div>
 
