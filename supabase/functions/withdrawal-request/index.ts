@@ -46,15 +46,6 @@ const WITHDRAWAL_CHAINS = {
 
 async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAINS, destination: string, amount: number) {
   const config = WITHDRAWAL_CHAINS[chainName];
-  const privateKey = Deno.env.get("AURA_EVM_PRIVATE_KEY")?.trim();
-  if (!privateKey) {
-    return {
-      status: 503,
-      error: "WITHDRAWAL_BROADCASTER_NOT_CONFIGURED",
-      message: "AURA's secure withdrawal signer is not configured. No funds have been reserved; please try again later.",
-    };
-  }
-
   const treasury = Deno.env.get(config.treasuryEnv)?.trim();
   if (!treasury || !/^0x[a-fA-F0-9]{40}$/.test(treasury)) {
     return {
@@ -64,37 +55,94 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
     };
   }
 
+  const privateKey = Deno.env.get("AURA_EVM_PRIVATE_KEY")?.trim();
+  const thirdwebSecret = Deno.env.get("THIRDWEB_SECRET_KEY")?.trim();
+  const thirdwebAddress = Deno.env.get("THIRDWEB_SERVER_WALLET_ADDRESS")?.trim();
+  let signerAddress: Address | null = null;
   let signer;
-  try {
-    signer = privateKeyToAccount(privateKey as `0x${string}`);
-  } catch {
-    return {
-      status: 503,
-      error: "WITHDRAWAL_SIGNER_INVALID",
-      message: "AURA could not validate its secure withdrawal signer. No funds have been reserved.",
-    };
+  let invalidPrivateKey = false;
+
+  if (privateKey) {
+    try {
+      signer = privateKeyToAccount(privateKey as `0x${string}`);
+      if (signer.address.toLowerCase() === treasury.toLowerCase()) signerAddress = signer.address;
+    } catch {
+      invalidPrivateKey = true;
+    }
   }
 
-  if (signer.address.toLowerCase() !== treasury.toLowerCase()) {
+  // thirdweb Server Wallet is the backend treasury signer, not the user's
+  // ERC-4337 smart account. The configured wallet must be the same address
+  // as this network's funded treasury before any withdrawal can be reserved.
+  if (!signerAddress && thirdwebSecret && thirdwebAddress && /^0x[a-fA-F0-9]{40}$/.test(thirdwebAddress)) {
+    if (thirdwebAddress.toLowerCase() === treasury.toLowerCase()) {
+      try {
+        const response = await fetch("https://api.thirdweb.com/v1/wallets/server?limit=100&page=1", {
+          method: "GET",
+          headers: { "x-secret-key": thirdwebSecret },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!response.ok) {
+          return {
+            status: 503,
+            error: "THIRDWEB_SERVER_WALLET_VALIDATION_FAILED",
+            message: "AURA could not validate the configured thirdweb Server Wallet. No funds have been reserved.",
+          };
+        }
+        const payload = await response.json();
+        const wallets = payload?.result?.wallets;
+        if (!Array.isArray(wallets) || !wallets.some((wallet: any) =>
+          String(wallet?.address || "").toLowerCase() === treasury.toLowerCase()
+        )) {
+          return {
+            status: 503,
+            error: "THIRDWEB_SERVER_WALLET_NOT_REGISTERED",
+            message: "The configured treasury address is not registered as a thirdweb Server Wallet in this project. No funds have been reserved.",
+          };
+        }
+        signerAddress = thirdwebAddress as Address;
+      } catch {
+        return {
+          status: 503,
+          error: "THIRDWEB_SERVER_WALLET_VALIDATION_FAILED",
+          message: "AURA could not validate the configured thirdweb Server Wallet. No funds have been reserved.",
+        };
+      }
+    }
+  }
+
+  if (!signerAddress) {
+    if (privateKey && !invalidPrivateKey) {
+      return {
+        status: 503,
+        error: "WITHDRAWAL_TREASURY_SIGNER_MISMATCH",
+        message: "AURA's configured signer does not match the selected network treasury. No funds have been reserved.",
+      };
+    }
+    if (invalidPrivateKey && !thirdwebSecret) {
+      return {
+        status: 503,
+        error: "WITHDRAWAL_SIGNER_INVALID",
+        message: "AURA could not validate its configured withdrawal signer. No funds have been reserved.",
+      };
+    }
+    if (!thirdwebSecret || !thirdwebAddress) {
+      return {
+        status: 503,
+        error: "WITHDRAWAL_BROADCASTER_NOT_CONFIGURED",
+        message: "AURA's server-side withdrawal signer is not configured. Configure a native signer or the thirdweb Server Wallet and treasury match; no funds have been reserved.",
+      };
+    }
     return {
       status: 503,
       error: "WITHDRAWAL_TREASURY_SIGNER_MISMATCH",
-      message: "AURA's withdrawal signer does not match the configured network treasury. No funds have been reserved.",
+      message: "AURA's configured thirdweb Server Wallet does not match the selected network treasury. No funds have been reserved.",
     };
   }
 
-  // Match the broadcaster's actual RPC behavior. Only BSC currently has an
-  // explicitly supported built-in RPC fallback; don't reserve funds when the
-  // worker would otherwise leave the request queued forever.
-  const configuredRpc = Deno.env.get(config.rpcEnv)?.trim();
-  const rpcUrl = configuredRpc || (chainName === "bsc" ? config.fallbackRpc : "");
-  if (!rpcUrl) {
-    return {
-      status: 503,
-      error: "WITHDRAWAL_RPC_NOT_CONFIGURED",
-      message: `AURA's ${config.name} RPC is not configured. No funds have been reserved.`,
-    };
-  }
+  // Use the same safe RPC fallback policy as the broadcaster; provider secrets
+  // remain server-side and are never copied into the browser.
+  const rpcUrl = Deno.env.get(config.rpcEnv)?.trim() || config.fallbackRpc;
 
   try {
     const chain = {
@@ -103,31 +151,29 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
       nativeCurrency: { name: config.native, symbol: config.native, decimals: 18 },
       rpcUrls: { default: { http: [rpcUrl] } },
     } as const;
-    const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 10_000 }) });
+    const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 10000 }) });
     const tokenAmount = parseUnits(String(amount), config.decimals);
     const [balance, nativeBalance] = await Promise.all([
       client.readContract({
         address: config.token,
         abi: ERC20_ABI,
         functionName: "balanceOf",
-        args: [signer.address],
+        args: [signerAddress],
       }),
-      client.getBalance({ address: signer.address }),
+      client.getBalance({ address: signerAddress }),
     ]);
 
     if (balance < tokenAmount) {
       return {
         status: 409,
         error: "WITHDRAWAL_LIQUIDITY_UNAVAILABLE",
-        message: `AURA's ${config.name} treasury does not currently have enough USDT available. No funds have been reserved.`,
+        message: "AURA's " + config.name + " treasury does not currently have enough USDT available. No funds have been reserved.",
       };
     }
 
-    // Estimate the actual USDT send and require enough native token for gas
-    // before any internal funds are reserved.
     const [gasEstimate, gasPrice] = await Promise.all([
       client.estimateContractGas({
-        account: signer,
+        account: signerAddress,
         address: config.token,
         abi: ERC20_ABI,
         functionName: "transfer",
@@ -139,7 +185,7 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
       return {
         status: 409,
         error: "WITHDRAWAL_GAS_UNAVAILABLE",
-        message: `AURA's ${config.name} treasury does not have enough native gas token available. No funds have been reserved.`,
+        message: "AURA's " + config.name + " treasury does not have enough native gas token available. No funds have been reserved.",
       };
     }
 
