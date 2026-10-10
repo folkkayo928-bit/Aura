@@ -260,9 +260,21 @@ export const SettingsModal: React.FC = () => {
                 <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-amber-400/30 space-y-2 animate-in fade-in-50">
                   <span className="text-[11px] text-amber-300 font-semibold block">Select Web3 Provider to Connect</span>
                   <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => { connectExternalWallet('MetaMask', 'ethereum'); setConnectWalletPickerOpen(false); }} className="p-2.5 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 text-center transition-colors">
+                      <span className="text-xs font-semibold block text-stone-200">MetaMask</span>
+                      <span className="text-[9px] text-amber-300 font-mono">Ethereum</span>
+                    </button>
                     <button onClick={() => { connectExternalWallet('MetaMask', 'polygon'); setConnectWalletPickerOpen(false); }} className="p-2.5 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 text-center transition-colors">
                       <span className="text-xs font-semibold block text-stone-200">MetaMask</span>
-                      <span className="text-[9px] text-amber-300 font-mono">Polygon / EVM</span>
+                      <span className="text-[9px] text-amber-300 font-mono">Polygon</span>
+                    </button>
+                    <button onClick={() => { connectExternalWallet('MetaMask', 'arbitrum'); setConnectWalletPickerOpen(false); }} className="p-2.5 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 text-center transition-colors">
+                      <span className="text-xs font-semibold block text-stone-200">MetaMask</span>
+                      <span className="text-[9px] text-amber-300 font-mono">Arbitrum</span>
+                    </button>
+                    <button onClick={() => { connectExternalWallet('MetaMask', 'bsc'); setConnectWalletPickerOpen(false); }} className="p-2.5 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 text-center transition-colors">
+                      <span className="text-xs font-semibold block text-stone-200">MetaMask</span>
+                      <span className="text-[9px] text-amber-300 font-mono">BNB Smart Chain</span>
                     </button>
                     <button onClick={() => { connectExternalWallet('Phantom', 'solana'); setConnectWalletPickerOpen(false); }} className="p-2.5 rounded-xl bg-white/5 hover:bg-purple-500/20 border border-white/10 text-center transition-colors">
                       <span className="text-xs font-semibold block text-stone-200">Phantom</span>
@@ -274,7 +286,7 @@ export const SettingsModal: React.FC = () => {
 
               <div className="space-y-2">
                 {connectedWallets.length === 0 ? (
-                  <div className="p-6 text-center rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-500">No external Web3 wallets linked yet. Click "+ Link Wallet" above to connect MetaMask or Phantom.</div>
+                  <div className="p-6 text-center rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-500">No external Web3 wallets linked yet. Choose the correct EVM network for MetaMask, or connect Phantom on Solana.</div>
                 ) : (
                   connectedWallets.map((wallet) => (
                     <div key={wallet.id} className="p-3.5 rounded-2xl bg-[#151520] border border-white/5 flex items-center justify-between">
