@@ -58,7 +58,7 @@ Mainnet token contracts and chain support must be confirmed independently from U
 
 - AURA’s on-chain deposit and withdrawal selectors currently support Ethereum, Polygon, Arbitrum One, and BNB Smart Chain.
 - Solana is **not** enabled for AURA USDT deposits or withdrawals. Phantom can be linked for wallet-ownership verification; that is different from Solana USDT support.
-- The thirdweb panel connects test wallets on Base Sepolia only. It does not move mainnet assets, credit AURA balances, or substitute for the custodial signer and treasury setup.
+- The thirdweb panel creates/tests a Base Sepolia smart-account flow only. It does not move mainnet assets, credit AURA balances, or substitute for a registered and funded production Server Wallet/treasury. A production rollout still needs a stable mapping from each Supabase user to their Thirdweb smart account and signed ownership checks before any app feature relies on it.
 - Internal AURA USDT is an application ledger balance. It is not a promise that the same amount is immediately liquid in every chain’s external treasury.
 
 ## Deployment and operational components
