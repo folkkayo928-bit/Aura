@@ -8,6 +8,20 @@ AURA is a mobile-first digital-art and Web3 community product, including the Tel
 
 The product combines art publishing and collections, creator/collector profiles, community interactions, an AURA USDT internal ledger, on-chain funding/withdrawal, P2P trading, and account/admin tools.
 
+## The intended thirdweb architecture
+
+AURA should use thirdweb as a Web3 infrastructure layer, not only as a wallet-connect button. The responsibilities are distinct:
+
+- **User smart wallets / account abstraction:** the wallet attached to a member's identity, external-wallet connection, contract calls, and optional gas sponsorship. This must be linked to the signed-in AURA account without merging separate Telegram/Supabase identities.
+- **Server Wallet for backend payouts:** a separate treasury signer used only by authenticated backend workers for USDT withdrawals and approved treasury actions. It must be explicitly registered with the AURA thirdweb project; its address must match the selected network treasury.
+- **Bridge and swap routes:** quote-first token conversion across supported networks, with the exact token contract, chain, output amount, fees, slippage/route, and on-chain final status recorded. A route being quoted or queued is not a completed transfer.
+- **Payments/on-ramp:** optional provider-based purchase flow for tokens and regions that thirdweb currently supports. Never assume a provider or token is supported in Ethiopia without a live quote/eligibility check.
+- **Token/NFT/contract APIs:** read and submit real contract transactions for ownership, collection assets, and supported token operations. Chain results must be reconciled by transaction hash and confirmation before AURA shows final success.
+
+The existing Supabase identity, internal ledger, P2P offer/order state, escrow/settlement, fiat-payment proof, and disputes remain separate application responsibilities. A connected wallet's on-chain balance must never silently become an internal AURA ledger balance. Changes to custody and ledger backing require an explicit migration and reconciliation; they must not be inferred from a successful wallet connection.
+
+Official thirdweb capabilities documented here: [User and Server Wallet types](https://portal.thirdweb.com/wallets/wallet-types), [Account Abstraction / Smart Accounts](https://portal.thirdweb.com/react/v5/account-abstraction/get-started), [Server Wallet transactions](https://portal.thirdweb.com/wallets/server/send-transactions), and [Bridge and Swap](https://portal.thirdweb.com/bridge/swap).
+
 ## Major product areas
 
 - **Accounts and identity:** email/password and supported OAuth paths, plus Telegram Mini App authentication that checks the signed Telegram identity and avoids cross-account session reuse.
@@ -44,7 +58,7 @@ Mainnet token contracts and chain support must be confirmed independently from U
 
 - AURA’s on-chain deposit and withdrawal selectors currently support Ethereum, Polygon, Arbitrum One, and BNB Smart Chain.
 - Solana is **not** enabled for AURA USDT deposits or withdrawals. Phantom can be linked for wallet-ownership verification; that is different from Solana USDT support.
-- The thirdweb panel connects test wallets on Base Sepolia only. It does not move mainnet assets, credit AURA balances, or substitute for the custodial signer and treasury setup.
+- The thirdweb panel creates/tests a Base Sepolia smart-account flow only. It does not move mainnet assets, credit AURA balances, or substitute for a registered and funded production Server Wallet/treasury. A production rollout still needs a stable mapping from each Supabase user to their Thirdweb smart account and signed ownership checks before any app feature relies on it.
 - Internal AURA USDT is an application ledger balance. It is not a promise that the same amount is immediately liquid in every chain’s external treasury.
 
 ## Deployment and operational components
@@ -57,15 +71,16 @@ Mainnet token contracts and chain support must be confirmed independently from U
 
 ## Required private deployment configuration
 
-For real EVM withdrawals, the Edge Function runtime needs a matching server-side signer and treasury configuration:
+For real EVM withdrawals, configure one server-side signer route in Supabase Edge Function secrets/runtime configuration:
 
-- Shared signer: `AURA_EVM_PRIVATE_KEY`. Its public address must match the configured treasury address on every chain where it is used.
-- Per-chain RPC endpoints: `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, and `AURA_EVM_RPC_BSC`.
-- Per-chain treasury addresses: `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, and `AURA_EVM_TREASURY_BSC`.
-- Deposit sweep needs a valid treasury for each chain and server-side derivation custody that matches the registered XPub; the deployment must log an actionable missing-configuration status rather than being mistaken for a completed sweep.
-- `VITE_THIRDWEB_CLIENT_ID` is a **public** frontend Client ID for the optional Base Sepolia preview. It is separate from all custody secrets.
+- **Preferred thirdweb Server Wallet route:** `THIRDWEB_SECRET_KEY` plus `THIRDWEB_SERVER_WALLET_ADDRESS`. The address must already be registered in the same thirdweb project as a Server Wallet; the configured address may be that wallet's EOA address or its registered smart-account address when the smart account is set up for server execution.
+- **Native signer fallback:** `AURA_EVM_PRIVATE_KEY`, only when that key derives the exact same public address as the configured treasury.
+- Per-chain RPC endpoints (private provider optional; a read-RPC fallback exists): `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, and `AURA_EVM_RPC_BSC`.
+- Per-chain treasury addresses: `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, and `AURA_EVM_TREASURY_BSC`. When using thirdweb, each treasury address must equal the registered Server Wallet or its registered smart-account address. A standard EOA wallet must have USDT and native gas token; a smart Server Wallet may use Thirdweb gas sponsorship if it is enabled for that wallet and chain.
+- Deposit sweeping still requires server-side derivation custody that matches the registered XPub, plus a valid funded treasury for each chain.
+- `VITE_THIRDWEB_CLIENT_ID` is a **public** frontend Client ID. It cannot sign server payouts and is not a substitute for `THIRDWEB_SECRET_KEY`.
 
-Set private values only in the Supabase Edge Function secrets/runtime configuration after independently verifying the address, signer ownership, token contract, and native-gas funding on each chain. Never paste private keys or secret values into chat, source control, browser variables, or logs. A production withdrawal should remain queued until those checks pass; do not manually replay a transfer to clear the queue.
+Never paste private keys or secret values into chat, source control, browser variables, or logs. A queued withdrawal can only be broadcast after the real signer, treasury address, USDT balance, and gas balance all validate. If configuration is missing, the queue pauses and can be retried automatically after repair. Do not manually replay a transaction whose submission status is uncertain.
 
 ## Release acceptance checklist
 
