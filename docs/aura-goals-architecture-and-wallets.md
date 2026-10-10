@@ -8,6 +8,20 @@ AURA is a mobile-first digital-art and Web3 community product, including the Tel
 
 The product combines art publishing and collections, creator/collector profiles, community interactions, an AURA USDT internal ledger, on-chain funding/withdrawal, P2P trading, and account/admin tools.
 
+## The intended thirdweb architecture
+
+AURA should use thirdweb as a Web3 infrastructure layer, not only as a wallet-connect button. The responsibilities are distinct:
+
+- **User smart wallets / account abstraction:** the wallet attached to a member's identity, external-wallet connection, contract calls, and optional gas sponsorship. This must be linked to the signed-in AURA account without merging separate Telegram/Supabase identities.
+- **Server Wallet for backend payouts:** a separate treasury signer used only by authenticated backend workers for USDT withdrawals and approved treasury actions. It must be explicitly registered with the AURA thirdweb project; its address must match the selected network treasury.
+- **Bridge and swap routes:** quote-first token conversion across supported networks, with the exact token contract, chain, output amount, fees, slippage/route, and on-chain final status recorded. A route being quoted or queued is not a completed transfer.
+- **Payments/on-ramp:** optional provider-based purchase flow for tokens and regions that thirdweb currently supports. Never assume a provider or token is supported in Ethiopia without a live quote/eligibility check.
+- **Token/NFT/contract APIs:** read and submit real contract transactions for ownership, collection assets, and supported token operations. Chain results must be reconciled by transaction hash and confirmation before AURA shows final success.
+
+The existing Supabase identity, internal ledger, P2P offer/order state, escrow/settlement, fiat-payment proof, and disputes remain separate application responsibilities. A connected wallet's on-chain balance must never silently become an internal AURA ledger balance. Changes to custody and ledger backing require an explicit migration and reconciliation; they must not be inferred from a successful wallet connection.
+
+Official thirdweb capabilities documented here: [User and Server Wallet types](https://portal.thirdweb.com/wallets/wallet-types), [Account Abstraction / Smart Accounts](https://portal.thirdweb.com/react/v5/account-abstraction/get-started), [Server Wallet transactions](https://portal.thirdweb.com/wallets/server/send-transactions), and [Bridge and Swap](https://portal.thirdweb.com/bridge/swap).
+
 ## Major product areas
 
 - **Accounts and identity:** email/password and supported OAuth paths, plus Telegram Mini App authentication that checks the signed Telegram identity and avoids cross-account session reuse.
