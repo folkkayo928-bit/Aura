@@ -9,7 +9,9 @@ Evaluate thirdweb for in-app wallets/smart accounts, NFT minting, IPFS artwork s
 - Added the official `thirdweb` TypeScript SDK dependency.
 - Added `lib/thirdweb.ts`, which initializes a browser client only when `VITE_THIRDWEB_CLIENT_ID` is present.
 - Test chain is Base Sepolia only.
-- No wallet connection, signing, transaction submission, minting, swapping, bridging, schema changes, or live Supabase function changes are performed by this scaffold.
+- The Wallet screen includes an opt-in thirdweb connection preview for MetaMask and Phantom, with auto-connect disabled and the chain pinned to Base Sepolia.
+- The preview does not sign messages or submit transactions on AURA's behalf; it is not linked to the Supabase account or AURA internal ledger.
+- No minting, swapping, bridging, schema changes, or live Supabase function changes are enabled by this scaffold.
 - No API key or secret is committed.
 
 ## Setup
