@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
+import { ConnectButton, ThirdwebProvider } from 'thirdweb/react';
+import { createWallet } from 'thirdweb/wallets';
 import { AURA_THIRDWEB_TEST_CHAIN, getThirdwebClient } from '../../../lib/thirdweb';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
@@ -11,6 +13,12 @@ const formatExactUsdtBalance = (value: number): string => {
   if (!Number.isFinite(value)) return '0';
   return value.toFixed(8).replace(/\.?0+$/, '');
 };
+
+// Keep this preview limited to explicitly selected external wallets on Base Sepolia.
+const AURA_THIRDWEB_TEST_WALLETS = [
+  createWallet('io.metamask'),
+  createWallet('app.phantom'),
+];
 import {
   Send,
   QrCode,
@@ -403,9 +411,44 @@ export const WalletView: React.FC = () => {
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-stone-400">
             {thirdwebConfigured
-              ? 'The public thirdweb client initialized. This is a testnet-only readiness check; wallet signing, swaps, bridges, and mainnet transactions remain disabled.'
-              : 'Add VITE_THIRDWEB_CLIENT_ID to the Render environment and redeploy to initialize thirdweb. No transactions are enabled here.'}
+              ? 'Client initialized. Connect below to verify wallet access on Base Sepolia. This does not link the external wallet to your AURA account or change your AURA balance.'
+              : 'Add VITE_THIRDWEB_CLIENT_ID to the Render environment and redeploy to enable this testnet connection. No transaction features are enabled here.'}
           </p>
+          {thirdwebClient && (
+            <div className="mt-4 space-y-2">
+              <ThirdwebProvider>
+                <ConnectButton
+                  client={thirdwebClient}
+                  chain={AURA_THIRDWEB_TEST_CHAIN}
+                  wallets={AURA_THIRDWEB_TEST_WALLETS}
+                  showAllWallets={false}
+                  autoConnect={false}
+                  theme="dark"
+                  connectModal={{ size: 'compact' }}
+                  connectButton={{
+                    label: 'Connect test wallet',
+                    style: {
+                      width: '100%',
+                      borderRadius: '12px',
+                      backgroundColor: '#f5c45e',
+                      color: '#18181b',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      minHeight: '42px',
+                    },
+                  }}
+                  appMetadata={{
+                    name: 'AURA Testnet Preview',
+                    url: 'https://aura-8bom.onrender.com',
+                    description: 'Testnet-only wallet connection. No AURA ledger or mainnet transactions.',
+                  }}
+                />
+              </ThirdwebProvider>
+              <p className="text-[10px] leading-relaxed text-stone-500">
+                Test wallets only. AURA swaps, transfers, signing, and balance crediting are not enabled by this preview.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
