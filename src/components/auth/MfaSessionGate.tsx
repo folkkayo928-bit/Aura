@@ -65,6 +65,14 @@ export const MfaSessionGate: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [authLoading, session?.user?.id]);
 
+  // Hooks must be called on every render, before any conditional return.
+  // Keeping this callback above the loading/error branches prevents React #310
+  // when checking transitions from true to false.
+  const handleMfaVerified = useCallback(() => {
+    setRequiresMfa(false);
+    void check();
+  }, [check]);
+
   useEffect(() => {
     void check();
   }, [check]);
@@ -95,14 +103,6 @@ export const MfaSessionGate: React.FC<{ children: React.ReactNode }> = ({ childr
       </div>
     );
   }
-
-  const handleMfaVerified = useCallback(() => {
-    // Re-read the current account's assurance level after verification.
-    // Stable callback identity prevents MfaChallengeGate from restarting its
-    // factor lookup/challenge effect on every parent render.
-    setRequiresMfa(false);
-    void check();
-  }, [check]);
 
   if (requiresMfa) {
     return <MfaChallengeGate key={session?.user?.id ?? 'no-session'} userId={session?.user?.id ?? ''} onVerified={handleMfaVerified} />;
