@@ -9,7 +9,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
 import { AuthModal } from './components/auth/AuthModal';
 import { MfaSessionGate } from './components/auth/MfaSessionGate';
-import { P2POffer } from './types';
+import { P2POffer, P2POrder } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 
@@ -211,11 +211,17 @@ const AppContent: React.FC = () => {
     setP2pModalOpen,
     activeP2POrder,
     setActiveP2POrder,
+    setActiveTab,
+    addNotification,
     isTelegramShellMode,
   } = useApp();
 
   const { user, loading: authLoading, openAuth } = useAuth();
   const [selectedP2POffer, setSelectedP2POffer] = useState<P2POffer | null>(null);
+  const [activeTradeModalOpen, setActiveTradeModalOpen] = useState(false);
+  const hasTrackableP2POrder = Boolean(
+    activeP2POrder && ['escrow_locked', 'payment_marked', 'in_dispute'].includes(activeP2POrder.status)
+  );
 
   React.useEffect(() => {
     if (!isTelegramShellMode || authLoading || user) return;
@@ -240,16 +246,70 @@ const AppContent: React.FC = () => {
   const [createP2POfferOpen, setCreateP2POfferOpen] = useState(false);
 
   const openP2PTrade = (offer: P2POffer) => {
+    // This UI currently handles one focused trade at a time. Keep an existing
+    // server-authoritative order in the Trade Center instead of mixing it with
+    // a different offer inside the same modal.
+    if (hasTrackableP2POrder) {
+      setP2pModalOpen(false);
+      setActiveTab('p2p_trade');
+      addNotification(
+        'Active P2P Trade',
+        'Open My Trades to continue your current order before starting another trade.',
+        'p2p'
+      );
+      return;
+    }
+
+    // A completed/cancelled order may still be in state until its realtime
+    // event is processed. It must not be confused with the newly selected offer.
+    if (activeP2POrder) setActiveP2POrder(null);
     setP2pModalOpen(false);
+    setActiveTradeModalOpen(false);
     setSelectedP2POffer(offer);
   };
 
   const closeP2PTrade = () => {
     setSelectedP2POffer(null);
-    // The order remains server-side; clearing local state only exits the trade screen.
-    setActiveP2POrder(null);
-    setP2pModalOpen(true);
+    setActiveTradeModalOpen(false);
+    setP2pModalOpen(false);
+
+    // Closing the detail screen only exits the view. It never clears or mutates
+    // the server-side order; users track it on the separate My Trades page.
+    if (activeP2POrder) {
+      setActiveTab('p2p_trade');
+    } else {
+      setP2pModalOpen(true);
+    }
   };
+
+  React.useEffect(() => {
+    // Do not reopen a trade overlay merely because the app regains focus. If
+    // Telegram/backgrounding hides the Mini App while a trade is open, close
+    // the overlay and leave its server-backed state on the dedicated page.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden') return;
+      if (!activeTradeModalOpen && !selectedP2POffer && !p2pModalOpen) return;
+
+      setActiveTradeModalOpen(false);
+      setSelectedP2POffer(null);
+      setP2pModalOpen(false);
+      if (hasTrackableP2POrder) setActiveTab('p2p_trade');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [
+    activeTradeModalOpen,
+    selectedP2POffer,
+    p2pModalOpen,
+    hasTrackableP2POrder,
+    setActiveTab,
+  ]);
+
+  React.useEffect(() => {
+    // Avoid a stale "resume modal" flag reopening later after the order finishes.
+    if (!activeP2POrder) setActiveTradeModalOpen(false);
+  }, [activeP2POrder]);
 
   const telegramAccountRequired = isTelegramShellMode && !authLoading && !user;
 
@@ -279,7 +339,16 @@ const AppContent: React.FC = () => {
             {activeTab === 'create' && <CreateView />}
             {activeTab === 'wallet' && <WalletView />}
             {activeTab === 'profile' && <ProfileView onOpenDetail={(artwork) => setSelectedArtwork(artwork)} />}
-            {activeTab === 'p2p_trade' && <P2PTradeCenterView onResume={() => setP2pModalOpen(true)} />}
+            {activeTab === 'p2p_trade' && (
+              <P2PTradeCenterView
+                onResume={(order: P2POrder) => {
+                  setActiveP2POrder(order);
+                  setSelectedP2POffer(null);
+                  setP2pModalOpen(false);
+                  setActiveTradeModalOpen(true);
+                }}
+              />
+            )}
           </div>
           <BottomNav />
           {selectedArtwork && <ArtworkModal artwork={selectedArtwork} onClose={() => setSelectedArtwork(null)} />}
@@ -298,11 +367,20 @@ const AppContent: React.FC = () => {
                 <button onClick={() => setP2pModalOpen(false)} className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-stone-400 hover:text-stone-100"><X className="w-4 h-4" /></button>
               </div>
               <div className="max-w-xl mx-auto w-full px-3 pt-2 pb-24">
-                <P2PView onSelectOffer={openP2PTrade} onOpenCreateOffer={() => setCreateP2POfferOpen(true)} />
+                <P2PView
+                  onSelectOffer={openP2PTrade}
+                  onOpenCreateOffer={() => setCreateP2POfferOpen(true)}
+                  onOpenTradeCenter={() => {
+                    setP2pModalOpen(false);
+                    setActiveTab('p2p_trade');
+                  }}
+                />
               </div>
             </div>
           )}
-          {(selectedP2POffer || activeP2POrder) && <P2PTradeModal offer={selectedP2POffer} onClose={closeP2PTrade} />}
+          {(selectedP2POffer || (activeTradeModalOpen && activeP2POrder)) && (
+            <P2PTradeModal offer={selectedP2POffer} onClose={closeP2PTrade} />
+          )}
           {createP2POfferOpen && <CreateP2POfferModal onClose={() => setCreateP2POfferOpen(false)} />}
           {selectedCollection && <CollectionHubModal collection={selectedCollection} onClose={() => setSelectedCollection(null)} onOpenArtworkDetail={(artwork) => setSelectedArtwork(artwork)} />}
           {makeOfferArtwork && <MakeOfferModal artwork={makeOfferArtwork} onClose={() => setMakeOfferArtwork(null)} />}
