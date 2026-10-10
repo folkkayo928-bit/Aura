@@ -87,6 +87,16 @@ async function updateDeferred(db: ReturnType<typeof admin>, w: any, message: str
     updated_at: new Date().toISOString(),
   }).eq("id", w.id).eq("status", "queued");
 }
+async function pauseForConfiguration(db: ReturnType<typeof admin>, msgId: number, w: any, message: string, delaySeconds = 900) {
+  const { data, error } = await db.rpc("aura_worker_pause_withdrawal", {
+    p_withdrawal_id: w.id,
+    p_msg_id: msgId,
+    p_error: message.slice(0, 1500),
+    p_delay_seconds: delaySeconds,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
 async function completeBroadcast(db: ReturnType<typeof admin>, msgId: number, w: any, cfg: any, txHash: string) {
   const { data: updated, error } = await db.from("wallet_withdrawals").update({
     status: "broadcast",
@@ -118,6 +128,11 @@ Deno.serve(async (req) => {
   const db = admin();
   if (!(await authorized(req, db))) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   try {
+    // Recover previously paused, still-unbroadcast withdrawals only after their
+    // retry time. The database RPC excludes every withdrawal with a tx hash,
+    // provider transaction ID, or ambiguous submission marker.
+    const { error: recoveryError } = await db.rpc("aura_worker_enqueue_idle_withdrawals");
+    if (recoveryError) console.warn("Could not requeue configuration-paused withdrawals", recoveryError.message);
     const { data: messages, error: readError } = await db.rpc("aura_worker_read_withdrawals", { p_visibility_timeout: 300, p_qty: 5 });
     if (readError) throw readError;
     const items = Array.isArray(messages) ? messages : [];
@@ -217,7 +232,7 @@ Deno.serve(async (req) => {
       const rpcUrl = Deno.env.get(cfg.rpcEnv)?.trim() || cfg.fallbackRpc;
 
       if (!/^0x[a-fA-F0-9]{40}$/.test(treasuryAddress)) {
-        await updateDeferred(db, w, "Configured network treasury is missing or invalid; withdrawal was not broadcast.");
+        await pauseForConfiguration(db, msgId, w, "Configured network treasury is missing or invalid; withdrawal remains safely reserved and will retry after configuration is repaired.");
         deferred++; processed++;
         continue;
       }
@@ -243,8 +258,8 @@ Deno.serve(async (req) => {
         }
       }
       if (!mode) {
-        await updateDeferred(db, w,
-          "Withdrawal broadcast is not configured. Configure either a matching AURA_EVM_PRIVATE_KEY, or THIRDWEB_SECRET_KEY plus a registered THIRDWEB_SERVER_WALLET_ADDRESS matching the selected network treasury. No transfer was sent.");
+        await pauseForConfiguration(db, msgId, w,
+          "Withdrawal broadcast is not configured. Add a matching native signer or a registered thirdweb Server Wallet matching this network's treasury. The funds remain reserved, and the worker will retry automatically after configuration is repaired.");
         deferred++; processed++;
         continue;
       }
@@ -363,8 +378,8 @@ Deno.serve(async (req) => {
         // If a broadcast marker exists, leave it in place. It protects against
         // duplicate transfers after network timeouts or lost responses.
         const { data: latest } = await db.from("wallet_withdrawals").select("submission_started_at,provider_transaction_id").eq("id", w.id).maybeSingle();
-        if (!latest?.submission_started_at) {
-          await updateDeferred(db, w, message);
+        if (!latest?.submission_started_at && !latest?.provider_transaction_id) {
+          await pauseForConfiguration(db, msgId, w, message + " No broadcast marker exists; paused and eligible for safe retry after configuration is repaired.");
         } else {
           await db.from("wallet_withdrawals").update({
             confirmation_attempts: Number(w.confirmation_attempts || 0) + 1,
