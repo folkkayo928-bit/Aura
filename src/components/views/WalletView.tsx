@@ -445,7 +445,7 @@ export const WalletView: React.FC = () => {
                 />
               </ThirdwebProvider>
               <p className="text-[10px] leading-relaxed text-stone-500">
-                Test wallets only. AURA swaps, transfers, signing, and balance crediting are not enabled by this preview.
+                Use a disposable test wallet only. AURA's internal send/withdrawal, swap, bridge, mint, and balance-ledger flows are not wired to this connection; never use real funds here.
               </p>
             </div>
           )}
