@@ -190,6 +190,26 @@ Deno.serve(async (req) => {
         }
       }
 
+      // A submission marker without a transaction reference is ambiguous:
+      // the provider may have accepted/broadcast it even if the response was lost.
+      // Never auto-submit again; stop the queue item after the reconciliation window.
+      if (w.submission_started_at) {
+        const ageMs = Date.now() - Date.parse(String(w.submission_started_at));
+        if (ageMs > 120000) {
+          await db.from("wallet_withdrawals").update({
+            last_worker_error: "A prior broadcast submission started but its provider transaction ID or chain hash was not saved. Automatic resubmission is stopped to prevent a duplicate payout; reconcile the configured signer/provider transaction before retrying.",
+            next_attempt_at: null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", w.id).eq("status", "queued");
+          await db.rpc("aura_worker_delete_withdrawal_message", { p_msg_id: msgId });
+          console.error("Withdrawal requires manual broadcast reconciliation", w.id);
+        } else {
+          await updateDeferred(db, w, "A broadcast submission is already in progress; waiting for its existing reference rather than resubmitting.", 60000);
+        }
+        deferred++; processed++;
+        continue;
+      }
+
       const thirdwebSecret = Deno.env.get("THIRDWEB_SECRET_KEY")?.trim() || "";
       const thirdwebAddress = Deno.env.get("THIRDWEB_SERVER_WALLET_ADDRESS")?.trim() || "";
       const privateKey = Deno.env.get("AURA_EVM_PRIVATE_KEY")?.trim() || "";
@@ -265,24 +285,6 @@ Deno.serve(async (req) => {
           const didUpdate = await completeBroadcast(db, msgId, { ...w, broadcast_provider: "native" }, cfg, txHash);
           if (didUpdate) broadcast++;
           processed++;
-          continue;
-        }
-
-        if (w.submission_started_at) {
-          const startedAt = Date.parse(String(w.submission_started_at));
-          const ageMs = Date.now() - startedAt;
-          if (ageMs > 120000) {
-            await db.from("wallet_withdrawals").update({
-              last_worker_error: "A prior broadcast submission started but its provider transaction ID or chain hash was not saved. Automatic resubmission is stopped to prevent a duplicate payout; reconcile the configured signer/provider transaction before retrying.",
-              next_attempt_at: null,
-              updated_at: new Date().toISOString(),
-            }).eq("id", w.id).eq("status", "queued");
-            await db.rpc("aura_worker_delete_withdrawal_message", { p_msg_id: msgId });
-            console.error("Withdrawal requires manual broadcast reconciliation", w.id);
-          } else {
-            await updateDeferred(db, w, "A broadcast submission is already in progress; waiting for its existing reference rather than resubmitting.", 60000);
-          }
-          deferred++; processed++;
           continue;
         }
 
