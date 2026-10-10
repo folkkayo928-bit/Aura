@@ -1542,10 +1542,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ethereum: '0x1',
             polygon: '0x89',
             arbitrum: '0xa4b1',
+            bsc: '0x38',
           };
           const chainId = String(await win.ethereum.request({ method: 'eth_chainId' })).toLowerCase();
           if (chainId !== expectedChainIds[network]) {
-            addNotification('Wrong Network', `Switch MetaMask to ${network === 'ethereum' ? 'Ethereum' : network === 'polygon' ? 'Polygon' : 'Arbitrum'} and try again.`, 'community');
+            addNotification('Wrong Network', `Switch MetaMask to ${network === 'ethereum' ? 'Ethereum' : network === 'polygon' ? 'Polygon' : network === 'arbitrum' ? 'Arbitrum' : 'BNB Smart Chain'} and try again.`, 'community');
             return;
           }
 
@@ -1655,6 +1656,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ethereum: '0x1',
       polygon: '0x89',
       arbitrum: '0xa4b1',
+      bsc: '0x38',
     };
 
     const handleEvmAccountsChanged = (accounts: string[]) => {
