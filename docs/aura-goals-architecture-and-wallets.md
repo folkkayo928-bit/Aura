@@ -73,10 +73,10 @@ Mainnet token contracts and chain support must be confirmed independently from U
 
 For real EVM withdrawals, configure one server-side signer route in Supabase Edge Function secrets/runtime configuration:
 
-- **Preferred thirdweb Server Wallet route:** `THIRDWEB_SECRET_KEY` plus `THIRDWEB_SERVER_WALLET_ADDRESS`. The address must already be registered as a Server Wallet in the same thirdweb project. It is not the same thing as a user's ERC-4337 smart account.
+- **Preferred thirdweb Server Wallet route:** `THIRDWEB_SECRET_KEY` plus `THIRDWEB_SERVER_WALLET_ADDRESS`. The address must already be registered in the same thirdweb project as a Server Wallet; the configured address may be that wallet's EOA address or its registered smart-account address when the smart account is set up for server execution.
 - **Native signer fallback:** `AURA_EVM_PRIVATE_KEY`, only when that key derives the exact same public address as the configured treasury.
 - Per-chain RPC endpoints (private provider optional; a read-RPC fallback exists): `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, and `AURA_EVM_RPC_BSC`.
-- Per-chain treasury addresses: `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, and `AURA_EVM_TREASURY_BSC`. When using thirdweb, each treasury address must equal the registered Server Wallet address for that chain. The wallet must actually have the required USDT and native gas token on that chain.
+- Per-chain treasury addresses: `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, and `AURA_EVM_TREASURY_BSC`. When using thirdweb, each treasury address must equal the registered Server Wallet or its registered smart-account address. A standard EOA wallet must have USDT and native gas token; a smart Server Wallet may use Thirdweb gas sponsorship if it is enabled for that wallet and chain.
 - Deposit sweeping still requires server-side derivation custody that matches the registered XPub, plus a valid funded treasury for each chain.
 - `VITE_THIRDWEB_CLIENT_ID` is a **public** frontend Client ID. It cannot sign server payouts and is not a substitute for `THIRDWEB_SECRET_KEY`.
 
