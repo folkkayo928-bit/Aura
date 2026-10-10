@@ -613,7 +613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const [publicArtworkRes, publicCollectionRes, publicP2pRes] = await Promise.all([
         supabase
           .from('artworks')
-          .select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)')
+          .select('*,profiles:profiles!artworks_creator_id_fkey(id,handle,display_name,bio,avatar_url)')
           .eq('published', true)
           .order('created_at', { ascending: false })
           .limit(100),
@@ -690,7 +690,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('artwork_ownership').select('artwork_id,purchase_price_usdt').eq('owner_id', user.id),
         supabase.from('artwork_interactions').select('artwork_id,liked,disliked,loved,saved,watched').eq('user_id', user.id),
         supabase.from('collection_watchlist').select('collection_id').eq('user_id', user.id),
-        supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('artworks').select('*,profiles:profiles!artworks_creator_id_fkey(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
         supabase.from('p2p_offers').select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('p2p_orders').select('*,offer:p2p_offers!p2p_orders_offer_id_fkey(*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).in('status', ['escrow_locked','payment_marked','in_dispute']).order('created_at', { ascending: false }).limit(1).maybeSingle(),
