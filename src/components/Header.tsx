@@ -39,7 +39,14 @@ export const Header: React.FC = () => {
 
       <div className="flex items-center gap-1.5">
         <button
-          onClick={() => setP2pModalOpen(true)}
+          onClick={() => {
+            if (activeP2POrder) {
+              setP2pModalOpen(false);
+              setActiveTab('p2p_trade');
+            } else {
+              setP2pModalOpen(true);
+            }
+          }}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-full border transition-all ${
             activeP2POrder
               ? 'border-amber-400/60 bg-amber-400/20 text-amber-300 font-bold'
