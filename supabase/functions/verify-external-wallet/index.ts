@@ -23,7 +23,7 @@ function randomNonce() {
 }
 
 function isEvmNetwork(network: string) {
-  return network === "ethereum" || network === "polygon" || network === "arbitrum";
+  return network === "ethereum" || network === "polygon" || network === "arbitrum" || network === "bsc";
 }
 
 function normalizeAddress(provider: string, address: string) {
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     const network = body?.network;
     const address = body?.address;
 
-    if (!["MetaMask", "Phantom"].includes(provider) || !["ethereum", "polygon", "arbitrum", "solana"].includes(network) || typeof address !== "string" || !address.trim()) {
+    if (!["MetaMask", "Phantom"].includes(provider) || !["ethereum", "polygon", "arbitrum", "bsc", "solana"].includes(network) || typeof address !== "string" || !address.trim()) {
       return json({ success: false, error: "INVALID_WALLET_REQUEST" }, 400);
     }
     if (provider === "MetaMask" && !isEvmNetwork(network)) return json({ success: false, error: "METAMASK_REQUIRES_EVM" }, 400);
