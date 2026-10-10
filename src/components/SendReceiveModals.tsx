@@ -116,7 +116,7 @@ export const SendModal: React.FC = () => {
             ['AUTH_REQUIRED', 'Your AURA session has expired. Sign in again and retry.'],
             ['INVALID_EVM_DESTINATION_ADDRESS', 'Enter a valid destination address for the selected network.'],
             ['INVALID_DESTINATION_ADDRESS', 'Enter a valid destination address for the selected network.'],
-            ['INVALID_AMOUNT_PRECISION', 'Use no more than 6 decimal places for an on-chain withdrawal.'],
+            ['INVALID_AMOUNT_PRECISION', network === 'bsc' ? 'Use no more than 8 decimal places for BNB Smart Chain withdrawals.' : 'Use no more than 6 decimal places for this network.'],
             ['INSUFFICIENT_FUNDS', 'Your available AURA balance is not enough for this withdrawal.'],
             ['MFA_REQUIRED_FOR_WITHDRAWAL', 'Complete the required account verification before requesting a withdrawal.'],
             ['NO_CONFIRMATION_CHANNEL', 'Start the AURA Telegram bot or add a real email address to your account before withdrawing.'],
@@ -312,7 +312,7 @@ export const SendModal: React.FC = () => {
               </div>
               <div className="flex justify-between font-semibold text-stone-100 pt-1 border-t border-white/5">
                 <span>USDT Amount:</span>
-                <span className="text-amber-300">${totalCost.toFixed(2)} USDT</span>
+                <span className="text-amber-300">${formatWalletAmount(totalCost, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
               </div>
               <p className="pt-1 text-[10px] text-stone-500">AURA will not pretend the network fee is $0. The actual chain fee is handled by the broadcaster.</p>
             </div>
