@@ -399,7 +399,7 @@ export const WalletView: React.FC = () => {
         <div className="rounded-3xl border border-violet-400/20 bg-violet-400/[0.04] p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-stone-200">thirdweb wallet preview</div>
+              <div className="text-xs font-mono uppercase tracking-widest text-stone-200">thirdweb smart wallet preview</div>
               <div className="mt-1 text-sm font-semibold text-stone-100">Base Sepolia testnet only</div>
             </div>
             <span className={`rounded-full border px-2.5 py-1 text-[10px] font-mono ${thirdwebConfigured ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
@@ -407,7 +407,7 @@ export const WalletView: React.FC = () => {
             </span>
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-stone-400">
-            This connection is for testing MetaMask/Phantom access on Base Sepolia. It is not your AURA balance and does not deposit, send, withdraw, or move mainnet USDT.
+            Connect MetaMask or Phantom as the owner of an ERC-4337 smart account on Base Sepolia. This testnet-only smart account is separate from AURA sign-in and ledger balances; it does not deposit, send, withdraw, or move mainnet USDT.
           </p>
           {thirdwebClient ? (
             <div className="mt-4">
@@ -415,13 +415,17 @@ export const WalletView: React.FC = () => {
                 <ConnectButton
                   client={thirdwebClient}
                   chain={AURA_THIRDWEB_TEST_CHAIN}
+                  accountAbstraction={{
+                    chain: AURA_THIRDWEB_TEST_CHAIN,
+                    sponsorGas: true,
+                  }}
                   wallets={AURA_THIRDWEB_TEST_WALLETS}
                   showAllWallets={false}
                   autoConnect={false}
                   theme="dark"
                   connectModal={{ size: 'compact' }}
                   connectButton={{
-                    label: 'Connect Test Wallet',
+                    label: 'Connect Test Smart Wallet',
                     style: {
                       width: '100%',
                       borderRadius: '12px',
