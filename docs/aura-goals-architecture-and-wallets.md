@@ -71,15 +71,16 @@ Mainnet token contracts and chain support must be confirmed independently from U
 
 ## Required private deployment configuration
 
-For real EVM withdrawals, the Edge Function runtime needs a matching server-side signer and treasury configuration:
+For real EVM withdrawals, configure one server-side signer route in Supabase Edge Function secrets/runtime configuration:
 
-- Shared signer: `AURA_EVM_PRIVATE_KEY`. Its public address must match the configured treasury address on every chain where it is used.
-- Per-chain RPC endpoints: `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, and `AURA_EVM_RPC_BSC`.
-- Per-chain treasury addresses: `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, and `AURA_EVM_TREASURY_BSC`.
-- Deposit sweep needs a valid treasury for each chain and server-side derivation custody that matches the registered XPub; the deployment must log an actionable missing-configuration status rather than being mistaken for a completed sweep.
-- `VITE_THIRDWEB_CLIENT_ID` is a **public** frontend Client ID for the optional Base Sepolia preview. It is separate from all custody secrets.
+- **Preferred thirdweb Server Wallet route:** `THIRDWEB_SECRET_KEY` plus `THIRDWEB_SERVER_WALLET_ADDRESS`. The address must already be registered as a Server Wallet in the same thirdweb project. It is not the same thing as a user's ERC-4337 smart account.
+- **Native signer fallback:** `AURA_EVM_PRIVATE_KEY`, only when that key derives the exact same public address as the configured treasury.
+- Per-chain RPC endpoints (private provider optional; a read-RPC fallback exists): `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, and `AURA_EVM_RPC_BSC`.
+- Per-chain treasury addresses: `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, and `AURA_EVM_TREASURY_BSC`. When using thirdweb, each treasury address must equal the registered Server Wallet address for that chain. The wallet must actually have the required USDT and native gas token on that chain.
+- Deposit sweeping still requires server-side derivation custody that matches the registered XPub, plus a valid funded treasury for each chain.
+- `VITE_THIRDWEB_CLIENT_ID` is a **public** frontend Client ID. It cannot sign server payouts and is not a substitute for `THIRDWEB_SECRET_KEY`.
 
-Set private values only in the Supabase Edge Function secrets/runtime configuration after independently verifying the address, signer ownership, token contract, and native-gas funding on each chain. Never paste private keys or secret values into chat, source control, browser variables, or logs. A production withdrawal should remain queued until those checks pass; do not manually replay a transfer to clear the queue.
+Never paste private keys or secret values into chat, source control, browser variables, or logs. A queued withdrawal can only be broadcast after the real signer, treasury address, USDT balance, and gas balance all validate. If configuration is missing, the queue pauses and can be retried automatically after repair. Do not manually replay a transaction whose submission status is uncertain.
 
 ## Release acceptance checklist
 
