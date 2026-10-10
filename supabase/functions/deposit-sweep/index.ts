@@ -133,7 +133,18 @@ Deno.serve(async (req) => {
       const treasury = Deno.env.get(cfg.treasury) || "";
       if (!rpcUrl || !treasury) {
         skipped++;
-        summaries.push({ chain, status: "configuration_missing" });
+        // Log configuration presence only. Never print treasury addresses or signing material.
+        console.warn("Deposit sweep skipped because required configuration is missing", {
+          chain,
+          rpcConfigured: Boolean(rpcUrl),
+          treasuryConfigured: Boolean(treasury),
+        });
+        summaries.push({
+          chain,
+          status: "configuration_missing",
+          rpcConfigured: Boolean(rpcUrl),
+          treasuryConfigured: Boolean(treasury),
+        });
         continue;
       }
       if (!validAddress(treasury)) {

@@ -67,11 +67,12 @@ export const SendModal: React.FC = () => {
       return;
     }
 
-    const allowedDecimals = mode === 'internal' ? 8 : 6;
+    // The shared AURA ledger stores 8 decimals. Mainnet USDT uses 6 decimals on Ethereum/Polygon/Arbitrum and 18 on BSC, so BSC withdrawals can safely use the ledger's 8-decimal precision.
+    const allowedDecimals = mode === 'internal' || network === 'bsc' ? 8 : 6;
     if (Math.abs(numAmount - Number(numAmount.toFixed(allowedDecimals))) > 1e-12) {
       setSendError(mode === 'internal'
         ? 'AURA username/Vault ID transfers support up to 8 decimal places.'
-        : 'On-chain withdrawal requests support up to 6 decimal places.');
+        : network === 'bsc' ? 'BNB Smart Chain withdrawals support up to 8 decimal places in the AURA ledger.' : 'On-chain withdrawal requests on this network support up to 6 decimal places.');
       return;
     }
     if (mode === 'external' && !/^0x[a-fA-F0-9]{40}$/.test(destination)) {
@@ -115,7 +116,7 @@ export const SendModal: React.FC = () => {
             ['AUTH_REQUIRED', 'Your AURA session has expired. Sign in again and retry.'],
             ['INVALID_EVM_DESTINATION_ADDRESS', 'Enter a valid destination address for the selected network.'],
             ['INVALID_DESTINATION_ADDRESS', 'Enter a valid destination address for the selected network.'],
-            ['INVALID_AMOUNT_PRECISION', 'Use no more than 6 decimal places for an on-chain withdrawal.'],
+            ['INVALID_AMOUNT_PRECISION', network === 'bsc' ? 'Use no more than 8 decimal places for BNB Smart Chain withdrawals.' : 'Use no more than 6 decimal places for this network.'],
             ['INSUFFICIENT_FUNDS', 'Your available AURA balance is not enough for this withdrawal.'],
             ['MFA_REQUIRED_FOR_WITHDRAWAL', 'Complete the required account verification before requesting a withdrawal.'],
             ['NO_CONFIRMATION_CHANNEL', 'Start the AURA Telegram bot or add a real email address to your account before withdrawing.'],
@@ -280,13 +281,13 @@ export const SendModal: React.FC = () => {
             <div>
               <div className="flex items-center justify-between text-xs text-stone-400 mb-1.5">
                 <span>Amount (USDT)</span>
-                <span className="font-mono">Available: ${formatWalletAmount(walletBalance, mode === 'internal' ? 8 : 6)}</span>
+                <span className="font-mono">Available: ${formatWalletAmount(walletBalance, mode === 'internal' || network === 'bsc' ? 8 : 6)}</span>
               </div>
               <div className="relative">
                 <input
                   type="number"
-                  step={mode === 'internal' ? '0.00000001' : '0.000001'}
-                  min={mode === 'internal' ? '0.00000001' : '0.000001'}
+                  step={mode === 'internal' || network === 'bsc' ? '0.00000001' : '0.000001'}
+                  min={mode === 'internal' || network === 'bsc' ? '0.00000001' : '0.000001'}
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => { setAmount(e.target.value); setTransferRequestId(crypto.randomUUID()); setSendError(null); }}
@@ -311,7 +312,7 @@ export const SendModal: React.FC = () => {
               </div>
               <div className="flex justify-between font-semibold text-stone-100 pt-1 border-t border-white/5">
                 <span>USDT Amount:</span>
-                <span className="text-amber-300">${totalCost.toFixed(2)} USDT</span>
+                <span className="text-amber-300">${formatWalletAmount(totalCost, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
               </div>
               <p className="pt-1 text-[10px] text-stone-500">AURA will not pretend the network fee is $0. The actual chain fee is handled by the broadcaster.</p>
             </div>

@@ -25,8 +25,11 @@ const TRACKABLE_STATUSES: P2POrder['status'][] = ['escrow_locked', 'payment_mark
 const orderToUi = (row: any): P2POrder => {
   const offer = row.offer || {};
   const merchant = offer.merchant || {};
-  const completedCount = Number(merchant.p2p_stats?.completed_orders || 0);
-  const cancelledCount = Number(merchant.p2p_stats?.cancelled_orders || 0);
+  // PostgREST may serialize the reverse one-to-one stats relationship as either
+  // an object or a single-item array, depending on inferred cardinality.
+  const stats = Array.isArray(merchant.p2p_stats) ? (merchant.p2p_stats[0] || {}) : (merchant.p2p_stats || {});
+  const completedCount = Number(stats.completed_orders || 0);
+  const cancelledCount = Number(stats.cancelled_orders || 0);
   const total = completedCount + cancelledCount;
   return {
     id: row.id,
@@ -108,7 +111,7 @@ export function P2PTradeCenterView({ onResume }: Props) {
 
     const { data, error } = await supabase
       .from('p2p_orders')
-      .select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url))')
+      .select('*,offer:p2p_offers!p2p_orders_offer_id_fkey(*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url))')
       .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
       .limit(50);

@@ -294,7 +294,8 @@ const backendCollectionToUi = (
 });
 
 const backendMerchantToUi = (row: any): P2PMerchant => {
-  const stats = row?.p2p_stats;
+  const rawStats = row?.p2p_stats;
+  const stats = Array.isArray(rawStats) ? (rawStats[0] || {}) : (rawStats || {});
   const completed = Number(stats?.completed_orders || 0);
   const cancelled = Number(stats?.cancelled_orders || 0);
   const total = completed + cancelled;
@@ -502,7 +503,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const hydrateOrder = async (orderId: string) => {
       const { data, error } = await supabase
         .from('p2p_orders')
-        .select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))')
+        .select('*,offer:p2p_offers!p2p_orders_offer_id_fkey(*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url))')
         .eq('id', orderId)
         .maybeSingle();
 
@@ -512,7 +513,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveP2POrder(current => current?.id === orderId ? null : current);
         const { data: restoredOffer } = await supabase
           .from('p2p_offers')
-          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)')
+          .select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)')
           .eq('id', row.offer_id)
           .maybeSingle();
         if (restoredOffer) {
@@ -531,7 +532,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (row.accepted_at) {
         const { data: currentOffer } = await supabase
           .from('p2p_offers')
-          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)')
+          .select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)')
           .eq('id', row.offer_id)
           .maybeSingle();
 
@@ -612,7 +613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const [publicArtworkRes, publicCollectionRes, publicP2pRes] = await Promise.all([
         supabase
           .from('artworks')
-          .select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)')
+          .select('*,profiles:profiles!artworks_creator_id_fkey(id,handle,display_name,bio,avatar_url)')
           .eq('published', true)
           .order('created_at', { ascending: false })
           .limit(100),
@@ -623,7 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .limit(100),
         supabase
           .from('p2p_offers')
-          .select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)')
+          .select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(100),
@@ -689,10 +690,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('artwork_ownership').select('artwork_id,purchase_price_usdt').eq('owner_id', user.id),
         supabase.from('artwork_interactions').select('artwork_id,liked,disliked,loved,saved,watched').eq('user_id', user.id),
         supabase.from('collection_watchlist').select('collection_id').eq('user_id', user.id),
-        supabase.from('artworks').select('*,profiles:creator_id(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('artworks').select('*,profiles:profiles!artworks_creator_id_fkey(id,handle,display_name,bio,avatar_url)').eq('published', true).order('created_at', { ascending: false }).limit(100),
         supabase.from('external_wallets').select('*').eq('user_id', user.id).order('connected_at', { ascending: false }),
-        supabase.from('p2p_offers').select('*,merchant:merchant_id(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats(*)),artwork:artwork_id(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
-        supabase.from('p2p_orders').select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).in('status', ['escrow_locked','payment_marked','in_dispute']).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('p2p_offers').select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(100),
+        supabase.from('p2p_orders').select('*,offer:p2p_offers!p2p_orders_offer_id_fkey(*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url))').or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`).in('status', ['escrow_locked','payment_marked','in_dispute']).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.rpc('list_live_aura_drops_v2',{p_limit:50}),
       ]);
 
@@ -1542,10 +1543,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ethereum: '0x1',
             polygon: '0x89',
             arbitrum: '0xa4b1',
+            bsc: '0x38',
           };
           const chainId = String(await win.ethereum.request({ method: 'eth_chainId' })).toLowerCase();
           if (chainId !== expectedChainIds[network]) {
-            addNotification('Wrong Network', `Switch MetaMask to ${network === 'ethereum' ? 'Ethereum' : network === 'polygon' ? 'Polygon' : 'Arbitrum'} and try again.`, 'community');
+            addNotification('Wrong Network', `Switch MetaMask to ${network === 'ethereum' ? 'Ethereum' : network === 'polygon' ? 'Polygon' : network === 'arbitrum' ? 'Arbitrum' : 'BNB Smart Chain'} and try again.`, 'community');
             return;
           }
 
@@ -1655,6 +1657,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ethereum: '0x1',
       polygon: '0x89',
       arbitrum: '0xa4b1',
+      bsc: '0x38',
     };
 
     const handleEvmAccountsChanged = (accounts: string[]) => {
@@ -1781,7 +1784,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       const { data: orderData } = await supabase
         .from('p2p_orders')
-        .select('*,offer:offer_id(*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url))')
+        .select('*,offer:p2p_offers!p2p_orders_offer_id_fkey(*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url))')
         .eq('id', orderId)
         .maybeSingle();
       if (orderData) setActiveP2POrder(backendP2POrderToUi(orderData));
@@ -1878,7 +1881,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (isArtworkTrade) {
       const offerRes = await supabase.from('p2p_offers')
-        .select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)')
+        .select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)')
         .eq('id', row.offer_id)
         .maybeSingle();
       if (offerRes.data) {
@@ -1892,7 +1895,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
     if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
     const offerRes = await supabase.from('p2p_offers')
-      .select('*,merchant:merchant_id(id,handle,display_name,avatar_url),artwork:artwork_id(id,title,media_url)')
+      .select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)')
       .eq('id', row.offer_id)
       .maybeSingle();
     if (offerRes.data) {

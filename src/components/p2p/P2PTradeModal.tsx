@@ -76,7 +76,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
     void (async () => {
       const { data } = await supabase
         .from('p2p_messages')
-        .select('id,text,created_at,sender_id,sender_role,sender:sender_id(display_name,handle)')
+        .select('id,text,created_at,sender_id,sender_role,sender:profiles!p2p_messages_sender_id_fkey(display_name,handle)')
         .eq('order_id', activeP2POrder.id)
         .order('created_at', { ascending: true });
       if (!data) return;
@@ -286,7 +286,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
         sender_role: user.id === activeP2POrder.sellerId ? 'seller' : 'buyer',
         text: textValue,
       })
-      .select('id,text,created_at,sender_id,sender_role,sender:sender_id(display_name,handle)')
+      .select('id,text,created_at,sender_id,sender_role,sender:profiles!p2p_messages_sender_id_fkey(display_name,handle)')
       .single();
 
     if (error || !data) {
