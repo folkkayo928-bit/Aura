@@ -3,12 +3,6 @@ import { useApp } from '../../context/AppContext';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import {
   Star,
-  ShoppingBag,
-  TrendingUp,
-  Layers,
-  ChevronRight,
-  Handshake,
-  ArrowRight,
   CheckCircle2,
 } from 'lucide-react';
 
