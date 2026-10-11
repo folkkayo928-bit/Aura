@@ -5,6 +5,12 @@ import { privateKeyToAccount } from "npm:viem@2/accounts";
 
 const ERC20_ABI = [{
   type: "function",
+  name: "decimals",
+  stateMutability: "view",
+  inputs: [],
+  outputs: [{ name: "", type: "uint8" }],
+}, {
+  type: "function",
   name: "balanceOf",
   stateMutability: "view",
   inputs: [{ name: "account", type: "address" }],
@@ -72,44 +78,71 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
     }
   }
 
-  // thirdweb Server Wallet is the backend treasury signer, not the user's
-  // ERC-4337 smart account. The configured wallet must be the same address
-  // as this network's funded treasury before any withdrawal can be reserved.
+  // Thirdweb Server Wallet is the backend treasury signer, not the user's
+  // smart account. Validate the sender against this project's full paginated list
+  // before reserving any AURA balance.
   if (!signerAddress && thirdwebSecret && thirdwebAddress && /^0x[a-fA-F0-9]{40}$/.test(thirdwebAddress)) {
     if (thirdwebAddress.toLowerCase() === treasury.toLowerCase()) {
       try {
-        const response = await fetch("https://api.thirdweb.com/v1/wallets/server?limit=100&page=1", {
-          method: "GET",
-          headers: { "x-secret-key": thirdwebSecret },
-          signal: AbortSignal.timeout(10000),
-        });
-        if (!response.ok) {
-          return {
-            status: 503,
-            error: "THIRDWEB_SERVER_WALLET_VALIDATION_FAILED",
-            message: "AURA could not validate the configured thirdweb Server Wallet. No funds have been reserved.",
-          };
+        const registeredWallets: Array<Record<string, unknown>> = [];
+        for (let page = 1; page <= 10; page++) {
+          const response = await fetch("https://api.thirdweb.com/v1/wallets/server?limit=100&page=" + page, {
+            method: "GET",
+            headers: { "x-secret-key": thirdwebSecret },
+            signal: AbortSignal.timeout(10000),
+          });
+          if (!response.ok) {
+            return {
+              status: 503,
+              error: "THIRDWEB_SERVER_WALLET_VALIDATION_FAILED",
+              message: "AURA could not validate the configured Thirdweb Server Wallet. No funds have been reserved.",
+            };
+          }
+          const payload = await response.json().catch(() => null);
+          const wallets = payload?.result?.wallets;
+          if (!Array.isArray(wallets)) {
+            return {
+              status: 503,
+              error: "THIRDWEB_SERVER_WALLET_VALIDATION_FAILED",
+              message: "AURA received an invalid Thirdweb wallet response. No funds have been reserved.",
+            };
+          }
+          registeredWallets.push(...wallets);
+          if (payload?.result?.pagination?.hasMore !== true) break;
         }
-        const payload = await response.json();
-        const wallets = payload?.result?.wallets;
-        const matchedWallet = Array.isArray(wallets) ? wallets.find((wallet: any) =>
-          String(wallet?.address || "").toLowerCase() === treasury.toLowerCase() ||
-          String(wallet?.smartWalletAddress || "").toLowerCase() === treasury.toLowerCase()
-        ) : null;
-        if (!matchedWallet) {
+
+        const target = treasury.toLowerCase();
+        const directWallet = registeredWallets.find((wallet) =>
+          String(wallet?.address || "").toLowerCase() === target
+        );
+        const smartWallet = registeredWallets.find((wallet) =>
+          String(wallet?.smartWalletAddress || "").toLowerCase() === target
+        );
+        if (!directWallet && !smartWallet) {
           return {
             status: 503,
             error: "THIRDWEB_SERVER_WALLET_NOT_REGISTERED",
-            message: "The configured treasury address is neither the address nor the smart-account address of a Server Wallet registered in this Thirdweb project. No funds have been reserved.",
+            message: "The configured treasury address is not registered in this Thirdweb project's Server Wallet list. No funds have been reserved.",
           };
         }
+
         signerAddress = thirdwebAddress as Address;
-        thirdwebSmartWallet = String(matchedWallet?.smartWalletAddress || "").toLowerCase() === treasury.toLowerCase();
+        thirdwebSmartWallet = !directWallet && Boolean(smartWallet);
+        if (thirdwebSmartWallet) {
+          const gasVerificationEnv = "AURA_THIRDWEB_GAS_VERIFIED_" + chainName.toUpperCase();
+          if ((Deno.env.get(gasVerificationEnv) || "").trim().toLowerCase() !== "true") {
+            return {
+              status: 503,
+              error: "WITHDRAWAL_GAS_READINESS_UNVERIFIED",
+              message: "This Thirdweb smart-account route has not passed a controlled gas/EntryPoint verification. No funds have been reserved.",
+            };
+          }
+        }
       } catch {
         return {
           status: 503,
           error: "THIRDWEB_SERVER_WALLET_VALIDATION_FAILED",
-          message: "AURA could not validate the configured thirdweb Server Wallet. No funds have been reserved.",
+          message: "AURA could not validate the configured Thirdweb Server Wallet. No funds have been reserved.",
         };
       }
     }
@@ -156,8 +189,21 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
       rpcUrls: { default: { http: [rpcUrl] } },
     } as const;
     const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 10000 }) });
+    const actualChainId = await client.getChainId();
+    if (actualChainId !== config.id) {
+      return {
+        status: 503,
+        error: "WITHDRAWAL_READINESS_CHECK_FAILED",
+        message: "AURA could not verify the selected network's configured RPC. No funds have been reserved.",
+      };
+    }
     const tokenAmount = parseUnits(String(amount), config.decimals);
-    const [balance, nativeBalance] = await Promise.all([
+    const [actualDecimals, balance, nativeBalance] = await Promise.all([
+      client.readContract({
+        address: config.token,
+        abi: ERC20_ABI,
+        functionName: "decimals",
+      }),
       client.readContract({
         address: config.token,
         abi: ERC20_ABI,
@@ -166,6 +212,13 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
       }),
       client.getBalance({ address: signerAddress }),
     ]);
+    if (Number(actualDecimals) !== config.decimals) {
+      return {
+        status: 503,
+        error: "WITHDRAWAL_READINESS_CHECK_FAILED",
+        message: "AURA could not verify the expected USDT token decimals on this network. No funds have been reserved.",
+      };
+    }
 
     if (balance < tokenAmount) {
       return {
@@ -187,7 +240,9 @@ async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAIN
     ]);
     // A Thirdweb smart Server Wallet can use configured paymaster sponsorship.
     // An EOA Server Wallet/native signer must hold the chain's native gas token.
-    if (!thirdwebSmartWallet && nativeBalance < gasEstimate * gasPrice) {
+    const estimatedGasCost = gasEstimate * gasPrice;
+    const requiredGasWithBuffer = estimatedGasCost + estimatedGasCost / 5n;
+    if (!thirdwebSmartWallet && nativeBalance < requiredGasWithBuffer) {
       return {
         status: 409,
         error: "WITHDRAWAL_GAS_UNAVAILABLE",
