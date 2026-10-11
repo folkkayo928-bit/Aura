@@ -11,7 +11,6 @@ import {
   DollarSign,
   Wallet,
   Check,
-  Sparkles,
 } from 'lucide-react';
 
 interface CustomPaymentMethodInputProps {
