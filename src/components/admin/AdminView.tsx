@@ -409,7 +409,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <div className="font-semibold text-stone-200">Custody derivation</div>
                                 <div className={treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'mt-2 text-emerald-300' : 'mt-2 text-rose-300'}>Mnemonic: {treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'configured' : 'missing'}</div>
                                 <div className={treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Xpub: {treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'configured' : 'missing'}</div>
-                                <div className={treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Sweep config: {treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'present for all four EVM networks' : 'incomplete for at least one network'}</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Sweep config: {treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'configured across four EVM networks; gas checked separately' : 'incomplete for at least one network'}</div>
                               </div>
                               <div className="rounded-xl bg-white/[.03] p-3 text-[10px]">
                                 <div className="font-semibold text-stone-200">Oldest unswept deposit</div>
@@ -418,6 +418,41 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     <div className="mt-2 text-amber-200">{String(treasuryReport.depositOperations.oldestPendingSweep.chain || '').toUpperCase()} · {treasuryReport.depositOperations.oldestPendingSweep.createdAt ? new Date(treasuryReport.depositOperations.oldestPendingSweep.createdAt).toLocaleString() : 'date unavailable'}</div>
                                     <div className="mt-1 text-stone-500">Last sweep attempt: {treasuryReport.depositOperations.oldestPendingSweep.attemptedAt ? new Date(treasuryReport.depositOperations.oldestPendingSweep.attemptedAt).toLocaleString() : 'none recorded'}</div>
                                     {treasuryReport.depositOperations.oldestPendingSweep.errorCode && <div className="mt-1 text-rose-300">Last error code: {String(treasuryReport.depositOperations.oldestPendingSweep.errorCode)}</div>}
+                                    {treasuryReport.depositOperations.oldestPendingSweep.gasCheck && (() => {
+                                      const gas = treasuryReport.depositOperations.oldestPendingSweep.gasCheck;
+                                      const gasStatus = String(gas.status || 'not_checked');
+                                      const good = gasStatus === 'sufficient_with_20_percent_buffer';
+                                      const bad = gasStatus === 'insufficient_native_gas' || gasStatus === 'no_usdt_at_deposit_address' || gasStatus === 'treasury_not_configured' || gasStatus === 'deposit_address_mismatch' || gasStatus === 'deposit_wallet_missing' || gasStatus === 'token_decimals_mismatch';
+                                      const label = good
+                                        ? 'Read-only gas estimate passes with a 20% buffer'
+                                        : gasStatus === 'insufficient_native_gas'
+                                          ? 'Deposit address needs native gas for this sweep'
+                                          : gasStatus === 'no_usdt_at_deposit_address'
+                                            ? 'No USDT found at the recorded deposit address'
+                                            : gasStatus === 'treasury_not_configured'
+                                              ? 'Treasury address is not configured for this network'
+                                              : gasStatus === 'deposit_address_mismatch'
+                                                ? 'Safety stop: recorded deposit address does not match wallet mapping'
+                                                : gasStatus === 'deposit_wallet_missing'
+                                                  ? 'No custodial deposit wallet mapping found'
+                                                  : gasStatus === 'token_decimals_mismatch'
+                                                    ? 'Safety stop: USDT token decimals did not match'
+                                                    : gasStatus === 'rpc_chain_mismatch'
+                                                      ? 'Safety stop: RPC returned the wrong chain'
+                                                      : gasStatus === 'rpc_or_gas_estimate_failed'
+                                                        ? 'Could not estimate sweep gas from the configured RPC'
+                                                        : 'Deposit address gas check unavailable';
+                                      return (
+                                        <div className={good ? 'mt-3 rounded-lg bg-emerald-400/5 p-2 text-emerald-300' : bad ? 'mt-3 rounded-lg bg-rose-400/5 p-2 text-rose-300' : 'mt-3 rounded-lg bg-amber-400/5 p-2 text-amber-200'}>
+                                          <div className="font-semibold">Sweep readiness · {gasStatus.replace(/_/g, ' ')}</div>
+                                          <div className="mt-1">{label}</div>
+                                          {gas.nativeBalance !== undefined && <div className="mt-1 text-stone-400">Deposit address native balance: {String(gas.nativeBalance)} {String(gas.nativeSymbol || '')}</div>}
+                                          {gas.usdtBalance !== undefined && <div className="mt-1 text-stone-400">Deposit address USDT balance: {String(gas.usdtBalance)} USDT</div>}
+                                          {gas.estimatedNativeGasRequiredWithBuffer !== null && gas.estimatedNativeGasRequiredWithBuffer !== undefined && <div className="mt-1 text-stone-400">Estimated native gas needed (incl. 20% buffer): {String(gas.estimatedNativeGasRequiredWithBuffer)} {String(gas.nativeSymbol || '')}</div>}
+                                          <div className="mt-1 text-stone-500">Read-only estimate only; no sweep transaction was submitted by this check.</div>
+                                        </div>
+                                      );
+                                    })()}
                                   </>
                                 ) : <div className="mt-2 text-emerald-300">No pending sweep row without a transaction hash.</div>}
                               </div>
