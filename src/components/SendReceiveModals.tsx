@@ -49,9 +49,7 @@ export const SendModal: React.FC = () => {
 
   if (!sendModalOpen) return null;
 
-  const currentGas = 0;
   const numAmount = parseFloat(amount) || 0;
-  const totalCost = numAmount;
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,14 +308,14 @@ export const SendModal: React.FC = () => {
             {/* Fee summary */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-stone-400 space-y-1.5 font-mono">
               <div className="flex justify-between">
-                <span>Network Fee:</span>
-                <span className="text-amber-300">Calculated at broadcast</span>
+                <span>{mode === 'internal' ? 'Network Fee:' : 'Network Gas:'}</span>
+                <span className="text-amber-300">{mode === 'internal' ? 'No blockchain fee' : 'Paid by AURA treasury'}</span>
               </div>
               <div className="flex justify-between font-semibold text-stone-100 pt-1 border-t border-white/5">
                 <span>USDT Amount:</span>
-                <span className="text-amber-300">${formatWalletAmount(totalCost, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
+                <span className="text-amber-300">${formatWalletAmount(numAmount, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
               </div>
-              <p className="pt-1 text-[10px] text-stone-500">AURA will not pretend the network fee is $0. The actual chain fee is handled by the broadcaster.</p>
+              <p className="pt-1 text-[10px] text-stone-500">{mode === 'internal' ? 'Internal AURA transfers are settled in the AURA ledger and do not broadcast a blockchain transaction.' : 'Blockchain gas is paid in the network’s native token by the AURA treasury; this form does not deduct a separate USDT network fee.'}</p>
             </div>
 
             {sendError && (
