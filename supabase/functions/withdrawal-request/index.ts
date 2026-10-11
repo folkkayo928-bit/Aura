@@ -346,8 +346,12 @@ Deno.serve(async (req) => {
       return json({ error: withdrawalError?.message || "WITHDRAWAL_REQUEST_FAILED" }, 400);
     }
 
-    const { data: confirmation, error: confirmationError } = await userClient.rpc("issue_wallet_withdrawal_email_confirmation", {
+    // Confirmation token material is minted only by this server-side service-role
+    // call. The authenticated client must never be able to ask the RPC for its own
+    // raw one-time token and bypass the email/Telegram confirmation channel.
+    const { data: confirmation, error: confirmationError } = await adminClient.rpc("issue_wallet_withdrawal_confirmation_internal", {
       p_withdrawal_id: withdrawal.id,
+      p_user_id: userData.user.id,
     });
     if (confirmationError || !confirmation?.token) {
       await userClient.rpc("cancel_wallet_withdrawal", { p_withdrawal_id: withdrawal.id });
