@@ -409,7 +409,7 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <div className="font-semibold text-stone-200">Custody derivation</div>
                                 <div className={treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'mt-2 text-emerald-300' : 'mt-2 text-rose-300'}>Mnemonic: {treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'configured' : 'missing'}</div>
                                 <div className={treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Xpub: {treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'configured' : 'missing'}</div>
-                                <div className={treasuryReport.depositOperations.sweepCustody?.canExecuteSweepWithCurrentCustody ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Sweep config: {treasuryReport.depositOperations.sweepCustody?.canExecuteSweepWithCurrentCustody ? 'present for all four EVM networks' : 'incomplete for at least one network'}</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Sweep config: {treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'present for all four EVM networks' : 'incomplete for at least one network'}</div>
                               </div>
                               <div className="rounded-xl bg-white/[.03] p-3 text-[10px]">
                                 <div className="font-semibold text-stone-200">Oldest unswept deposit</div>
