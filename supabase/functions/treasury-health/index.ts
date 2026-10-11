@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { createPublicClient, formatUnits, http, type Address } from "npm:viem@2";
+import { createPublicClient, formatUnits, http, parseUnits, type Address } from "npm:viem@2";
 import { privateKeyToAccount } from "npm:viem@2/accounts";
 
 const ERC20_ABI = [
@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
         adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq("sweep_status", "swept"),
         adminClient.from("onchain_wallets").select("id", { count: "exact", head: true }).eq("provider", "aura_hd_wallet").eq("address_type", "custodial_deposit"),
         adminClient.from("wallet_deposit_scan_cursors").select("chain,last_scanned_block,updated_at").in("chain", Object.keys(CHAINS)),
-        adminClient.from("wallet_deposits").select("chain,created_at,sweep_attempted_at,sweep_error").eq("sweep_status", "pending").is("sweep_tx_hash", null).order("created_at", { ascending: true }).limit(1),
+        adminClient.from("wallet_deposits").select("chain,user_id,destination_address,amount,created_at,sweep_attempted_at,sweep_error").eq("sweep_status", "pending").is("sweep_tx_hash", null).order("created_at", { ascending: true }).limit(1),
         adminClient.rpc("get_aura_evm_deposit_xpub"),
         adminClient.rpc("get_aura_evm_deposit_mnemonic"),
       ]);
@@ -325,6 +325,94 @@ Deno.serve(async (req) => {
         configured: isAddress(String(Deno.env.get(CHAINS[key].treasuryEnv) || "").trim()),
       }));
       const pending = oldestPendingSweep.data?.[0] || null;
+
+      // Finance-only diagnostics for the oldest unswept deposit: public-chain
+      // reads only. Never return its address, user ID, or any custody material.
+      let pendingSweepGasCheck: Record<string, unknown> | null = null;
+      if (pending) {
+        const chainName = String(pending.chain || "");
+        if (!Object.prototype.hasOwnProperty.call(CHAINS, chainName)) {
+          pendingSweepGasCheck = { status: "unsupported_chain" };
+        } else {
+          const key = chainName as keyof typeof CHAINS;
+          const cfg = CHAINS[key];
+          const { data: wallet, error: walletError } = await adminClient
+            .from("onchain_wallets")
+            .select("address,derivation_index")
+            .eq("user_id", pending.user_id)
+            .eq("chain", key)
+            .eq("provider", "aura_hd_wallet")
+            .maybeSingle();
+
+          if (walletError) {
+            pendingSweepGasCheck = { status: "deposit_wallet_lookup_failed" };
+          } else if (!wallet?.address || !isAddress(String(wallet.address)) ||
+                     String(wallet.address).toLowerCase() !== String(pending.destination_address).toLowerCase()) {
+            pendingSweepGasCheck = { status: wallet?.address ? "deposit_address_mismatch" : "deposit_wallet_missing" };
+          } else {
+            const rpcUrl = (Deno.env.get(cfg.rpcEnv) || "").trim() || cfg.fallback;
+            const publicChain = {
+              id: cfg.id,
+              name: cfg.label,
+              nativeCurrency: { name: cfg.native, symbol: cfg.native, decimals: 18 },
+              rpcUrls: { default: { http: [rpcUrl] } },
+            } as const;
+            try {
+              const publicClient = createPublicClient({ chain: publicChain, transport: http(rpcUrl, { timeout: 10000 }) });
+              const actualChainId = await publicClient.getChainId();
+              if (actualChainId !== cfg.id) {
+                pendingSweepGasCheck = { status: "rpc_chain_mismatch", expectedChainId: cfg.id, actualChainId };
+              } else {
+                const address = String(wallet.address) as Address;
+                const [nativeUnits, tokenUnits, tokenDecimals] = await Promise.all([
+                  publicClient.getBalance({ address }),
+                  publicClient.readContract({ address: cfg.token, abi: ERC20_ABI, functionName: "balanceOf", args: [address] }),
+                  publicClient.readContract({ address: cfg.token, abi: ERC20_ABI, functionName: "decimals" }),
+                ]);
+                let gasStatus = "blocked";
+                let estimatedRequired = null as string | null;
+                if (Number(tokenDecimals) !== cfg.decimals) {
+                  gasStatus = "token_decimals_mismatch";
+                } else if (tokenUnits === 0n) {
+                  gasStatus = "no_usdt_at_deposit_address";
+                } else if (!isAddress(String(Deno.env.get(cfg.treasuryEnv) || "").trim())) {
+                  gasStatus = "treasury_not_configured";
+                } else {
+                  const recordedAmount = parseUnits(String(pending.amount), cfg.decimals);
+                  const sweepAmount = tokenUnits < recordedAmount ? tokenUnits : recordedAmount;
+                  if (sweepAmount > 0n) {
+                    const gasEstimate = await publicClient.estimateContractGas({
+                      account: address,
+                      address: cfg.token,
+                      abi: ERC20_ABI,
+                      functionName: "transfer",
+                      args: [String(Deno.env.get(cfg.treasuryEnv)).trim() as Address, sweepAmount],
+                    });
+                    const gasPrice = await publicClient.getGasPrice();
+                    const rawGasCost = gasEstimate * gasPrice;
+                    const requiredWithBuffer = rawGasCost + rawGasCost / 5n;
+                    estimatedRequired = formatUnits(requiredWithBuffer, 18);
+                    gasStatus = nativeUnits >= requiredWithBuffer ? "sufficient_with_20_percent_buffer" : "insufficient_native_gas";
+                  } else {
+                    gasStatus = "invalid_sweep_amount";
+                  }
+                }
+                pendingSweepGasCheck = {
+                  status: gasStatus,
+                  nativeSymbol: cfg.native,
+                  nativeBalance: formatUnits(nativeUnits, 18),
+                  usdtBalance: formatUnits(tokenUnits, cfg.decimals),
+                  estimatedNativeGasRequiredWithBuffer: estimatedRequired,
+                  rpcChainId: actualChainId,
+                };
+              }
+            } catch {
+              pendingSweepGasCheck = { status: "rpc_or_gas_estimate_failed" };
+            }
+          }
+        }
+      }
+
       depositOperations = {
         available: queryErrors.length === 0,
         ...(queryErrors.length ? { reason: "DEPOSIT_TELEMETRY_QUERY_FAILED" } : {}),
@@ -354,7 +442,8 @@ Deno.serve(async (req) => {
           chain: pending.chain,
           createdAt: pending.created_at,
           attemptedAt: pending.sweep_attempted_at,
-          errorCode: pending.sweep_error ? String(pending.sweep_error).split(/[:\\s]/)[0].slice(0, 80) : null,
+          errorCode: pending.sweep_error ? String(pending.sweep_error).split(/[:\s]/)[0].slice(0, 80) : null,
+          gasCheck: pendingSweepGasCheck,
         } : null,
         note: "A deposit is credited to the AURA ledger only after indexer verification; a sweep is a separate transfer from the derived deposit address to treasury. This summary never returns raw custody secrets, addresses, or user IDs.",
       };
