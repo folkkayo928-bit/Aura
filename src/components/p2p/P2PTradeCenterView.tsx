@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Clock,
@@ -6,7 +6,6 @@ import {
   MessageCircle,
   ExternalLink,
   CheckCircle2,
-  CreditCard,
   RefreshCw,
   History,
   CircleAlert,
