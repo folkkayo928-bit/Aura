@@ -1,14 +1,5 @@
 import React, { useState } from 'react';
 
-const formatWalletAmount = (value: number, decimals: 6 | 8 = 8): string => {
-  if (!Number.isFinite(value) || value <= 0) return '0';
-  // wallet_accounts.balance_usdt is NUMERIC(..., 8). Slice the stored precision
-  // instead of rounding upward when filling a Max amount for a 6-decimal network.
-  const stored = value.toFixed(8);
-  const [whole, fraction = ''] = stored.split('.');
-  const visibleFraction = fraction.slice(0, decimals).replace(/0+$/, '');
-  return visibleFraction ? `${whole}.${visibleFraction}` : whole;
-};
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +13,16 @@ import {
   PlusCircle,
   ShieldCheck,
 } from 'lucide-react';
+
+const formatWalletAmount = (value: number, decimals: 6 | 8 = 8): string => {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  // wallet_accounts.balance_usdt is NUMERIC(..., 8). Slice the stored precision
+  // instead of rounding upward when filling a Max amount for a 6-decimal network.
+  const stored = value.toFixed(8);
+  const [whole, fraction = ''] = stored.split('.');
+  const visibleFraction = fraction.slice(0, decimals).replace(/0+$/, '');
+  return visibleFraction ? `${whole}.${visibleFraction}` : whole;
+};
 
 export const SendModal: React.FC = () => {
   const {
@@ -291,7 +292,7 @@ export const SendModal: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setAmount(formatWalletAmount(Math.max(0, walletBalance), mode === 'internal' ? 8 : 6))}
+                  onClick={() => setAmount(formatWalletAmount(Math.max(0, walletBalance), mode === 'internal' || network === 'bsc' ? 8 : 6))}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/10 text-stone-300 hover:text-white"
                 >
                   Max
