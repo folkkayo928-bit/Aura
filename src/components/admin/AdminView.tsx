@@ -410,6 +410,17 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <div className={treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'mt-2 text-emerald-300' : 'mt-2 text-rose-300'}>Mnemonic: {treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'configured' : 'missing'}</div>
                                 <div className={treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Xpub: {treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'configured' : 'missing'}</div>
                                 <div className={treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Sweep config: {treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'configured across four EVM networks; gas checked separately' : 'incomplete for at least one network'}</div>
+                                <div className="mt-3 border-t border-white/5 pt-3">
+                                  <div className="font-semibold text-stone-200">Per-network treasury setup</div>
+                                  <div className="mt-2 grid grid-cols-2 gap-2">
+                                    {(treasuryReport.depositOperations.treasuryConfiguredByChain || []).map((chain: any) => (
+                                      <div key={chain.chain} className={chain.configured ? 'rounded-lg bg-emerald-400/5 px-2 py-2 text-emerald-300' : 'rounded-lg bg-rose-400/5 px-2 py-2 text-rose-300'}>
+                                        <div className="font-semibold">{String(chain.chain).toUpperCase()}</div>
+                                        <div className="mt-1 text-[9px]">{chain.configured ? 'Treasury address configured' : 'Treasury address not configured'}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                               <div className="rounded-xl bg-white/[.03] p-3 text-[10px]">
                                 <div className="font-semibold text-stone-200">Oldest unswept deposit</div>
