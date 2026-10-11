@@ -39,6 +39,8 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [disputeReason, setDisputeReason] = useState('');
   const [health, setHealth] = useState<any>({});
   const [foundation, setFoundation] = useState<any>({});
+  const [treasuryReport, setTreasuryReport] = useState<any>(null);
+  const [treasuryChecking, setTreasuryChecking] = useState(false);
   const [audit, setAudit] = useState<any[]>([]);
   const [financial, setFinancial] = useState<FinancialPoint[]>([]);
   const [busy, setBusy] = useState(false);
@@ -101,6 +103,26 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const canFinance = role === 'finance' || role === 'owner';
   const canOperate = role === 'operator' || role === 'finance' || role === 'owner';
+
+  const runTreasuryCheck = async () => {
+    setTreasuryChecking(true);
+    setNotice('');
+    try {
+      const { data, error } = await supabase.functions.invoke('treasury-health', { body: {} });
+      if (error) {
+        setNotice(error.message || 'Treasury health check failed. Check the Supabase function logs.');
+      } else {
+        setTreasuryReport(data || null);
+        setNotice(data?.overallReady
+          ? 'Treasury checks passed for all currently supported EVM networks.'
+          : 'Treasury checks completed. Review blocked networks and their specific reasons below.');
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Treasury health check failed.');
+    } finally {
+      setTreasuryChecking(false);
+    }
+  };
 
   const stats = useMemo(() => [
     ['Users', dashboard.totalUsers || 0, Users],
@@ -322,6 +344,47 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {Object.entries(health).filter(([k]) => k !== 'generatedAt').map(([k, v]) => <div key={k} className="rounded-2xl border border-white/10 bg-[#111118] p-4"><div className="text-[9px] uppercase tracking-widest text-stone-500">{k}</div><div className={Number(v) > 0 && /failed|errors|disputes/i.test(k) ? 'mt-2 text-xl text-rose-300' : 'mt-2 text-xl'}>{String(v)}</div></div>)}
             </div>
+            {canFinance && (
+              <div className="rounded-3xl border border-white/10 bg-[#111118] p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">Live EVM treasury checks</div>
+                    <div className="mt-1 text-xs text-stone-500">Read-only checks. No tokens are sent. This covers Ethereum, Polygon, Arbitrum and BNB Smart Chain.</div>
+                  </div>
+                  <button disabled={treasuryChecking} onClick={() => void runTreasuryCheck()} className="rounded-xl bg-amber-400 px-4 py-3 text-xs font-bold text-stone-950 disabled:opacity-50">
+                    {treasuryChecking ? 'Checking…' : 'Run live treasury checks'}
+                  </button>
+                </div>
+                {treasuryReport && (
+                  <div className="mt-4 space-y-3">
+                    <div className={treasuryReport.overallReady ? 'rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs text-emerald-200' : 'rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-200'}>
+                      {treasuryReport.overallReady ? 'All four checked networks passed the current read-only readiness checks.' : 'One or more networks are not ready. Do not enable payouts on a blocked network.'}
+                      <div className="mt-1 text-[10px] opacity-70">Checked {treasuryReport.generatedAt ? new Date(treasuryReport.generatedAt).toLocaleString() : 'just now'} · No transaction submitted</div>
+                    </div>
+                    <div className="space-y-2">
+                      {(treasuryReport.chains || []).map((c: any) => (
+                        <div key={c.chain} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-semibold text-sm">{c.label}</div>
+                            <span className={c.ready ? 'rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-widest text-emerald-300' : 'rounded-full bg-rose-400/10 px-2 py-1 text-[9px] uppercase tracking-widest text-rose-300'}>{c.ready ? 'Ready checks passed' : 'Blocked'}</span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-stone-400 sm:grid-cols-4">
+                            <div>Signer mode <b className="block text-stone-100">{c.senderMode || 'none'}</b></div>
+                            <div>USDT balance <b className="block text-stone-100">{c.balances?.usdt ?? '—'}</b></div>
+                            <div>Native balance <b className="block text-stone-100">{c.balances?.native ?? '—'} {c.balances?.nativeSymbol || ''}</b></div>
+                            <div>Thirdweb address match <b className="block text-stone-100">{c.treasuryMatchesThirdwebAddress ? 'yes' : 'no'}</b></div>
+                          </div>
+                          {(c.blockers || []).length > 0 && <div className="mt-3 space-y-1">{c.blockers.map((b: string, i: number) => <div key={i} className="text-[10px] leading-relaxed text-rose-300">• {b}</div>)}</div>}
+                          {(c.warnings || []).length > 0 && <div className="mt-2 space-y-1">{c.warnings.map((w: string, i: number) => <div key={i} className="text-[10px] leading-relaxed text-amber-200">• {w}</div>)}</div>}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-[10px] leading-relaxed text-stone-500">These checks do not send test transactions and cannot guarantee provider acceptance or future chain finality. Smart-account gas setup must be verified with a controlled transaction before it is marked ready.</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
               <div className="mb-3 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-cyan-300" /> Recent audit</div>
               {audit.length === 0 && <div className="py-5 text-xs text-stone-500">No privileged actions recorded yet.</div>}
