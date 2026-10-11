@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
           mnemonicConfigured,
           xpubConfigured,
           derivationConsistencyCanBeChecked: mnemonicConfigured && xpubConfigured,
-          canExecuteSweepWithCurrentCustody: mnemonicConfigured && xpubConfigured && configuredTreasuries.every((chain) => chain.configured),
+          sweepConfigurationComplete: mnemonicConfigured && xpubConfigured && configuredTreasuries.every((chain) => chain.configured),
         },
         treasuryConfiguredByChain: configuredTreasuries,
         scanCursors: (cursors.data || []).map((cursor) => ({
