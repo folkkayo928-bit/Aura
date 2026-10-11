@@ -25,7 +25,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Typecheck transaction Edge Functions
-        run: deno check supabase/functions/treasury-health/index.ts supabase/functions/withdrawal-broadcaster/index.ts
+        run: deno check supabase/functions/treasury-health/index.ts supabase/functions/withdrawal-broadcaster/index.ts supabase/functions/deposit-indexer/index.ts supabase/functions/deposit-sweep/index.ts
       - name: Build
         env:
           VITE_SUPABASE_URL: https://rtqcistkoomzmzxzasxc.supabase.co
