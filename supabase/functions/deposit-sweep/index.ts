@@ -116,7 +116,12 @@ Deno.serve(async (req) => {
   let mnemonicRoot: HDNodeWallet | null = null;
   if (xprv) {
     try {
-      xprvRoot = HDNodeWallet.fromExtendedKey(xprv);
+      // Extended-key parsing can yield a public-only node. Only keep a signer
+      // object when the parsed key actually exposes private key material.
+      const parsed = HDNodeWallet.fromExtendedKey(xprv) as HDNodeWallet;
+      if (typeof parsed.privateKey === "string" && parsed.privateKey.length > 2) {
+        xprvRoot = parsed;
+      }
     } catch {
       xprvRoot = null;
     }
