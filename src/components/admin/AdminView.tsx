@@ -32,7 +32,6 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [dashboard, setDashboard] = useState<Dashboard>({});
   const [wallets, setWallets] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
-  const [deposits, setDeposits] = useState<any[]>([]);
   const [drops, setDrops] = useState<any[]>([]);
   const [p2pDisputes, setP2pDisputes] = useState<any[]>([]);
   const [disputeAction, setDisputeAction] = useState<{ orderId: string; resolution: 'release_to_buyer' | 'refund_seller' } | null>(null);
@@ -51,12 +50,11 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const load = async () => {
     if (!user) return;
     setBusy(true);
-    const [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
+    const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
       supabase.rpc('aura_can', { p_min_role: 'operator' }),
       supabase.rpc('admin_dashboard_snapshot'),
       supabase.rpc('admin_list_wallets', { p_limit: 100 }),
       supabase.rpc('admin_list_withdrawals', { p_limit: 100 }),
-      supabase.rpc('admin_list_deposits', { p_limit: 100 }),
       supabase.rpc('admin_list_drops_v2', { p_limit: 100 }),
       supabase.rpc('admin_system_health'),
       supabase.rpc('admin_financial_timeseries', { p_days: 14 }),
@@ -74,12 +72,11 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setDashboard((r1.data || {}) as Dashboard);
       setWallets(r2.data || []);
       setWithdrawals(r3.data || []);
-      setDeposits(r4.data || []);
-      setDrops(r5.data || []);
-      setHealth((r6.data || [])[0] || r6.data || {});
-      if (!r7.error) setFinancial((r7.data || []) as FinancialPoint[]);
-      if (!r8.error) setP2pDisputes(r8.data || []);
-      if (!r9.error) setFoundation((r9.data || {}) as Record<string, unknown>);
+      setDrops(r4.data || []);
+      setHealth((r5.data || [])[0] || r5.data || {});
+      if (!r6.error) setFinancial((r6.data || []) as FinancialPoint[]);
+      if (!r7.error) setP2pDisputes(r7.data || []);
+      if (!r8.error) setFoundation((r8.data || {}) as Record<string, unknown>);
       if (!rf.error && rf.data) setRole('finance');
       if (!ro.error && ro.data) setRole('owner');
     }

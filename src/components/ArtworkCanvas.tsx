@@ -15,7 +15,7 @@ export const ArtworkCanvas: React.FC<ArtworkCanvasProps> = ({
   className = '',
   showOverlayGrain = true,
 }) => {
-  const { visualTheme, accentColor, id, customMediaUrl, mediaType } = artwork;
+  const { visualTheme, id, customMediaUrl, mediaType } = artwork;
 
   // Stable seed based on ID for procedural variation
   const seed = useMemo(() => {

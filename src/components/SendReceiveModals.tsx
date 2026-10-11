@@ -1,14 +1,5 @@
 import React, { useState } from 'react';
 
-const formatWalletAmount = (value: number, decimals: 6 | 8 = 8): string => {
-  if (!Number.isFinite(value) || value <= 0) return '0';
-  // wallet_accounts.balance_usdt is NUMERIC(..., 8). Slice the stored precision
-  // instead of rounding upward when filling a Max amount for a 6-decimal network.
-  const stored = value.toFixed(8);
-  const [whole, fraction = ''] = stored.split('.');
-  const visibleFraction = fraction.slice(0, decimals).replace(/0+$/, '');
-  return visibleFraction ? `${whole}.${visibleFraction}` : whole;
-};
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -21,12 +12,17 @@ import {
   Check,
   PlusCircle,
   ShieldCheck,
-  Globe,
-  Zap,
-  ArrowRight,
-  ExternalLink,
-  Info,
 } from 'lucide-react';
+
+const formatWalletAmount = (value: number, decimals: 6 | 8 = 8): string => {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  // wallet_accounts.balance_usdt is NUMERIC(..., 8). Slice the stored precision
+  // instead of rounding upward when filling a Max amount for a 6-decimal network.
+  const stored = value.toFixed(8);
+  const [whole, fraction = ''] = stored.split('.');
+  const visibleFraction = fraction.slice(0, decimals).replace(/0+$/, '');
+  return visibleFraction ? `${whole}.${visibleFraction}` : whole;
+};
 
 export const SendModal: React.FC = () => {
   const {
@@ -34,7 +30,6 @@ export const SendModal: React.FC = () => {
     setSendModalOpen,
     walletBalance,
     sendInternalFunds,
-    userProfile,
     requestWalletWithdrawal,
   } = useApp();
 
@@ -49,9 +44,7 @@ export const SendModal: React.FC = () => {
 
   if (!sendModalOpen) return null;
 
-  const currentGas = 0;
   const numAmount = parseFloat(amount) || 0;
-  const totalCost = numAmount;
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,7 +292,7 @@ export const SendModal: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setAmount(formatWalletAmount(Math.max(0, walletBalance), mode === 'internal' ? 8 : 6))}
+                  onClick={() => setAmount(formatWalletAmount(Math.max(0, walletBalance), mode === 'internal' || network === 'bsc' ? 8 : 6))}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/10 text-stone-300 hover:text-white"
                 >
                   Max
@@ -310,14 +303,14 @@ export const SendModal: React.FC = () => {
             {/* Fee summary */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-stone-400 space-y-1.5 font-mono">
               <div className="flex justify-between">
-                <span>Network Fee:</span>
-                <span className="text-amber-300">Calculated at broadcast</span>
+                <span>{mode === 'internal' ? 'Network Fee:' : 'Network Gas:'}</span>
+                <span className="text-amber-300">{mode === 'internal' ? 'No blockchain fee' : 'Handled by AURA'}</span>
               </div>
               <div className="flex justify-between font-semibold text-stone-100 pt-1 border-t border-white/5">
                 <span>USDT Amount:</span>
-                <span className="text-amber-300">${formatWalletAmount(totalCost, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
+                <span className="text-amber-300">${formatWalletAmount(numAmount, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
               </div>
-              <p className="pt-1 text-[10px] text-stone-500">AURA will not pretend the network fee is $0. The actual chain fee is handled by the broadcaster.</p>
+              <p className="pt-1 text-[10px] text-stone-500">{mode === 'internal' ? 'Internal AURA transfers are settled in the AURA ledger and do not broadcast a blockchain transaction.' : 'Actual blockchain gas is handled by AURA’s configured sender/provider; this form does not deduct a separate USDT network fee.'}</p>
             </div>
 
             {sendError && (

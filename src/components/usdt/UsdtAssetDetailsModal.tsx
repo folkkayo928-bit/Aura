@@ -7,12 +7,9 @@ import {
   CheckCircle2,
   Copy,
   Check,
-  ExternalLink,
   ArrowUpRight,
   ArrowDownLeft,
   ArrowRightLeft,
-  Building,
-  Zap,
 } from 'lucide-react';
 
 interface UsdtAssetDetailsModalProps {

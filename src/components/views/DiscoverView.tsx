@@ -11,7 +11,6 @@ import {
   Star,
   ShoppingBag,
   ChevronRight,
-  TrendingUp,
 } from 'lucide-react';
 
 interface DiscoverViewProps {

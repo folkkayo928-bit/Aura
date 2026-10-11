@@ -9,7 +9,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
 import { AuthModal } from './components/auth/AuthModal';
 import { MfaSessionGate } from './components/auth/MfaSessionGate';
-import { P2POffer, P2POrder } from './types';
+import type { Creator, P2POffer, P2POrder } from './types';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 
@@ -19,7 +19,7 @@ import { CreateView } from './components/views/CreateView';
 import { WalletView } from './components/views/WalletView';
 import { ProfileView } from './components/views/ProfileView';
 import { PublicProfileView } from './components/views/PublicProfileView';
-import { Creator } from './types';
+
 
 import { ArtworkModal } from './components/ArtworkModal';
 import { CollectModal } from './components/CollectModal';

@@ -5,18 +5,13 @@ import { ArtworkCanvas } from '../ArtworkCanvas';
 import {
   ChevronLeft,
   Star,
-  Share2,
   MoreVertical,
   Search,
   SlidersHorizontal,
   Grid,
   Columns,
-  CheckCircle2,
   Sparkles,
-  ArrowRight,
-  TrendingUp,
   Tag,
-  Clock,
   Activity,
   BarChart3,
   Layers,
@@ -40,7 +35,6 @@ export const CollectionHubModal: React.FC<CollectionHubModalProps> = ({
     toggleWatchlist,
     quickBuyArtwork,
     setMakeOfferArtwork,
-    setSelectedArtwork,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'items' | 'explore' | 'owned' | 'activity' | 'analytics'>('items');

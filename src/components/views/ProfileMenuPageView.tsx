@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, ChevronRight, Clock3, Compass, CreditCard, FileImage, Fingerprint, Globe2, Image as ImageIcon, Layers3, LockKeyhole, Palette, Plus, Settings, ShieldCheck, Wallet, X, Zap } from 'lucide-react';
+import { ArrowDownRight, ArrowLeft, ArrowUpRight, Bell, ChevronRight, Clock3, Compass, CreditCard, FileImage, Fingerprint, Globe2, Image as ImageIcon, Layers3, LockKeyhole, Palette, Plus, Settings, ShieldCheck, Wallet, X, Zap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import type { Artwork, ArtworkCategory, NFTCollection, Transaction } from '../../types';

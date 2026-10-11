@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { UpcomingDrop } from '../../types';
 import {
   Calendar,
   Clock,
   Bell,
   Sparkles,
-  CheckCircle2,
-  Users,
-  Flame,
-  ShieldCheck,
-  ChevronRight,
-  ExternalLink,
 } from 'lucide-react';
 
 export const UpcomingDropsView: React.FC = () => {

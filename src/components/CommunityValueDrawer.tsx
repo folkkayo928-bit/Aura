@@ -1,5 +1,4 @@
 import React from 'react';
-import { useApp } from '../context/AppContext';
 import { Artwork } from '../types';
 import { Sparkles, Shield, Users, TrendingUp, X, Info } from 'lucide-react';
 
