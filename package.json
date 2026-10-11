@@ -8,7 +8,7 @@
     "build": "node scripts/configure-telegram.mjs && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit -p tsconfig.web.json",
+    "lint": "tsc --noEmit -p tsconfig.web.json --noUnusedLocals",
     "start": "node server.js"
   },
   "dependencies": {
