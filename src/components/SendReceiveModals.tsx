@@ -21,11 +21,6 @@ import {
   Check,
   PlusCircle,
   ShieldCheck,
-  Globe,
-  Zap,
-  ArrowRight,
-  ExternalLink,
-  Info,
 } from 'lucide-react';
 
 export const SendModal: React.FC = () => {
@@ -34,7 +29,6 @@ export const SendModal: React.FC = () => {
     setSendModalOpen,
     walletBalance,
     sendInternalFunds,
-    userProfile,
     requestWalletWithdrawal,
   } = useApp();
 
