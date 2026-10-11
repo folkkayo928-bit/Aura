@@ -379,6 +379,61 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         </div>
                       ))}
                     </div>
+                    {treasuryReport.depositOperations && (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                        <div className="font-semibold text-sm">Deposit & treasury sweep pipeline</div>
+                        <div className="mt-1 text-[10px] text-stone-500">Deposit indexing/credit and moving tokens from deposit addresses into treasury are separate steps.</div>
+                        {!treasuryReport.depositOperations.available ? (
+                          <div className="mt-3 text-xs text-amber-200">Deposit telemetry is unavailable: {treasuryReport.depositOperations.reason || 'check service database access'}.</div>
+                        ) : (
+                          <>
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              {[
+                                ['Deposits detected', treasuryReport.depositOperations.counts?.detected],
+                                ['Deposits credited', treasuryReport.depositOperations.counts?.credited],
+                                ['Sweeps pending', treasuryReport.depositOperations.counts?.sweepPending],
+                                ['Sweeps failed', treasuryReport.depositOperations.counts?.sweepFailed],
+                                ['Sweeps in progress', treasuryReport.depositOperations.counts?.sweepInProgress],
+                                ['Sweeps completed', treasuryReport.depositOperations.counts?.swept],
+                                ['Deposit addresses', treasuryReport.depositOperations.counts?.custodialAddresses],
+                                ['Total deposit rows', treasuryReport.depositOperations.counts?.total],
+                              ].map(([label, value]) => (
+                                <div key={String(label)} className="rounded-xl bg-white/[.03] p-3">
+                                  <div className="text-[9px] uppercase tracking-wide text-stone-500">{label}</div>
+                                  <div className="mt-1 text-lg text-stone-100">{Number(value || 0)}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              <div className="rounded-xl bg-white/[.03] p-3 text-[10px]">
+                                <div className="font-semibold text-stone-200">Custody derivation</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'mt-2 text-emerald-300' : 'mt-2 text-rose-300'}>Mnemonic: {treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'configured' : 'missing'}</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Xpub: {treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'configured' : 'missing'}</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.canExecuteSweepWithCurrentCustody ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Sweep config: {treasuryReport.depositOperations.sweepCustody?.canExecuteSweepWithCurrentCustody ? 'present for all four EVM networks' : 'incomplete for at least one network'}</div>
+                              </div>
+                              <div className="rounded-xl bg-white/[.03] p-3 text-[10px]">
+                                <div className="font-semibold text-stone-200">Oldest unswept deposit</div>
+                                {treasuryReport.depositOperations.oldestPendingSweep ? (
+                                  <>
+                                    <div className="mt-2 text-amber-200">{String(treasuryReport.depositOperations.oldestPendingSweep.chain || '').toUpperCase()} · {treasuryReport.depositOperations.oldestPendingSweep.createdAt ? new Date(treasuryReport.depositOperations.oldestPendingSweep.createdAt).toLocaleString() : 'date unavailable'}</div>
+                                    <div className="mt-1 text-stone-500">Last sweep attempt: {treasuryReport.depositOperations.oldestPendingSweep.attemptedAt ? new Date(treasuryReport.depositOperations.oldestPendingSweep.attemptedAt).toLocaleString() : 'none recorded'}</div>
+                                    {treasuryReport.depositOperations.oldestPendingSweep.errorCode && <div className="mt-1 text-rose-300">Last error code: {String(treasuryReport.depositOperations.oldestPendingSweep.errorCode)}</div>}
+                                  </>
+                                ) : <div className="mt-2 text-emerald-300">No pending sweep row without a transaction hash.</div>}
+                              </div>
+                            </div>
+                            <div className="mt-3 space-y-1">
+                              {(treasuryReport.depositOperations.scanCursors || []).map((c: any) => (
+                                <div key={c.chain} className="flex flex-wrap justify-between gap-2 border-t border-white/5 pt-2 text-[10px] text-stone-500">
+                                  <span>{String(c.chain).toUpperCase()} scan cursor: {c.lastScannedBlock}</span>
+                                  <span>updated {c.updatedAt ? new Date(c.updatedAt).toLocaleString() : 'unknown'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                     <div className="text-[10px] leading-relaxed text-stone-500">These checks do not send test transactions and cannot guarantee provider acceptance or future chain finality. Smart-account gas setup must be verified with a controlled transaction before it is marked ready.</div>
                   </div>
                 )}
