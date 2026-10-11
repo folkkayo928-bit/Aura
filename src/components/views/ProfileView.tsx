@@ -52,8 +52,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onOpenDetail }) => {
   const [copied, setCopied] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuPage, setActiveMenuPage] = useState<ProfileMenuPage | null>(null);
-  const profileMode = 'private' as const;
-  const profileSection = 'collection' as const;
+  const [profileMode] = useState<'private' | 'public'>('private');
+  const [profileSection] = useState<'collection' | 'created' | 'collections' | 'activity'>('collection');
   const [collectionModalOpen, setCollectionModalOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState<NFTCollection | null>(null);
   const [collectionForm, setCollectionForm] = useState({ name: '', slug: '', description: '', category: 'generative' as NFTCollection['category'], avatarUrl: '', bannerUrl: '', websiteUrl: '', telegramUrl: '', discordUrl: '' });
