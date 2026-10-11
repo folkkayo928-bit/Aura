@@ -275,7 +275,7 @@ Deno.serve(async (req) => {
 
   try {
     const secret = (Deno.env.get("THIRDWEB_SECRET_KEY") || "").trim();
-    let catalog = { ok: false, reason: secret ? "THIRDWEB_LOOKUP_NOT_RUN" : "THIRDWEB_SECRET_KEY_MISSING", wallets: [] as Array<Record<string, unknown>> };
+    let catalog: { ok: boolean; reason: string | null; wallets: Array<Record<string, unknown>> } = { ok: false, reason: secret ? "THIRDWEB_LOOKUP_NOT_RUN" : "THIRDWEB_SECRET_KEY_MISSING", wallets: [] };
     if (secret) catalog = await thirdwebWalletCatalog(secret);
     const chains = await Promise.all((Object.keys(CHAINS) as Array<keyof typeof CHAINS>).map((key) => inspectChain(key, catalog)));
 
