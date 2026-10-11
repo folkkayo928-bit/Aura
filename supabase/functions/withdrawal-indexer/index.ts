@@ -40,6 +40,9 @@ const EVM = {
   polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", fallbackRpc: "https://polygon-bor-rpc.publicnode.com", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
   arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", fallbackRpc: "https://arb1.arbitrum.io/rpc", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
   bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpc: "https://bsc-rpc.publicnode.com", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
+  base: { confirmations: 20, rpc: "AURA_EVM_RPC_BASE", fallbackRpc: "https://mainnet.base.org", token: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", tokenDecimals: 6 },
+  optimism: { confirmations: 20, rpc: "AURA_EVM_RPC_OPTIMISM", fallbackRpc: "https://mainnet.optimism.io", token: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", tokenDecimals: 6 },
+  avalanche: { confirmations: 15, rpc: "AURA_EVM_RPC_AVALANCHE", fallbackRpc: "https://api.avax.network/ext/bc/C/rpc", token: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", tokenDecimals: 6 },
 } as const;
 
 async function rpc(url: string, method: string, params: unknown[]) {

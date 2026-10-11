@@ -42,6 +42,9 @@ The existing AURA custodial on-chain backend defines four supported EVM networks
 | Polygon | 137 | `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` | 6 | 30 |
 | Arbitrum One | 42161 | `0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9` | 6 | 20 |
 | BNB Smart Chain | 56 | `0x55d398326f99059fF775485246999027B3197955` | 18 | 15 |
+| Base | 8453 | `0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2` | 6 | 20 |
+| Optimism | 10 | `0x94b008aA00579c1307B0EF2c499aD98a8ce58e58` | 6 | 20 |
+| Avalanche C-Chain | 43114 | `0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7` | 6 | 15 |
 
 Mainnet token contracts and chain support must be confirmed independently from UI labels before enabling or changing a network.
 
@@ -56,7 +59,7 @@ Mainnet token contracts and chain support must be confirmed independently from U
 
 ### Explicitly unavailable / separate
 
-- AURA’s on-chain deposit and withdrawal selectors currently support Ethereum, Polygon, Arbitrum One, and BNB Smart Chain.
+- AURA’s on-chain deposit and withdrawal selectors currently support USDT on Ethereum, Polygon, Arbitrum One, BNB Smart Chain, Base, Optimism and Avalanche C-Chain. A network is only usable once its treasury signer is configured and the matching migration and Edge Functions are deployed; until then withdrawals fail closed.
 - Solana is **not** enabled for AURA USDT deposits or withdrawals. Phantom can be linked for wallet-ownership verification; that is different from Solana USDT support.
 - The thirdweb panel creates/tests a Base Sepolia smart-account flow only. It does not move mainnet assets, credit AURA balances, or substitute for a registered and funded production Server Wallet/treasury. A production rollout still needs a stable mapping from each Supabase user to their Thirdweb smart account and signed ownership checks before any app feature relies on it.
 - Internal AURA USDT is an application ledger balance. It is not a promise that the same amount is immediately liquid in every chain’s external treasury.

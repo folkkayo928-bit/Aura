@@ -16,6 +16,16 @@ The live EVM withdrawal/deposit path currently covers these USDT configurations:
 | Polygon | 137 | 6 | POL |
 | Arbitrum One | 42161 | 6 | ETH |
 | BNB Smart Chain | 56 | 18 | BNB |
+| Base | 8453 | 6 | ETH |
+| Optimism | 10 | 6 | ETH |
+| Avalanche C-Chain | 43114 | 6 | AVAX |
+
+Enabling a network is a three-part release, never a UI label alone: (1) apply the database migration
+that updates the withdrawal allowlist and the deposit-address/scan-cursor constraints,
+(2) deploy the edge functions (`provision-deposit-address`, `deposit-indexer`, `deposit-sweep`,
+`withdrawal-request`, `withdrawal-broadcaster`, `withdrawal-indexer`, `treasury-health`), and
+(3) configure that network's treasury signer below. Until the treasury is configured the withdrawal
+request fails closed — it reserves nothing and broadcasts nothing.
 
 Token addresses and decimals must be verified against the official token contract and the active chain before changing these values. Solana, TON, extra EVM networks, and additional assets must not be advertised as production-ready merely because a wallet-connect button or address exists.
 
@@ -32,9 +42,9 @@ Configure these values only in **Supabase Edge Function secrets**; never put the
 
 - `THIRDWEB_SECRET_KEY`: server-side secret key from the Thirdweb project that contains the intended Server Wallet.
 - `THIRDWEB_SERVER_WALLET_ADDRESS`: the exact registered Server Wallet address or smart-wallet address returned by that project's Server Wallet API.
-- `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, `AURA_EVM_TREASURY_BSC`: sender address for each network. For a Thirdweb payout route this must exactly match the address configured for that route.
-- Optional `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, `AURA_EVM_RPC_BSC`: network-specific RPC overrides. A configured but broken override is not silently treated as healthy.
-- `AURA_THIRDWEB_GAS_VERIFIED_ETHEREUM`, `AURA_THIRDWEB_GAS_VERIFIED_POLYGON`, `AURA_THIRDWEB_GAS_VERIFIED_ARBITRUM`, `AURA_THIRDWEB_GAS_VERIFIED_BSC`: use `true` only after an operator has completed and verified a controlled small transfer for the corresponding smart-account route. This is an explicit operator attestation, not an automatic Thirdweb sponsorship check.
+- `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, `AURA_EVM_TREASURY_BSC`, `AURA_EVM_TREASURY_BASE`, `AURA_EVM_TREASURY_OPTIMISM`, `AURA_EVM_TREASURY_AVALANCHE`: sender address for each network. For a Thirdweb payout route this must exactly match the address configured for that route.
+- Optional `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, `AURA_EVM_RPC_BSC`, `AURA_EVM_RPC_BASE`, `AURA_EVM_RPC_OPTIMISM`, `AURA_EVM_RPC_AVALANCHE`: network-specific RPC overrides. When one is absent the worker uses the connected Alchemy app, then the public fallback list. A configured but broken override is not silently treated as healthy.
+- `AURA_THIRDWEB_GAS_VERIFIED_ETHEREUM`, `AURA_THIRDWEB_GAS_VERIFIED_POLYGON`, `AURA_THIRDWEB_GAS_VERIFIED_ARBITRUM`, `AURA_THIRDWEB_GAS_VERIFIED_BSC`, `AURA_THIRDWEB_GAS_VERIFIED_BASE`, `AURA_THIRDWEB_GAS_VERIFIED_OPTIMISM`, `AURA_THIRDWEB_GAS_VERIFIED_AVALANCHE`: use `true` only after an operator has completed and verified a controlled small transfer for the corresponding smart-account route. This is an explicit operator attestation, not an automatic Thirdweb sponsorship check.
 
 The Thirdweb Secret Key must belong to the project where the sender is registered. If API authentication returns 401/403, fix the project/key pairing; changing a wallet address does not fix an invalid key. If the wallet is not listed, create or select the intended Server Wallet in that same project first. Never paste a secret key here.
 

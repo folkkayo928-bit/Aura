@@ -19,6 +19,9 @@ const CHAINS: Record<string, {
   polygon: { id: 137, name: "Polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", rpcEnv: "AURA_EVM_RPC_POLYGON", treasuryEnv: "AURA_EVM_TREASURY_POLYGON", native: "POL", tokenDecimals: 6, fallbackRpc: "https://polygon-bor-rpc.publicnode.com" },
   arbitrum: { id: 42161, name: "Arbitrum", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", rpcEnv: "AURA_EVM_RPC_ARBITRUM", treasuryEnv: "AURA_EVM_TREASURY_ARBITRUM", native: "ETH", tokenDecimals: 6, fallbackRpc: "https://arb1.arbitrum.io/rpc" },
   bsc: { id: 56, name: "BNB Smart Chain", token: "0x55d398326f99059fF775485246999027B3197955", rpcEnv: "AURA_EVM_RPC_BSC", treasuryEnv: "AURA_EVM_TREASURY_BSC", native: "BNB", tokenDecimals: 18, fallbackRpc: "https://bsc-rpc.publicnode.com" },
+  base: { id: 8453, name: "Base", token: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", rpcEnv: "AURA_EVM_RPC_BASE", treasuryEnv: "AURA_EVM_TREASURY_BASE", native: "ETH", tokenDecimals: 6, fallbackRpc: "https://mainnet.base.org" },
+  optimism: { id: 10, name: "Optimism", token: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", rpcEnv: "AURA_EVM_RPC_OPTIMISM", treasuryEnv: "AURA_EVM_TREASURY_OPTIMISM", native: "ETH", tokenDecimals: 6, fallbackRpc: "https://mainnet.optimism.io" },
+  avalanche: { id: 43114, name: "Avalanche C-Chain", token: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", rpcEnv: "AURA_EVM_RPC_AVALANCHE", treasuryEnv: "AURA_EVM_TREASURY_AVALANCHE", native: "AVAX", tokenDecimals: 6, fallbackRpc: "https://api.avax.network/ext/bc/C/rpc" },
 };
 
 function secretKey() {

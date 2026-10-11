@@ -7,6 +7,9 @@ const EVM = {
   polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", alchemy: "polygon-mainnet", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
   arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", alchemy: "arb-mainnet", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
   bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", alchemy: "bnb-mainnet", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
+  base: { confirmations: 20, rpc: "AURA_EVM_RPC_BASE", alchemy: "base-mainnet", token: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", tokenDecimals: 6 },
+  optimism: { confirmations: 20, rpc: "AURA_EVM_RPC_OPTIMISM", alchemy: "opt-mainnet", token: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", tokenDecimals: 6 },
+  avalanche: { confirmations: 15, rpc: "AURA_EVM_RPC_AVALANCHE", alchemy: "avalanche-mainnet", token: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", tokenDecimals: 6 },
 } as const;
 
 function secretKey() {
@@ -46,6 +49,21 @@ const EVM_READ_RPC_FALLBACKS: Record<Chain, string[]> = {
     "https://bsc-rpc.publicnode.com",
     "https://bsc-mainnet.public.blastapi.io",
     "https://public.1rpc.io/bnb",
+  ],
+  base: [
+    "https://mainnet.base.org",
+    "https://base.drpc.org",
+    "https://base-rpc.publicnode.com",
+  ],
+  optimism: [
+    "https://mainnet.optimism.io",
+    "https://optimism.drpc.org",
+    "https://optimism-rpc.publicnode.com",
+  ],
+  avalanche: [
+    "https://api.avax.network/ext/bc/C/rpc",
+    "https://avalanche.drpc.org",
+    "https://avalanche-c-chain-rpc.publicnode.com",
   ],
 };
 

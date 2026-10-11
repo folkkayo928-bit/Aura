@@ -53,6 +53,21 @@ export const UsdtAssetDetailsModal: React.FC<UsdtAssetDetailsModalProps> = ({ is
       standard: 'BEP-20 · BNB Smart Chain',
       explorer: 'https://bscscan.com/token/0x55d398326f99059ff775485246999027b3197955',
     },
+    base: {
+      address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+      standard: 'ERC-20 · Base',
+      explorer: 'https://basescan.org/token/0xfde4c96c8593536e31f229ea8f37b2ada2699bb2',
+    },
+    optimism: {
+      address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58',
+      standard: 'ERC-20 · OP Mainnet',
+      explorer: 'https://optimistic.etherscan.io/token/0x94b008aa00579c1307b0ef2c499ad98a8ce58e58',
+    },
+    avalanche: {
+      address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+      standard: 'ERC-20 · Avalanche C-Chain',
+      explorer: 'https://snowtrace.io/token/0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7',
+    },
     solana: {
       address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
       standard: 'SPL Token',

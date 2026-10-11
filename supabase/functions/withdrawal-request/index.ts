@@ -48,6 +48,24 @@ const WITHDRAWAL_CHAINS = {
     rpcEnv: "AURA_EVM_RPC_BSC", treasuryEnv: "AURA_EVM_TREASURY_BSC",
     fallbackRpc: "https://bsc-rpc.publicnode.com",
   },
+  base: {
+    id: 8453, name: "Base", native: "ETH", decimals: 6,
+    token: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2" as Address,
+    rpcEnv: "AURA_EVM_RPC_BASE", treasuryEnv: "AURA_EVM_TREASURY_BASE",
+    fallbackRpc: "https://mainnet.base.org",
+  },
+  optimism: {
+    id: 10, name: "Optimism", native: "ETH", decimals: 6,
+    token: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58" as Address,
+    rpcEnv: "AURA_EVM_RPC_OPTIMISM", treasuryEnv: "AURA_EVM_TREASURY_OPTIMISM",
+    fallbackRpc: "https://mainnet.optimism.io",
+  },
+  avalanche: {
+    id: 43114, name: "Avalanche C-Chain", native: "AVAX", decimals: 6,
+    token: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7" as Address,
+    rpcEnv: "AURA_EVM_RPC_AVALANCHE", treasuryEnv: "AURA_EVM_TREASURY_AVALANCHE",
+    fallbackRpc: "https://api.avax.network/ext/bc/C/rpc",
+  },
 } as const;
 
 async function withdrawalReadinessError(chainName: keyof typeof WITHDRAWAL_CHAINS, destination: string, amount: number) {

@@ -55,6 +55,20 @@ const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
+    const initData = String(tg.initData || '').trim();
+    const tgUser = tg.initDataUnsafe?.user;
+    const telegramId = String(tgUser?.id || '').trim();
+
+    // telegram-web-app.js is loaded on every page, so its presence alone does not
+    // mean this is a Mini App. Outside Telegram the client injects no signed
+    // initData and no user, and the normal AURA web sign-in must run instead of
+    // being blocked behind a Mini App verification error.
+    const insideTelegram = Boolean(initData || telegramId || (window as any).TelegramWebviewProxy);
+    if (!insideTelegram) {
+      setIdentityStatus('ready');
+      return;
+    }
+
     tg.ready();
     tg.expand();
     tg.enableClosingConfirmation?.();
@@ -63,12 +77,8 @@ const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsTelegramShellMode(true);
     setTelegramViewMode('miniapp');
 
-    const initData = String(tg.initData || '').trim();
-    const tgUser = tg.initDataUnsafe?.user;
-    const telegramId = String(tgUser?.id || '').trim();
-
-    // Without signed Mini App initData, don't guess which Telegram identity is
-    // active. The server verifies initData before it issues a Supabase session.
+    // Inside Telegram without signed Mini App initData, don't guess which Telegram
+    // identity is active. The server verifies initData before it issues a session.
     if (!initData || !/^\d{1,20}$/.test(telegramId)) {
       setIdentityError('Telegram did not provide a valid signed Mini App session. Reopen AURA from Telegram and retry.');
       setIdentityStatus('error');

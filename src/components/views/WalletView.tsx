@@ -5,7 +5,7 @@ import { AURA_THIRDWEB_TEST_CHAIN, getThirdwebClient } from '../../../lib/thirdw
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import { ArtworkCanvas } from '../ArtworkCanvas';
-import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
+import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS, AURANetworkOption } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
 import { TransactionHistoryModal } from '../wallet/TransactionHistoryModal';
 
@@ -71,7 +71,9 @@ export const WalletView: React.FC = () => {
   const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawAsset, setWithdrawAsset] = useState<'USDT'>('USDT');
-  const [withdrawChain, setWithdrawChain] = useState<'polygon' | 'ethereum' | 'arbitrum'>('polygon');
+  // Derived from the network registry so a newly enabled network can never be
+  // missing from this form the way it was for BSC.
+  const [withdrawChain, setWithdrawChain] = useState<AURANetworkOption['id']>('polygon');
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawBusy, setWithdrawBusy] = useState(false);
@@ -636,13 +638,13 @@ export const WalletView: React.FC = () => {
                 </select>
               </label>
               <label className="block text-xs text-stone-400">Network
-                <select value={withdrawChain} onChange={e => setWithdrawChain(e.target.value as typeof withdrawChain)} className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100">
+                <select value={withdrawChain} onChange={e => setWithdrawChain(e.target.value as AURANetworkOption['id'])} className="mt-1 w-full rounded-2xl bg-white/5 border border-white/10 p-3 text-stone-100">
                   {AURA_WITHDRAWAL_NETWORKS.map((network) => (
                     <option key={network.id} value={network.id}>{network.label} · {network.tokenSymbol}</option>
                   ))}
                 </select>
                 <span className="text-[10px] text-stone-500 mt-1 block">
-                  Real withdrawals currently support USDT on these three networks. Other chains/assets are kept out of the form until their secure ledger and broadcaster support is ready.
+                  Real withdrawals support USDT on Ethereum, Polygon, Arbitrum One, BNB Smart Chain, Base, Optimism and Avalanche C-Chain. Other chains/assets are kept out of the form until their secure ledger and broadcaster support is ready.
                 </span>
               </label>
               <label className="block text-xs text-stone-400">Destination address

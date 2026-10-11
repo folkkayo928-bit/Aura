@@ -1,0 +1,52 @@
+# Base44 sandbox run stack for AURA.
+#
+# AURA is a Vite + React client whose backend lives in the hosted Supabase project
+# (auth, Postgres/RLS, RPCs, storage and Edge Functions). This stack therefore runs
+# the web client from the cloned source with hot reload; no prebuilt bundle is ever
+# served, so every edit shows up in the preview immediately.
+#
+#   docker compose -f docker-compose.base44.yml up -d --build
+#   docker compose -f docker-compose.base44.yml logs -f web
+services:
+  web:
+    # Plain runtime base image, source bind-mounted: edits are live.
+    image: node:22
+    working_dir: /app
+    # Dependencies come from the sandbox volume and are synced from package.json on
+    # every start, then the dev server runs. `npm install` (not `ci`) is correct here:
+    # the repo does not commit a package-lock.json.
+    command: ["sh", "-ec", "npm install --no-audit --no-fund && exec npx vite --port 3000 --host 0.0.0.0"]
+    ports:
+      # User-facing entry point. The preview proxy serves this port publicly.
+      - "3000:3000"
+    volumes:
+      - .:/app
+      # Dependencies live in a volume so installs survive restarts and never touch the repo.
+      - aura_node_modules:/app/node_modules
+    env_file:
+      # Public browser configuration first (see .env.base44-defaults), so anything the
+      # dashboard delivers to /run/base44/app.env overrides it.
+      - ./.env.base44-defaults
+      - /run/base44/app.env
+    environment:
+      # Platform-provided preview flag, passed through bare. The app only changes
+      # behavior when it is exactly "1".
+      - BASE44_PREVIEW_MODE
+      # Vite >= 6.1 appends this to server.allowedHosts, so the preview proxy host
+      # is accepted without weakening the allowlist.
+      - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
+    restart: on-failure
+    healthcheck:
+      # Real responsiveness of the dev server, using node only (already in the image).
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
+volumes:
+  aura_node_modules:

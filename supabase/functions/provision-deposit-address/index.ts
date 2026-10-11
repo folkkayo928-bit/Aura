@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { HDNodeWallet, getAddress } from "npm:ethers@6";
 
-const CHAINS = ["ethereum", "polygon", "arbitrum", "bsc"] as const;
+const CHAINS = ["ethereum", "polygon", "arbitrum", "bsc", "base", "optimism", "avalanche"] as const;
 
 type DepositRow = {
   chain: string;

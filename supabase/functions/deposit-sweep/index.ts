@@ -38,6 +38,33 @@ confirmations: 15,
     treasury: "AURA_EVM_TREASURY_BSC",
     tokenDecimals: 18,
   },
+  base: {
+    rpc: "AURA_EVM_RPC_BASE",
+    chainId: 8453,
+confirmations: 20,
+    alchemy: "base-mainnet",
+    token: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2",
+    treasury: "AURA_EVM_TREASURY_BASE",
+    tokenDecimals: 6,
+  },
+  optimism: {
+    rpc: "AURA_EVM_RPC_OPTIMISM",
+    chainId: 10,
+confirmations: 20,
+    alchemy: "opt-mainnet",
+    token: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+    treasury: "AURA_EVM_TREASURY_OPTIMISM",
+    tokenDecimals: 6,
+  },
+  avalanche: {
+    rpc: "AURA_EVM_RPC_AVALANCHE",
+    chainId: 43114,
+confirmations: 15,
+    alchemy: "avalanche-mainnet",
+    token: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+    treasury: "AURA_EVM_TREASURY_AVALANCHE",
+    tokenDecimals: 6,
+  },
 } as const;
 
 const ERC20_ABI = [
@@ -88,6 +115,9 @@ function rpcEndpoint(chain: keyof typeof CHAINS, apiKey: string) {
     polygon: "https://polygon-bor-rpc.publicnode.com",
     arbitrum: "https://arb1.arbitrum.io/rpc",
     bsc: "https://bsc-rpc.publicnode.com",
+    base: "https://mainnet.base.org",
+    optimism: "https://mainnet.optimism.io",
+    avalanche: "https://api.avax.network/ext/bc/C/rpc",
   };
   return fallback[chain];
 }
