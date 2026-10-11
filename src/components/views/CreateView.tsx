@@ -1,23 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ArtworkCategory, MediaType, NFTTrait, PaymentMethodType } from '../../types';
-import { ArtworkCanvas } from '../ArtworkCanvas';
 import { CustomPaymentMethodInput } from '../p2p/CustomPaymentMethodInput';
 import {
   Upload,
   Sparkles,
-  Image as ImageIcon,
-  Film,
-  Layers,
   Tag,
-  DollarSign,
-  Plus,
   Trash2,
   ArrowUpDown,
   CalendarClock,
-  Check,
-  CheckCircle2,
-  FileCode,
 } from 'lucide-react';
 
 export const CreateView: React.FC = () => {
