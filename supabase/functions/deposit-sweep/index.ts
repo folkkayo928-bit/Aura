@@ -218,11 +218,18 @@ Deno.serve(async (req) => {
         }
 
         try {
+          // Deposit addresses are derived from account path m/44'/60'/0'
+          // followed by 0/<index>. Keep the mnemonic fallback identical to
+          // provision-deposit-address and reject any signer/address mismatch
+          // before reading balances or sending a token.
           const root = xprv
             ? HDNodeWallet.fromExtendedKey(xprv)
-            : HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'/0");
+            : HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'");
           const signer = root.derivePath(`0/${Number(wallet.derivation_index)}`).connect(provider);
           const from = await signer.getAddress();
+          if (from.toLowerCase() !== String(wallet.address).toLowerCase()) {
+            throw new Error("DERIVED_SIGNER_ADDRESS_MISMATCH");
+          }
           const token = new Contract(cfg.token, ERC20_ABI, signer);
           const tokenBalance = BigInt(await token.balanceOf(from));
           if (tokenBalance === 0n) {
