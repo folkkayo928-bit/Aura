@@ -50,7 +50,14 @@ const TelegramWebAppBridge: React.FC<{ children: React.ReactNode }> = ({ childre
 
   React.useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
-    if (!tg) {
+    // In the Base44 sandbox preview the page is a plain browser. The Telegram
+    // script tag still defines window.Telegram.WebApp there, but as an
+    // uninitialized stub with empty initData, so treat it as an ordinary browser
+    // visit and show the normal web experience. BASE44_PREVIEW_MODE is only ever
+    // "1" in the sandbox; unset (or any other value) keeps the Telegram
+    // identity gate below exactly as it is in production.
+    const isBase44Preview = import.meta.env.VITE_BASE44_PREVIEW_MODE === '1';
+    if (!tg || (isBase44Preview && !String(tg.initData || '').trim())) {
       setIdentityStatus('ready');
       return;
     }

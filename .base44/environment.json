@@ -1,0 +1,22 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "VITE_SUPABASE_URL",
+      "description": "Supabase project URL, e.g. https://<project-ref>.supabase.co (Supabase dashboard > Project Settings > Data API). Only needed to point the preview at a different Supabase project than the one committed in .env.base44-defaults; set it together with VITE_SUPABASE_PUBLISHABLE_KEY.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "VITE_SUPABASE_PUBLISHABLE_KEY",
+      "description": "Supabase publishable (anon) browser key for that project (Supabase dashboard > Project Settings > API keys). The app does not render without one; the sandbox falls back to the project's committed public browser key.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "VITE_THIRDWEB_CLIENT_ID",
+      "description": "Optional public thirdweb Client ID (https://thirdweb.com/dashboard) that enables the isolated Base Sepolia wallet preview on the Wallet screen. Never use a thirdweb secret key here.",
+      "requiredAtBoot": false
+    }
+  ]
+}

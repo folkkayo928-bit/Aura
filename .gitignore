@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+# Base44 sandbox defaults (public browser config only; read by docker-compose.base44.yml).
+!.env.base44-defaults

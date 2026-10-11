@@ -1,0 +1,55 @@
+# Base44 sandbox development environment for AURA.
+#
+# Runs the app from the cloned source with live reload on host port 3000.
+# AURA is a browser-only Vite/React SPA that talks to Supabase directly, so the
+# sandbox needs a single service. `server.js` (Express) is the production /
+# Telegram-bot server that serves the prebuilt `dist/` bundle and is NOT used here.
+#
+#   docker compose -f docker-compose.base44.yml up -d
+#
+# Public browser config: `.env.base44-defaults` (repo defaults) is listed first and
+# `/run/base44/app.env` (platform-delivered secrets) last, so dashboard values win.
+services:
+  web:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    restart: on-failure
+    # No lockfile in this repo: install from package.json after mounts exist, then
+    # exec the dev server so Vite is PID 1 and receives signals.
+    command:
+      - sh
+      - -ec
+      - |
+        npm install --no-audit --no-fund
+        exec npm run dev -- --port 3000 --host 0.0.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+      # Keep dependencies out of the bind mount so sandbox/host node_modules never mix.
+      - aura_node_modules:/app/node_modules
+    environment:
+      # Sandbox markers only; both are optional and leave the app unchanged when unset.
+      - BASE44_PREVIEW_MODE
+      - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
+      # Exposed to the SPA (Vite exposes VITE_-prefixed vars). Lets App.tsx skip the
+      # Telegram Mini App identity gate in a plain-browser preview; empty when the
+      # platform does not set BASE44_PREVIEW_MODE, which preserves production behavior.
+      - VITE_BASE44_PREVIEW_MODE=${BASE44_PREVIEW_MODE:-}
+    env_file:
+      - ./.env.base44-defaults
+      - /run/base44/app.env
+    healthcheck:
+      # Real responsiveness of the dev server, not just an open port.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+
+volumes:
+  aura_node_modules:
