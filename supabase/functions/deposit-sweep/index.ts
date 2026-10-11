@@ -113,21 +113,53 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (!xpub || !mnemonic) {
-    return json({ ok: true, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_CONSISTENCY_NOT_VERIFIABLE" });
+  if (!xpub) {
+    return json({ ok: false, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_XPUB_NOT_CONFIGURED" }, 503);
   }
 
-  try {
-    // The provisioning function treats m/44'/60'/0' as the root
-    // and derives address index i at root/0/i. Compare xpubs at that same
-    // root; using the /0 branch here would reject valid provisioning custody.
-    const mnemonicNode = HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'");
-    const derivedXpub = mnemonicNode.neuter().extendedKey;
-    if (derivedXpub !== xpub) {
-      return json({ ok: false, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_XPUB_MNEMONIC_MISMATCH" }, 503);
+  // Provisioning derives each address as <configured-xpub-root>/0/<index>.
+  // Historical AURA configuration can store either the account-level xpub
+  // (m/44'/60'/0') or its first non-hardened branch xpub (m/44'/60'/0'/0).
+  // Resolve which root is actually paired with this xpub; never assume one.
+  let mnemonicRootPath: string | null = null;
+  let xprvRoot: HDNodeWallet | null = null;
+  let xprvRootMode: "configured_root" | "parent_of_configured_root" | null = null;
+
+  if (xprv) {
+    try {
+      const candidate = HDNodeWallet.fromExtendedKey(xprv);
+      if (candidate.neuter().extendedKey === xpub) {
+        xprvRoot = candidate;
+        xprvRootMode = "configured_root";
+      } else if (candidate.derivePath("0").neuter().extendedKey === xpub) {
+        xprvRoot = candidate;
+        xprvRootMode = "parent_of_configured_root";
+      }
+    } catch {
+      // Try the verified mnemonic/xpub pair below; never broadcast from an unverified key.
     }
-  } catch {
-    return json({ ok: false, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_MNEMONIC_INVALID" }, 503);
+  }
+
+  if (mnemonic) {
+    try {
+      const accountRoot = HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'");
+      if (accountRoot.neuter().extendedKey === xpub) {
+        mnemonicRootPath = "m/44'/60'/0'";
+      } else if (accountRoot.derivePath("0").neuter().extendedKey === xpub) {
+        mnemonicRootPath = "m/44'/60'/0'/0";
+      }
+    } catch {
+      // A verified xprv/xpub pair can still be used if the mnemonic secret is invalid.
+    }
+  }
+
+  if (!xprvRootMode && !mnemonicRootPath) {
+    return json({
+      ok: false,
+      ready: false,
+      skipped: true,
+      reason: mnemonic ? "DEPOSIT_CUSTODY_XPUB_MNEMONIC_MISMATCH" : "DEPOSIT_CUSTODY_XPUB_PRIVATE_KEY_MISMATCH",
+    }, 503);
   }
 
   const summaries: Array<Record<string, unknown>> = [];
@@ -215,14 +247,17 @@ Deno.serve(async (req) => {
         }
 
         try {
-          // Deposit addresses are derived from account path m/44'/60'/0'
-          // followed by 0/<index>. Keep the mnemonic fallback identical to
-          // provision-deposit-address and reject any signer/address mismatch
-          // before reading balances or sending a token.
-          const root = xprv
-            ? HDNodeWallet.fromExtendedKey(xprv)
-            : HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'");
-          const signer = root.derivePath(`0/${Number(wallet.derivation_index)}`).connect(provider);
+          // Match the exact xpub root used to provision this address. If an
+          // extended private root is the parent of the stored xpub root, mirror
+          // the provisioner's extra /0 level. The derived address equality check
+          // below is mandatory and prevents transfer from any other key.
+          const indexPath = xprvRootMode === "parent_of_configured_root"
+            ? `0/0/${Number(wallet.derivation_index)}`
+            : `0/${Number(wallet.derivation_index)}`;
+          const root = xprvRootMode
+            ? xprvRoot!
+            : HDNodeWallet.fromPhrase(mnemonic, undefined, mnemonicRootPath!);
+          const signer = root.derivePath(indexPath).connect(provider);
           const from = await signer.getAddress();
           if (from.toLowerCase() !== String(wallet.address).toLowerCase()) {
             throw new Error("DERIVED_SIGNER_ADDRESS_MISMATCH");
