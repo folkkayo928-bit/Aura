@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+# Public sandbox defaults (Supabase URL + publishable key, same values as the CI
+# workflow and src/lib/supabase.ts). docker-compose.base44.yml lists this file as an
+# env_file, so it must travel with the branch or a fresh import cannot start.
+!.env.base44-defaults

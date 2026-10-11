@@ -12,10 +12,16 @@ services:
     # Plain runtime base image, source bind-mounted: edits are live.
     image: node:22
     working_dir: /app
-    # Dependencies come from the sandbox volume and are synced from package.json on
-    # every start, then the dev server runs. `npm install` (not `ci`) is correct here:
-    # the repo does not commit a package-lock.json.
-    command: ["sh", "-ec", "npm install --no-audit --no-fund && exec npx vite --port 3000 --host 0.0.0.0"]
+    # Dependencies live in a named volume (never in the image) and are synced from the
+    # committed package-lock.json on every start, then the dev server runs. `npm ci` is
+    # the lockfile-preserving install: it never rewrites package-lock.json in the
+    # bind-mounted repo and does no peer-dependency re-resolution, so startup stays free
+    # of the peer-conflict warnings npm emitted for thirdweb's `valtio`
+    # (`use-sync-external-store@1.2.0` peers React <= 18 while this app runs React 19 —
+    # package.json pins the React 19-compatible 1.6.0 via `overrides`).
+    # If package.json changes, refresh the lockfile with
+    # `npx npm install --package-lock-only --no-audit --no-fund` before restarting.
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec npx vite --port 3000 --host 0.0.0.0"]
     ports:
       # User-facing entry point. The preview proxy serves this port publicly.
       - "3000:3000"

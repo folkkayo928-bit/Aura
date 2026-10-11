@@ -14,6 +14,20 @@
   `/aura-bot-avatar.jpg` asset. The browser client never calls it, so the sandbox stack
   does not start it.
 
+## Dependencies
+
+- The `web` service installs dependencies on every start with `npm ci` from the committed
+  `package-lock.json` into the `aura_node_modules` volume (never into the image, never into
+  the repo). After editing `package.json`, refresh the lockfile with
+  `npx npm install --package-lock-only --no-audit --no-fund`, otherwise `npm ci` refuses to
+  start and the container crash-loops.
+- `package.json` pins `use-sync-external-store@1.6.0` through `overrides`. thirdweb pulls
+  `valtio`, which depends on `use-sync-external-store@1.2.0` — a version whose peer range stops
+  at React 18, while this app runs React 19. Without the override npm printed a
+  "Conflicting peer dependency: react" warning on every install and kept a second nested copy
+  of the shim; 1.6.0 declares React 19 and dedupes. The remaining `npm warn deprecated …`
+  lines during install come from thirdweb's WalletConnect/MetaMask tree and are informational.
+
 ## Non-obvious commands
 
 - Typecheck the client: `npx tsc --noEmit -p tsconfig.web.json` (this is what `npm run lint`
