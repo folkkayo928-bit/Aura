@@ -44,7 +44,6 @@ export const SettingsModal: React.FC = () => {
   const [coverImage, setCoverImage] = useState(userProfile.coverImage || '');
   const [defaultCurrency, setDefaultCurrency] = useState(userProfile.defaultCurrency);
   const [telegramBotAlerts, setTelegramBotAlerts] = useState(userProfile.telegramBotAlerts);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(userProfile.twoFactorEnabled);
   const [biometricAuth, setBiometricAuth] = useState(userProfile.biometricAuth);
 
   const [connectWalletPickerOpen, setConnectWalletPickerOpen] = useState(false);
@@ -81,7 +80,6 @@ export const SettingsModal: React.FC = () => {
       }
       const verified = data.totp.find((factor) => factor.status === 'verified');
       setMfaFactorId(verified?.id || null);
-      setTwoFactorEnabled(Boolean(verified));
     });
 
     return () => {
@@ -131,7 +129,6 @@ export const SettingsModal: React.FC = () => {
     }
     const verified = data.totp.find((factor) => factor.status === 'verified');
     setMfaFactorId(verified?.id || null);
-    setTwoFactorEnabled(Boolean(verified));
   };
 
   const disableMfa = async () => {
@@ -440,7 +437,6 @@ export const SettingsModal: React.FC = () => {
         open={mfaEnrollmentOpen}
         onClose={() => setMfaEnrollmentOpen(false)}
         onEnabled={() => {
-          setTwoFactorEnabled(true);
           void refreshMfaState();
           void updateUserProfile({ twoFactorEnabled: true });
         }}
