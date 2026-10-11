@@ -278,6 +278,88 @@ Deno.serve(async (req) => {
     let catalog = { ok: false, reason: secret ? "THIRDWEB_LOOKUP_NOT_RUN" : "THIRDWEB_SECRET_KEY_MISSING", wallets: [] as Array<Record<string, unknown>> };
     if (secret) catalog = await thirdwebWalletCatalog(secret);
     const chains = await Promise.all((Object.keys(CHAINS) as Array<keyof typeof CHAINS>).map((key) => inspectChain(key, catalog)));
+
+    // Deposit and sweep telemetry is aggregate-only. This endpoint is finance-role
+    // gated above; raw custody materials, wallet addresses, and user IDs are never returned.
+    let depositOperations: Record<string, unknown> = {
+      available: false,
+      reason: "SERVER_DATABASE_KEY_UNAVAILABLE",
+      note: "No deposit rows or custody details were exposed.",
+    };
+    if (serverApiKey) {
+      const adminClient = createClient(url, serverApiKey);
+      const count = (table: "wallet_deposits" | "onchain_wallets", column: string, value: string) =>
+        table === "wallet_deposits"
+          ? adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq(column, value)
+          : adminClient.from("onchain_wallets").select("id", { count: "exact", head: true }).eq(column, value);
+
+      const [
+        totalDeposits, detectedDeposits, creditedDeposits,
+        pendingSweeps, activeSweeps, failedSweeps, completedSweeps,
+        custodialAddresses, cursors, oldestPendingSweep,
+        xpubVault, mnemonicVault,
+      ] = await Promise.all([
+        adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }),
+        adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq("status", "detected"),
+        adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq("status", "credited"),
+        adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq("sweep_status", "pending"),
+        adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq("sweep_status", "sweeping"),
+        adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq("sweep_status", "failed"),
+        adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq("sweep_status", "swept"),
+        adminClient.from("onchain_wallets").select("id", { count: "exact", head: true }).eq("provider", "aura_hd_wallet").eq("address_type", "custodial_deposit"),
+        adminClient.from("wallet_deposit_scan_cursors").select("chain,last_scanned_block,updated_at").in("chain", Object.keys(CHAINS)),
+        adminClient.from("wallet_deposits").select("chain,created_at,sweep_attempted_at,sweep_error").eq("sweep_status", "pending").is("sweep_tx_hash", null).order("created_at", { ascending: true }).limit(1),
+        adminClient.rpc("get_aura_evm_deposit_xpub"),
+        adminClient.rpc("get_aura_evm_deposit_mnemonic"),
+      ]);
+
+      const queryErrors = [
+        totalDeposits.error, detectedDeposits.error, creditedDeposits.error,
+        pendingSweeps.error, activeSweeps.error, failedSweeps.error, completedSweeps.error,
+        custodialAddresses.error, cursors.error, oldestPendingSweep.error,
+      ].filter(Boolean);
+      const xpubConfigured = Boolean(String(Deno.env.get("AURA_EVM_DEPOSIT_XPUB") || xpubVault.data || "").trim());
+      const mnemonicConfigured = Boolean(String(Deno.env.get("AURA_EVM_DEPOSIT_MNEMONIC") || mnemonicVault.data || "").trim());
+      const configuredTreasuries = (Object.keys(CHAINS) as Array<keyof typeof CHAINS>).map((key) => ({
+        chain: key,
+        configured: isAddress(String(Deno.env.get(CHAINS[key].treasuryEnv) || "").trim()),
+      }));
+      const pending = oldestPendingSweep.data?.[0] || null;
+      depositOperations = {
+        available: queryErrors.length === 0,
+        ...(queryErrors.length ? { reason: "DEPOSIT_TELEMETRY_QUERY_FAILED" } : {}),
+        counts: {
+          total: totalDeposits.count || 0,
+          detected: detectedDeposits.count || 0,
+          credited: creditedDeposits.count || 0,
+          sweepPending: pendingSweeps.count || 0,
+          sweepInProgress: activeSweeps.count || 0,
+          sweepFailed: failedSweeps.count || 0,
+          swept: completedSweeps.count || 0,
+          custodialAddresses: custodialAddresses.count || 0,
+        },
+        sweepCustody: {
+          mnemonicConfigured,
+          xpubConfigured,
+          derivationConsistencyCanBeChecked: mnemonicConfigured && xpubConfigured,
+          canExecuteSweepWithCurrentCustody: mnemonicConfigured && xpubConfigured && configuredTreasuries.every((chain) => chain.configured),
+        },
+        treasuryConfiguredByChain: configuredTreasuries,
+        scanCursors: (cursors.data || []).map((cursor) => ({
+          chain: cursor.chain,
+          lastScannedBlock: String(cursor.last_scanned_block),
+          updatedAt: cursor.updated_at,
+        })),
+        oldestPendingSweep: pending ? {
+          chain: pending.chain,
+          createdAt: pending.created_at,
+          attemptedAt: pending.sweep_attempted_at,
+          errorCode: pending.sweep_error ? String(pending.sweep_error).split(/[:\\s]/)[0].slice(0, 80) : null,
+        } : null,
+        note: "A deposit is credited to the AURA ledger only after indexer verification; a sweep is a separate transfer from the derived deposit address to treasury. This summary never returns raw custody secrets, addresses, or user IDs.",
+      };
+    }
+
     return json({
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -286,7 +368,8 @@ Deno.serve(async (req) => {
       configuredThirdwebWalletsFound: catalog.wallets.length,
       thirdwebApi: { authenticated: catalog.ok, reason: catalog.reason },
       chains,
-      note: "Read-only readiness checks; no transaction was submitted. Smart-account gas policy, token receipt end-to-end, deposit sweeping, and external send flows require separate controlled tests.",
+      depositOperations,
+      note: "Read-only checks; no transaction was submitted. Smart-account gas sponsorship, end-to-end deposits/sweeps, and external send flows still require controlled canary tests.",
     });
   } catch (error) {
     console.error("treasury-health failed", String(error).slice(0, 400));
