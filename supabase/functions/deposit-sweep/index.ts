@@ -118,7 +118,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const mnemonicNode = HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'/0");
+    // The provisioning function treats m/44'/60'/0' as the root
+    // and derives address index i at root/0/i. Compare xpubs at that same
+    // root; using the /0 branch here would reject valid provisioning custody.
+    const mnemonicNode = HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/60'/0'");
     const derivedXpub = mnemonicNode.neuter().extendedKey;
     if (derivedXpub !== xpub) {
       return json({ ok: false, ready: false, skipped: true, reason: "DEPOSIT_CUSTODY_XPUB_MNEMONIC_MISMATCH" }, 503);
