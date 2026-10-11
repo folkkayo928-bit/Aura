@@ -36,10 +36,10 @@ async function notifyTelegramWithdrawal(client: ReturnType<typeof db>, userId: s
   }
 }
 const EVM = {
-  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
-  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
-  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
-  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
+  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", fallbackRpc: "https://ethereum-rpc.publicnode.com", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
+  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", fallbackRpc: "https://polygon-bor-rpc.publicnode.com", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
+  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", fallbackRpc: "https://arb1.arbitrum.io/rpc", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpc: "https://bsc-rpc.publicnode.com", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
 } as const;
 
 async function rpc(url: string, method: string, params: unknown[]) {
@@ -58,10 +58,13 @@ function hexToBigInt(value: string | null | undefined) {
 }
 function usdtToBaseUnits(value: unknown, decimals: number): bigint {
   const text = String(value);
-  if (!/^\d+(?:\.\d{1,6})?$/.test(text)) throw new Error("INVALID_USDT_AMOUNT_PRECISION");
+  if (!/^\d+(?:\.\d+)?$/.test(text)) throw new Error("INVALID_USDT_AMOUNT_PRECISION");
   const parts = text.split(".");
+  const fractionText = parts[1] || "";
+  if (fractionText.length > decimals) throw new Error("INVALID_USDT_AMOUNT_PRECISION");
   const scale = 10n ** BigInt(decimals);
-  const fraction = BigInt(((parts[1] || "") + "0".repeat(decimals)).slice(0, decimals));
+  const paddedFraction = (fractionText + "0".repeat(decimals)).slice(0, decimals);
+  const fraction = BigInt(paddedFraction || "0");
   return BigInt(parts[0]) * scale + fraction;
 }
 function matchesExpectedUsdtTransfer(receipt: any, tokenAddress: string, destinationAddress: string, amount: bigint) {
@@ -113,7 +116,7 @@ Deno.serve(async (req) => {
         continue;
       }
       const configuredRpc = Deno.env.get(config.rpc)?.trim();
-      const rpcUrl = configuredRpc || (chain === "bsc" ? "https://bsc-rpc.publicnode.com" : "");
+      const rpcUrl = configuredRpc || config.fallbackRpc;
       if (!rpcUrl) {
         pending++;
         console.error("Missing RPC configuration for withdrawal chain", chain);
