@@ -5,6 +5,7 @@ const CHAINS = {
   ethereum: {
     rpc: "AURA_EVM_RPC_ETHEREUM",
     chainId: 1,
+confirmations: 12,
     alchemy: "eth-mainnet",
     token: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     treasury: "AURA_EVM_TREASURY_ETHEREUM",
@@ -13,6 +14,7 @@ const CHAINS = {
   polygon: {
     rpc: "AURA_EVM_RPC_POLYGON",
     chainId: 137,
+confirmations: 30,
     alchemy: "polygon-mainnet",
     token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     treasury: "AURA_EVM_TREASURY_POLYGON",
@@ -21,6 +23,7 @@ const CHAINS = {
   arbitrum: {
     rpc: "AURA_EVM_RPC_ARBITRUM",
     chainId: 42161,
+confirmations: 20,
     alchemy: "arb-mainnet",
     token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     treasury: "AURA_EVM_TREASURY_ARBITRUM",
@@ -29,6 +32,7 @@ const CHAINS = {
   bsc: {
     rpc: "AURA_EVM_RPC_BSC",
     chainId: 56,
+confirmations: 15,
     alchemy: "bnb-mainnet",
     token: "0x55d398326f99059fF775485246999027B3197955",
     treasury: "AURA_EVM_TREASURY_BSC",
@@ -235,6 +239,16 @@ Deno.serve(async (req) => {
           summaries.push({ chain, deposit_id: inflight.id, status: "awaiting_existing_transaction", tx_hash: hash });
           continue;
         }
+        const currentBlock = await provider.getBlockNumber();
+        const confirmations = Math.max(0, currentBlock - receipt.blockNumber + 1);
+        if (confirmations < cfg.confirmations) {
+          await client.from("wallet_deposits")
+            .update({ sweep_error: "WAITING_FOR_CONFIRMATIONS:" + confirmations + "/" + cfg.confirmations })
+            .eq("id", inflight.id).eq("sweep_tx_hash", hash).eq("sweep_status", "sweeping");
+          skipped++;
+          summaries.push({ chain, deposit_id: inflight.id, status: "waiting_for_confirmations", confirmations, required_confirmations: cfg.confirmations, tx_hash: hash });
+          continue;
+        }
         if (receipt.status !== 1) {
           await client.from("wallet_deposits")
             .update({ sweep_status: "failed", sweep_error: "SWEEP_TRANSACTION_REVERTED:" + hash })
@@ -271,6 +285,29 @@ Deno.serve(async (req) => {
         }
         swept++;
         summaries.push({ chain, deposit_id: inflight.id, status: "swept_reconciled", tx_hash: hash, amount: formatUnits(actualAmount, cfg.tokenDecimals) });
+      }
+
+      // A crash after claiming but before persisting the signed-transaction hash
+      // is safe to retry only for the new PREPARING marker. No transaction is
+      // broadcast until its hash has been committed to the row.
+      const retryBefore = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const interruptedPreparation = await client.from("wallet_deposits")
+        .select("id")
+        .eq("chain", chain)
+        .eq("sweep_status", "sweeping")
+        .eq("sweep_error", "PREPARING_SIGNED_TRANSACTION")
+        .is("sweep_tx_hash", null)
+        .lt("sweep_attempted_at", retryBefore)
+        .limit(25);
+      if (interruptedPreparation.error) throw interruptedPreparation.error;
+      for (const interrupted of interruptedPreparation.data || []) {
+        await client.from("wallet_deposits").update({
+          sweep_status: "pending",
+          sweep_error: "PREPARATION_INTERRUPTED_BEFORE_BROADCAST",
+        }).eq("id", interrupted.id)
+          .eq("sweep_status", "sweeping")
+          .eq("sweep_error", "PREPARING_SIGNED_TRANSACTION")
+          .is("sweep_tx_hash", null);
       }
 
       const pendingQuery = await client
@@ -384,18 +421,24 @@ Deno.serve(async (req) => {
 
           const gasEstimate = await token.transfer.estimateGas(treasury, amount);
           const feeData = await provider.getFeeData();
-          const rawGasCost = feeData.maxFeePerGas
-            ? gasEstimate * feeData.maxFeePerGas
-            : gasEstimate * (feeData.gasPrice || await provider.getGasPrice());
+          let gasUnitPrice: bigint;
+          let feeOverrides: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint } | { gasPrice: bigint };
+          if (feeData.maxFeePerGas !== null && feeData.maxPriorityFeePerGas !== null) {
+            gasUnitPrice = feeData.maxFeePerGas;
+            feeOverrides = { maxFeePerGas: feeData.maxFeePerGas, maxPriorityFeePerGas: feeData.maxPriorityFeePerGas };
+          } else if (feeData.gasPrice !== null) {
+            gasUnitPrice = feeData.gasPrice;
+            feeOverrides = { gasPrice: feeData.gasPrice };
+          } else {
+            throw new Error("GAS_PRICE_UNAVAILABLE");
+          }
+          const rawGasCost = gasEstimate * gasUnitPrice;
           const estimatedGasCostWithBuffer = rawGasCost + rawGasCost / 5n;
           const nativeBalance = await provider.getBalance(from);
           if (nativeBalance < estimatedGasCostWithBuffer) {
             throw new Error("INSUFFICIENT_NATIVE_GAS_FOR_SWEEP");
           }
 
-          const feeOverrides = feeData.maxFeePerGas && feeData.maxPriorityFeePerGas
-            ? { maxFeePerGas: feeData.maxFeePerGas, maxPriorityFeePerGas: feeData.maxPriorityFeePerGas }
-            : { gasPrice: feeData.gasPrice || await provider.getGasPrice() };
           const nonce = await provider.getTransactionCount(from, "pending");
           const unsignedTransaction = {
             to: cfg.token,
@@ -431,6 +474,24 @@ Deno.serve(async (req) => {
           if (!receipt || receipt.status !== 1) throw new Error("SWEEP_TRANSACTION_FAILED");
           const actualAmount = matchingTransferAmount(token, receipt.logs, from, treasury, amount);
           if (actualAmount !== amount) throw new Error("SWEEP_RECEIPT_EVENT_MISMATCH");
+          const currentBlock = await provider.getBlockNumber();
+          const confirmations = Math.max(0, currentBlock - receipt.blockNumber + 1);
+          if (confirmations < cfg.confirmations) {
+            await client.from("wallet_deposits").update({
+              sweep_error: "WAITING_FOR_CONFIRMATIONS:" + confirmations + "/" + cfg.confirmations,
+            }).eq("id", deposit.id).eq("sweep_tx_hash", txHash).eq("sweep_status", "sweeping");
+            skipped++;
+            summaries.push({
+              chain,
+              deposit_id: deposit.id,
+              status: "waiting_for_confirmations",
+              confirmations,
+              required_confirmations: cfg.confirmations,
+              tx_hash: txHash,
+              amount: formatUnits(amount, cfg.tokenDecimals),
+            });
+            continue;
+          }
 
           const completed = await client.from("wallet_deposits")
             .update({
