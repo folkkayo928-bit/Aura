@@ -288,11 +288,6 @@ Deno.serve(async (req) => {
     };
     if (serverApiKey) {
       const adminClient = createClient(url, serverApiKey);
-      const count = (table: "wallet_deposits" | "onchain_wallets", column: string, value: string) =>
-        table === "wallet_deposits"
-          ? adminClient.from("wallet_deposits").select("id", { count: "exact", head: true }).eq(column, value)
-          : adminClient.from("onchain_wallets").select("id", { count: "exact", head: true }).eq(column, value);
-
       const [
         totalDeposits, detectedDeposits, creditedDeposits,
         pendingSweeps, activeSweeps, failedSweeps, completedSweeps,
