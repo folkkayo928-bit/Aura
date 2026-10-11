@@ -69,25 +69,24 @@ async function fetchThirdwebTransaction(secret: string, id: string) {
   return payload.result as Record<string, unknown>;
 }
 async function resolveThirdwebServerWallet(secret: string, address: string): Promise<{ registered: boolean; smartAccount: boolean }> {
-  const response = await fetch("https://api.thirdweb.com/v1/wallets/server?limit=100&page=1", {
-    method: "GET",
-    headers: { "x-secret-key": secret },
-    signal: AbortSignal.timeout(10000),
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error("THIRDWEB_SERVER_WALLET_LOOKUP_FAILED_HTTP_" + response.status);
-  const wallets = payload?.result?.wallets;
-  if (!Array.isArray(wallets)) return { registered: false, smartAccount: false };
   const target = address.toLowerCase();
-  const wallet = wallets.find((item: any) =>
-    String(item?.address || "").toLowerCase() === target ||
-    String(item?.smartWalletAddress || "").toLowerCase() === target
-  );
-  if (!wallet) return { registered: false, smartAccount: false };
-  return {
-    registered: true,
-    smartAccount: String(wallet?.smartWalletAddress || "").toLowerCase() === target,
-  };
+  for (let page = 1; page <= 10; page++) {
+    const response = await fetch("https://api.thirdweb.com/v1/wallets/server?limit=100&page=" + page, {
+      method: "GET",
+      headers: { "x-secret-key": secret },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error("THIRDWEB_SERVER_WALLET_LOOKUP_FAILED_HTTP_" + response.status);
+    const payload = await response.json().catch(() => null);
+    const wallets = payload?.result?.wallets;
+    if (!Array.isArray(wallets)) throw new Error("THIRDWEB_SERVER_WALLET_LOOKUP_INVALID_RESPONSE");
+    const serverWallet = wallets.find((item: any) => String(item?.address || "").toLowerCase() === target);
+    if (serverWallet) return { registered: true, smartAccount: false };
+    const smartWallet = wallets.find((item: any) => String(item?.smartWalletAddress || "").toLowerCase() === target);
+    if (smartWallet) return { registered: true, smartAccount: true };
+    if (payload?.result?.pagination?.hasMore !== true) break;
+  }
+  return { registered: false, smartAccount: false };
 }
 async function updateDeferred(db: ReturnType<typeof admin>, w: any, message: string, delayMs = 300000) {
   await db.from("wallet_withdrawals").update({
@@ -250,17 +249,27 @@ Deno.serve(async (req) => {
       let mode: "native" | "thirdweb" | null = null;
       let account: ReturnType<typeof privateKeyToAccount> | null = null;
       let thirdwebSmartWallet = false;
+      let thirdwebDiagnostic = "";
+
       if (thirdwebSecret && /^0x[a-fA-F0-9]{40}$/.test(thirdwebAddress) && thirdwebAddress.toLowerCase() === treasuryAddress.toLowerCase()) {
         try {
           const resolved = await resolveThirdwebServerWallet(thirdwebSecret, thirdwebAddress);
           if (resolved.registered) {
             mode = "thirdweb";
             thirdwebSmartWallet = resolved.smartAccount;
+          } else {
+            thirdwebDiagnostic = "THIRDWEB_SERVER_WALLET_NOT_REGISTERED_IN_CONFIGURED_PROJECT";
           }
         } catch (error) {
-          console.warn("Could not validate thirdweb Server Wallet configuration", String(error).slice(0, 300));
+          const detail = String(error);
+          const status = detail.match(/THIRDWEB_SERVER_WALLET_LOOKUP_FAILED_HTTP_(\d{3})/)?.[1];
+          thirdwebDiagnostic = status
+            ? "THIRDWEB_SERVER_WALLET_LOOKUP_FAILED_HTTP_" + status
+            : "THIRDWEB_SERVER_WALLET_LOOKUP_FAILED";
+          console.warn("Thirdweb wallet validation failed", thirdwebDiagnostic);
         }
       }
+
       if (!mode && privateKey) {
         try {
           const candidate = privateKeyToAccount(privateKey as Hex);
@@ -273,10 +282,25 @@ Deno.serve(async (req) => {
         }
       }
       if (!mode) {
+        let reason = "NO_SIGNER_MATCHES_TREASURY";
+        if (!thirdwebSecret) reason = "THIRDWEB_SECRET_KEY_MISSING";
+        else if (!/^0x[a-fA-F0-9]{40}$/.test(thirdwebAddress)) reason = "THIRDWEB_SERVER_WALLET_ADDRESS_MISSING_OR_INVALID";
+        else if (thirdwebAddress.toLowerCase() !== treasuryAddress.toLowerCase()) reason = "THIRDWEB_TREASURY_ADDRESS_MISMATCH";
+        else if (thirdwebDiagnostic) reason = thirdwebDiagnostic;
         await pauseForConfiguration(db, msgId, w,
-          "Withdrawal broadcast is not configured. Add a matching native signer or a registered thirdweb Server Wallet matching this network's treasury. The funds remain reserved, and the worker will retry automatically after configuration is repaired.");
+          "Withdrawal broadcast is not configured (" + reason + "). No broadcast was attempted; funds remain reserved and will retry after configuration is repaired.");
         deferred++; processed++;
         continue;
+      }
+
+      if (mode === "thirdweb" && thirdwebSmartWallet) {
+        const gasVerificationEnv = "AURA_THIRDWEB_GAS_VERIFIED_" + String(w.chain).toUpperCase();
+        if ((Deno.env.get(gasVerificationEnv) || "").trim().toLowerCase() !== "true") {
+          await pauseForConfiguration(db, msgId, w,
+            "Smart-account payout paused: gas sponsorship/EntryPoint readiness is not marked verified for this network. Complete a controlled small transfer and verify its on-chain receipt, then set " + gasVerificationEnv + "=true.");
+          deferred++; processed++;
+          continue;
+        }
       }
 
       try {

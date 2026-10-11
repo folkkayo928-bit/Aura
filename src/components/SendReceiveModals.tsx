@@ -133,6 +133,9 @@ export const SendModal: React.FC = () => {
             ['WITHDRAWAL_LIQUIDITY_UNAVAILABLE', 'AURA’s selected network does not have enough USDT liquidity. No funds were reserved.'],
             ['WITHDRAWAL_GAS_UNAVAILABLE', 'AURA’s selected network treasury does not have gas available. No funds were reserved.'],
             ['WITHDRAWAL_READINESS_CHECK_FAILED', 'AURA could not verify network readiness. No funds were reserved.'],
+            ['WITHDRAWAL_GAS_READINESS_UNVERIFIED', 'AURA has not yet verified Thirdweb smart-account gas readiness for this network. No funds were reserved.'],
+            ['THIRDWEB_SERVER_WALLET_VALIDATION_FAILED', 'AURA could not validate its configured Thirdweb Server Wallet. No funds were reserved.'],
+            ['THIRDWEB_SERVER_WALLET_NOT_REGISTERED', 'The configured treasury wallet is not registered in the connected Thirdweb project. No funds were reserved.'],
           ];
           const match = knownErrors.find(([key]) => code.includes(key));
           setSendError(match ? match[1] : rawError.replace(/[_-]+/g, ' ').slice(0, 260));

@@ -39,6 +39,8 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [disputeReason, setDisputeReason] = useState('');
   const [health, setHealth] = useState<any>({});
   const [foundation, setFoundation] = useState<any>({});
+  const [treasuryReport, setTreasuryReport] = useState<any>(null);
+  const [treasuryChecking, setTreasuryChecking] = useState(false);
   const [audit, setAudit] = useState<any[]>([]);
   const [financial, setFinancial] = useState<FinancialPoint[]>([]);
   const [busy, setBusy] = useState(false);
@@ -101,6 +103,26 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const canFinance = role === 'finance' || role === 'owner';
   const canOperate = role === 'operator' || role === 'finance' || role === 'owner';
+
+  const runTreasuryCheck = async () => {
+    setTreasuryChecking(true);
+    setNotice('');
+    try {
+      const { data, error } = await supabase.functions.invoke('treasury-health', { body: {} });
+      if (error) {
+        setNotice(error.message || 'Treasury health check failed. Check the Supabase function logs.');
+      } else {
+        setTreasuryReport(data || null);
+        setNotice(data?.overallReady
+          ? 'Treasury checks passed for all currently supported EVM networks.'
+          : 'Treasury checks completed. Review blocked networks and their specific reasons below.');
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Treasury health check failed.');
+    } finally {
+      setTreasuryChecking(false);
+    }
+  };
 
   const stats = useMemo(() => [
     ['Users', dashboard.totalUsers || 0, Users],
@@ -322,6 +344,148 @@ export const AdminView: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {Object.entries(health).filter(([k]) => k !== 'generatedAt').map(([k, v]) => <div key={k} className="rounded-2xl border border-white/10 bg-[#111118] p-4"><div className="text-[9px] uppercase tracking-widest text-stone-500">{k}</div><div className={Number(v) > 0 && /failed|errors|disputes/i.test(k) ? 'mt-2 text-xl text-rose-300' : 'mt-2 text-xl'}>{String(v)}</div></div>)}
             </div>
+            {canFinance && (
+              <div className="rounded-3xl border border-white/10 bg-[#111118] p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">Live EVM treasury checks</div>
+                    <div className="mt-1 text-xs text-stone-500">Read-only checks. No tokens are sent. This covers Ethereum, Polygon, Arbitrum and BNB Smart Chain.</div>
+                  </div>
+                  <button disabled={treasuryChecking} onClick={() => void runTreasuryCheck()} className="rounded-xl bg-amber-400 px-4 py-3 text-xs font-bold text-stone-950 disabled:opacity-50">
+                    {treasuryChecking ? 'Checking…' : 'Run live treasury checks'}
+                  </button>
+                </div>
+                {treasuryReport && (
+                  <div className="mt-4 space-y-3">
+                    <div className={treasuryReport.overallReady ? 'rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs text-emerald-200' : 'rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs text-amber-200'}>
+                      {treasuryReport.overallReady ? 'All four checked networks passed the current read-only readiness checks.' : 'One or more networks are not ready. Do not enable payouts on a blocked network.'}
+                      <div className="mt-1 text-[10px] opacity-70">Checked {treasuryReport.generatedAt ? new Date(treasuryReport.generatedAt).toLocaleString() : 'just now'} · No transaction submitted</div>
+                    </div>
+                    <div className="space-y-2">
+                      {(treasuryReport.chains || []).map((c: any) => (
+                        <div key={c.chain} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-semibold text-sm">{c.label}</div>
+                            <span className={c.ready ? 'rounded-full bg-emerald-400/10 px-2 py-1 text-[9px] uppercase tracking-widest text-emerald-300' : 'rounded-full bg-rose-400/10 px-2 py-1 text-[9px] uppercase tracking-widest text-rose-300'}>{c.ready ? 'Ready checks passed' : 'Blocked'}</span>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-stone-400 sm:grid-cols-4">
+                            <div>Signer mode <b className="block text-stone-100">{c.senderMode || 'none'}</b></div>
+                            <div>USDT balance <b className="block text-stone-100">{c.balances?.usdt ?? '—'}</b></div>
+                            <div>Native balance <b className="block text-stone-100">{c.balances?.native ?? '—'} {c.balances?.nativeSymbol || ''}</b></div>
+                            <div>Thirdweb address match <b className="block text-stone-100">{c.treasuryMatchesThirdwebAddress ? 'yes' : 'no'}</b></div>
+                          </div>
+                          {(c.blockers || []).length > 0 && <div className="mt-3 space-y-1">{c.blockers.map((b: string, i: number) => <div key={i} className="text-[10px] leading-relaxed text-rose-300">• {b}</div>)}</div>}
+                          {(c.warnings || []).length > 0 && <div className="mt-2 space-y-1">{c.warnings.map((w: string, i: number) => <div key={i} className="text-[10px] leading-relaxed text-amber-200">• {w}</div>)}</div>}
+                        </div>
+                      ))}
+                    </div>
+                    {treasuryReport.depositOperations && (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                        <div className="font-semibold text-sm">Deposit & treasury sweep pipeline</div>
+                        <div className="mt-1 text-[10px] text-stone-500">Deposit indexing/credit and moving tokens from deposit addresses into treasury are separate steps.</div>
+                        {!treasuryReport.depositOperations.available ? (
+                          <div className="mt-3 text-xs text-amber-200">Deposit telemetry is unavailable: {treasuryReport.depositOperations.reason || 'check service database access'}.</div>
+                        ) : (
+                          <>
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              {[
+                                ['Deposits detected', treasuryReport.depositOperations.counts?.detected],
+                                ['Deposits credited', treasuryReport.depositOperations.counts?.credited],
+                                ['Sweeps pending', treasuryReport.depositOperations.counts?.sweepPending],
+                                ['Sweeps failed', treasuryReport.depositOperations.counts?.sweepFailed],
+                                ['Sweeps in progress', treasuryReport.depositOperations.counts?.sweepInProgress],
+                                ['Sweeps completed', treasuryReport.depositOperations.counts?.swept],
+                                ['Deposit addresses', treasuryReport.depositOperations.counts?.custodialAddresses],
+                                ['Total deposit rows', treasuryReport.depositOperations.counts?.total],
+                              ].map(([label, value]) => (
+                                <div key={String(label)} className="rounded-xl bg-white/[.03] p-3">
+                                  <div className="text-[9px] uppercase tracking-wide text-stone-500">{label}</div>
+                                  <div className="mt-1 text-lg text-stone-100">{Number(value || 0)}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              <div className="rounded-xl bg-white/[.03] p-3 text-[10px]">
+                                <div className="font-semibold text-stone-200">Custody derivation</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'mt-2 text-emerald-300' : 'mt-2 text-rose-300'}>Mnemonic: {treasuryReport.depositOperations.sweepCustody?.mnemonicConfigured ? 'configured' : 'missing'}</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Xpub: {treasuryReport.depositOperations.sweepCustody?.xpubConfigured ? 'configured' : 'missing'}</div>
+                                <div className={treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'mt-1 text-emerald-300' : 'mt-1 text-rose-300'}>Sweep config: {treasuryReport.depositOperations.sweepCustody?.sweepConfigurationComplete ? 'configured across four EVM networks; gas checked separately' : 'incomplete for at least one network'}</div>
+                                <div className="mt-3 border-t border-white/5 pt-3">
+                                  <div className="font-semibold text-stone-200">Per-network treasury setup</div>
+                                  <div className="mt-2 grid grid-cols-2 gap-2">
+                                    {(treasuryReport.depositOperations.treasuryConfiguredByChain || []).map((chain: any) => (
+                                      <div key={chain.chain} className={chain.configured ? 'rounded-lg bg-emerald-400/5 px-2 py-2 text-emerald-300' : 'rounded-lg bg-rose-400/5 px-2 py-2 text-rose-300'}>
+                                        <div className="font-semibold">{String(chain.chain).toUpperCase()}</div>
+                                        <div className="mt-1 text-[9px]">{chain.configured ? 'Treasury address configured' : 'Treasury address not configured'}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="rounded-xl bg-white/[.03] p-3 text-[10px]">
+                                <div className="font-semibold text-stone-200">Oldest unswept deposit</div>
+                                {treasuryReport.depositOperations.oldestPendingSweep ? (
+                                  <>
+                                    <div className="mt-2 text-amber-200">{String(treasuryReport.depositOperations.oldestPendingSweep.chain || '').toUpperCase()} · {treasuryReport.depositOperations.oldestPendingSweep.createdAt ? new Date(treasuryReport.depositOperations.oldestPendingSweep.createdAt).toLocaleString() : 'date unavailable'}</div>
+                                    <div className="mt-1 text-stone-500">Last sweep attempt: {treasuryReport.depositOperations.oldestPendingSweep.attemptedAt ? new Date(treasuryReport.depositOperations.oldestPendingSweep.attemptedAt).toLocaleString() : 'none recorded'}</div>
+                                    {treasuryReport.depositOperations.oldestPendingSweep.errorCode && <div className="mt-1 text-rose-300">Last error code: {String(treasuryReport.depositOperations.oldestPendingSweep.errorCode)}</div>}
+                                    {treasuryReport.depositOperations.oldestPendingSweep.gasCheck && (() => {
+                                      const gas = treasuryReport.depositOperations.oldestPendingSweep.gasCheck;
+                                      const gasStatus = String(gas.status || 'not_checked');
+                                      const good = gasStatus === 'sufficient_with_20_percent_buffer';
+                                      const bad = gasStatus === 'insufficient_native_gas' || gasStatus === 'no_usdt_at_deposit_address' || gasStatus === 'treasury_not_configured' || gasStatus === 'deposit_address_mismatch' || gasStatus === 'deposit_wallet_missing' || gasStatus === 'token_decimals_mismatch';
+                                      const label = good
+                                        ? 'Read-only gas estimate passes with a 20% buffer'
+                                        : gasStatus === 'insufficient_native_gas'
+                                          ? 'Deposit address needs native gas for this sweep'
+                                          : gasStatus === 'no_usdt_at_deposit_address'
+                                            ? 'No USDT found at the recorded deposit address'
+                                            : gasStatus === 'treasury_not_configured'
+                                              ? 'Treasury address is not configured for this network'
+                                              : gasStatus === 'deposit_address_mismatch'
+                                                ? 'Safety stop: recorded deposit address does not match wallet mapping'
+                                                : gasStatus === 'deposit_wallet_missing'
+                                                  ? 'No custodial deposit wallet mapping found'
+                                                  : gasStatus === 'token_decimals_mismatch'
+                                                    ? 'Safety stop: USDT token decimals did not match'
+                                                    : gasStatus === 'rpc_chain_mismatch'
+                                                      ? 'Safety stop: RPC returned the wrong chain'
+                                                      : gasStatus === 'rpc_or_gas_estimate_failed'
+                                                        ? 'Could not estimate sweep gas from the configured RPC'
+                                                        : 'Deposit address gas check unavailable';
+                                      return (
+                                        <div className={good ? 'mt-3 rounded-lg bg-emerald-400/5 p-2 text-emerald-300' : bad ? 'mt-3 rounded-lg bg-rose-400/5 p-2 text-rose-300' : 'mt-3 rounded-lg bg-amber-400/5 p-2 text-amber-200'}>
+                                          <div className="font-semibold">Sweep readiness · {gasStatus.replace(/_/g, ' ')}</div>
+                                          <div className="mt-1">{label}</div>
+                                          {gas.nativeBalance !== undefined && <div className="mt-1 text-stone-400">Deposit address native balance: {String(gas.nativeBalance)} {String(gas.nativeSymbol || '')}</div>}
+                                          {gas.usdtBalance !== undefined && <div className="mt-1 text-stone-400">Deposit address USDT balance: {String(gas.usdtBalance)} USDT</div>}
+                                          {gas.estimatedNativeGasRequiredWithBuffer !== null && gas.estimatedNativeGasRequiredWithBuffer !== undefined && <div className="mt-1 text-stone-400">Estimated native gas needed (incl. 20% buffer): {String(gas.estimatedNativeGasRequiredWithBuffer)} {String(gas.nativeSymbol || '')}</div>}
+                                          <div className="mt-1 text-stone-500">Read-only estimate only; no sweep transaction was submitted by this check.</div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </>
+                                ) : <div className="mt-2 text-emerald-300">No pending sweep row without a transaction hash.</div>}
+                              </div>
+                            </div>
+                            <div className="mt-3 space-y-1">
+                              {(treasuryReport.depositOperations.scanCursors || []).map((c: any) => (
+                                <div key={c.chain} className="flex flex-wrap justify-between gap-2 border-t border-white/5 pt-2 text-[10px] text-stone-500">
+                                  <span>{String(c.chain).toUpperCase()} scan cursor: {c.lastScannedBlock}</span>
+                                  <span>updated {c.updatedAt ? new Date(c.updatedAt).toLocaleString() : 'unknown'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <div className="text-[10px] leading-relaxed text-stone-500">These checks do not send test transactions and cannot guarantee provider acceptance or future chain finality. Smart-account gas setup must be verified with a controlled transaction before it is marked ready.</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="rounded-3xl border border-white/10 bg-[#111118] p-4">
               <div className="mb-3 flex items-center gap-2"><BarChart3 className="h-4 w-4 text-cyan-300" /> Recent audit</div>
               {audit.length === 0 && <div className="py-5 text-xs text-stone-500">No privileged actions recorded yet.</div>}

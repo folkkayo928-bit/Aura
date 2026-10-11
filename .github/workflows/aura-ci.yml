@@ -21,6 +21,11 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.web.json
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck transaction Edge Functions
+        run: deno check --no-config supabase/functions/treasury-health/index.ts supabase/functions/withdrawal-broadcaster/index.ts supabase/functions/withdrawal-request/index.ts supabase/functions/withdrawal-indexer/index.ts supabase/functions/deposit-indexer/index.ts supabase/functions/deposit-sweep/index.ts
       - name: Build
         env:
           VITE_SUPABASE_URL: https://rtqcistkoomzmzxzasxc.supabase.co
