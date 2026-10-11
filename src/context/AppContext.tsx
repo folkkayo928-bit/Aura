@@ -1514,7 +1514,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     addNotification(
       'Confirm your withdrawal',
-      'A confirmation email was sent. The reserved USDT will not be broadcast until you confirm it.',
+      'A secure confirmation was sent through your linked Telegram or email channel. The reserved USDT will not be broadcast until you confirm it.',
       'wallet',
     );
 
