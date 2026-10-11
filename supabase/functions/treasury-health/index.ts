@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { createPublicClient, formatUnits, http, parseUnits, type Address } from "npm:viem@2";
+import { createPublicClient, formatUnits, http, type Address } from "npm:viem@2";
 import { privateKeyToAccount } from "npm:viem@2/accounts";
 
 const ERC20_ABI = [
@@ -135,7 +135,8 @@ async function inspectChain(key: keyof typeof CHAINS, catalog: { ok: boolean; re
   checks.thirdwebAddressMatchType = thirdwebMatch?.field || null;
   checks.senderMode = senderMode;
 
-  if (thirdwebSecret && !catalog.ok) blockers.push("Thirdweb API check failed: " + String(catalog.reason || "UNKNOWN"));
+  if (thirdwebSecret && !catalog.ok && !nativeSignerMatches) blockers.push("Thirdweb API check failed: " + String(catalog.reason || "UNKNOWN"));
+  else if (thirdwebSecret && !catalog.ok && nativeSignerMatches) warnings.push("Thirdweb API check failed (" + String(catalog.reason || "UNKNOWN") + "), but a matching native signer is configured; only the native route can be considered.");
   if (thirdwebSecret && catalog.ok && isAddress(treasury) && treasury.toLowerCase() === thirdwebAddress.toLowerCase() && !thirdwebMatch) {
     blockers.push("Wallet address matches the treasury setting but is not registered in this Thirdweb project's Server Wallet list.");
   }
@@ -236,7 +237,7 @@ async function inspectChain(key: keyof typeof CHAINS, catalog: { ok: boolean; re
   return {
     chain: key,
     label: cfg.label,
-    status: blockers.length === 0 ? "ready" : "blocked",
+    status: blockers.length === 0 && basicConfigReady ? "ready" : "blocked",
     ready: blockers.length === 0 && basicConfigReady,
     senderMode,
     treasuryAddress: shortAddress(treasury),
@@ -259,10 +260,14 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.match(/^Bearer\s+(.+)$/i)?.[1] || "";
   const url = Deno.env.get("SUPABASE_URL") || "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-  if (!url || !anonKey || !token) return json({ error: "AUTH_REQUIRED" }, 401);
+  const rawSecretKeys = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
+  let serverApiKey = "";
+  try { serverApiKey = String(JSON.parse(rawSecretKeys)?.default || "").trim(); } catch { /* use legacy server key below */ }
+  serverApiKey = serverApiKey || (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+  const apiKey = (Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || serverApiKey).trim();
+  if (!url || !apiKey || !token) return json({ error: "AUTH_REQUIRED" }, 401);
 
-  const userClient = createClient(url, anonKey, { global: { headers: { Authorization: authHeader } } });
+  const userClient = createClient(url, apiKey, { global: { headers: { Authorization: authHeader } } });
   const { data: authData, error: authError } = await userClient.auth.getUser(token);
   if (authError || !authData.user) return json({ error: "INVALID_SESSION" }, 401);
   const { data: canFinance, error: roleError } = await userClient.rpc("aura_can", { p_min_role: "finance" });
