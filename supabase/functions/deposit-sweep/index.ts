@@ -71,11 +71,16 @@ async function custodySecret(client: ReturnType<typeof db>, name: "xprv" | "mnem
 function rpcEndpoint(chain: keyof typeof CHAINS, apiKey: string) {
   const configured = Deno.env.get(CHAINS[chain].rpc)?.trim();
   if (configured) return configured;
-  // The configured Alchemy app has BNB_MAINNET disabled. Use its public BNB
-  // endpoint for unsigned reads and locally signed transaction submission.
-  if (chain === "bsc") return "https://bsc-rpc.publicnode.com";
-  if (!apiKey) return "";
-  return `https://${CHAINS[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
+  // Prefer the connected Alchemy app when configured; public fallbacks keep
+  // all four supported mainnet chains available without a separate RPC secret.
+  if (apiKey) return `https://${CHAINS[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
+  const fallback: Record<keyof typeof CHAINS, string> = {
+    ethereum: "https://ethereum-rpc.publicnode.com",
+    polygon: "https://polygon-bor-rpc.publicnode.com",
+    arbitrum: "https://arb1.arbitrum.io/rpc",
+    bsc: "https://bsc-rpc.publicnode.com",
+  };
+  return fallback[chain];
 }
 function validAddress(value: string) {
   return /^0x[0-9a-fA-F]{40}$/.test(value);
@@ -133,18 +138,7 @@ Deno.serve(async (req) => {
       const treasury = Deno.env.get(cfg.treasury) || "";
       if (!rpcUrl || !treasury) {
         skipped++;
-        // Log configuration presence only. Never print treasury addresses or signing material.
-        console.warn("Deposit sweep skipped because required configuration is missing", {
-          chain,
-          rpcConfigured: Boolean(rpcUrl),
-          treasuryConfigured: Boolean(treasury),
-        });
-        summaries.push({
-          chain,
-          status: "configuration_missing",
-          rpcConfigured: Boolean(rpcUrl),
-          treasuryConfigured: Boolean(treasury),
-        });
+        summaries.push({ chain, status: "configuration_missing" });
         continue;
       }
       if (!validAddress(treasury)) {
