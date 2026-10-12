@@ -12,6 +12,7 @@ create table if not exists public.wallet_network_registry (
   native_symbol text not null,
   enabled_for_receive boolean not null default false,
   enabled_for_send boolean not null default false,
+  finality_mode text not null check (finality_mode in ('confirmations', 'finalized', 'ton_finalized')),
   min_confirmations integer not null default 1 check (min_confirmations >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -52,7 +53,10 @@ create table if not exists public.wallet_chain_addresses (
 );
 
 create unique index if not exists wallet_chain_addresses_network_address_uq
-  on public.wallet_chain_addresses (network_key, lower(address));
+  on public.wallet_chain_addresses (
+    network_key,
+    (case when network_key in ('ethereum', 'bsc') then lower(address) else address end)
+  );
 
 create index if not exists wallet_chain_addresses_user_network_idx
   on public.wallet_chain_addresses (user_id, network_key);
@@ -124,12 +128,12 @@ create policy wallet_chain_events_owner_read
 -- The four target networks are registered but deliberately not enabled until
 -- their receive/send adapters, fee paths, and transaction-state tests pass.
 insert into public.wallet_network_registry
-  (network_key, family, display_name, chain_id, native_symbol, enabled_for_receive, enabled_for_send, min_confirmations)
+  (network_key, family, display_name, chain_id, native_symbol, enabled_for_receive, enabled_for_send, finality_mode, min_confirmations)
 values
-  ('ethereum', 'evm', 'Ethereum', 1, 'ETH', false, false, 12),
-  ('bsc', 'evm', 'BNB Smart Chain', 56, 'BNB', false, false, 15),
-  ('solana', 'solana', 'Solana', null, 'SOL', false, false, 32),
-  ('ton', 'ton', 'TON', null, 'TON', false, false, 1)
+  ('ethereum', 'evm', 'Ethereum', 1, 'ETH', false, false, 'confirmations', 12),
+  ('bsc', 'evm', 'BNB Smart Chain', 56, 'BNB', false, false, 'confirmations', 15),
+  ('solana', 'solana', 'Solana', null, 'SOL', false, false, 'finalized', 1),
+  ('ton', 'ton', 'TON', null, 'TON', false, false, 'ton_finalized', 1)
 on conflict (network_key) do nothing;
 
 -- Candidate USDT identifiers based on Tether's protocol guidance and the existing
