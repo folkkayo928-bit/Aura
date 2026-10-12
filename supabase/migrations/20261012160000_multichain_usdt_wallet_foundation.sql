@@ -132,8 +132,9 @@ values
   ('ton', 'ton', 'TON', null, 'TON', false, false, 1)
 on conflict (network_key) do nothing;
 
--- Issuer-published token identifiers. The assets remain disabled until the
--- live adapter has independently validated decimals, token identity, and fee handling.
+-- Candidate USDT identifiers based on Tether's protocol guidance and the existing
+-- AURA BSC configuration. Independently verify each token on its explorer before
+-- enabling it; the registry is intentionally disabled until that review and adapter tests pass.
 insert into public.wallet_asset_registry
   (asset_key, network_key, symbol, display_name, token_standard, token_address, decimals, enabled, issuer_reference)
 values
