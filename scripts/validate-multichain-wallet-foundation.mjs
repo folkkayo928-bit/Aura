@@ -31,12 +31,13 @@ assert.doesNotMatch(normalized, /\b(drop\s+table|truncate\s+table|disable\s+row\
 
 const addressValidatorPath = new URL("../supabase/functions/_shared/multichain-address-validation.ts", import.meta.url);
 const addressValidator = readFileSync(addressValidatorPath, "utf8");
+const addressHandler = readFileSync(new URL("../supabase/functions/multichain-wallet-validate-address/index.ts", import.meta.url), "utf8");
 const supabaseConfig = readFileSync(new URL("../supabase/config.toml", import.meta.url), "utf8");
 assert.ok(addressValidator.includes('case "ethereum":') && addressValidator.includes('case "bsc":'), "Address validator must support both EVM target networks");
 assert.ok(addressValidator.includes('case "solana":') && addressValidator.includes('case "ton":'), "Address validator must support Solana and TON");
-assert.ok(addressValidator.includes('client.auth.getUser()'), "Address validation must require an authenticated user");
-assert.ok(addressValidator.includes('validation: "format_only"'), "Address validation must not claim ownership or transaction verification");
-assert.ok(!addressValidator.includes("SUPABASE_SERVICE_ROLE_KEY"), "Address validator must not use a service-role key");
+assert.ok(addressHandler.includes('client.auth.getUser()'), "Address validation must require an authenticated user");
+assert.ok(addressHandler.includes('validation: "format_only"'), "Address validation must not claim ownership or transaction verification");
+assert.ok(!addressHandler.includes("SUPABASE_SERVICE_ROLE_KEY"), "Address validator must not use a service-role key");
 assert.match(supabaseConfig, /\[functions\.multichain-wallet-validate-address\]\s+verify_jwt = true/i, "Address validator must require Supabase JWT verification");
 
 console.log("AURA multichain wallet foundation checks passed.");
