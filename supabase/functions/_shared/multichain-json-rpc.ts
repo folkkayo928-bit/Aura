@@ -20,6 +20,21 @@ export type JsonRpcOptions = {
   fetchImpl?: typeof fetch;
 };
 
+const READ_ONLY_METHODS = new Set([
+  "eth_blockNumber",
+  "eth_call",
+  "eth_chainId",
+  "eth_getBalance",
+  "eth_getBlockByHash",
+  "eth_getBlockByNumber",
+  "eth_getCode",
+  "eth_getLogs",
+  "eth_getTransactionByHash",
+  "eth_getTransactionReceipt",
+  "eth_getTransactionCount",
+  "net_version",
+]);
+
 let nextRequestId = 1;
 
 /**
@@ -37,6 +52,7 @@ export async function callReadOnlyJsonRpc<T = unknown>(options: JsonRpcOptions):
     throw new Error("UNSAFE_RPC_ENDPOINT");
   }
   if (!/^[a-zA-Z][a-zA-Z0-9_]{0,79}$/.test(method)) throw new Error("INVALID_RPC_METHOD");
+  if (!READ_ONLY_METHODS.has(method)) throw new Error("RPC_METHOD_NOT_ALLOWED");
 
   const timeoutMs = options.timeoutMs ?? 8_000;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30_000) {
