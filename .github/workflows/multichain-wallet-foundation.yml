@@ -9,14 +9,14 @@ on:
       - "supabase/functions/multichain-wallet-config/**"
       - "supabase/functions/multichain-wallet-validate-address/**"
       - "supabase/config.toml"
-      - "supabase/functions/multichain-wallet-validate-address/**"
-      - "supabase/config.toml"
       - "scripts/validate-multichain-wallet-foundation.mjs"
       - ".github/workflows/multichain-wallet-foundation.yml"
   pull_request:
     paths:
       - "supabase/migrations/20261012160000_multichain_usdt_wallet_foundation.sql"
       - "supabase/functions/multichain-wallet-config/**"
+      - "supabase/functions/multichain-wallet-validate-address/**"
+      - "supabase/config.toml"
       - "scripts/validate-multichain-wallet-foundation.mjs"
       - ".github/workflows/multichain-wallet-foundation.yml"
 
