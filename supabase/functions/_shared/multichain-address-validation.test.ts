@@ -28,7 +28,7 @@ Deno.test("rejects malformed Solana addresses", () => {
 
 Deno.test("accepts the configured TON USDT master friendly address", () => {
   const master = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
-  assertEquals(validateTonAddress(master), "0:acb1a08b50d0a4a19f2ac3cba8f4c9a7e3f8fdd3c72d65c5a0a7a00f1b0d0f6d");
+  assertEquals(validateTonAddress(master), "0:b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe");
   assertEquals(validateAddress("ton", master), validateTonAddress(master));
 });
 
