@@ -81,7 +81,7 @@ create table if not exists public.wallet_chain_events (
 );
 
 create index if not exists wallet_chain_events_user_created_idx
-  on public.wallet_chain_events (user_id, created_at desc);
+  on public.wallet_chain_events (user_id, observed_at desc);
 
 create index if not exists wallet_chain_events_network_status_idx
   on public.wallet_chain_events (network_key, status, observed_at);
