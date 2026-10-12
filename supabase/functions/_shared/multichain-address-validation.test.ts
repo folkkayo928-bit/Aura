@@ -1,6 +1,20 @@
 /// <reference lib="deno.ns" />
-import { assertEquals, assertThrows } from "jsr:@std/assert@1";
 import { decodeBase58, validateAddress, validateTonAddress } from "./multichain-address-validation.ts";
+
+function assertEquals(actual: unknown, expected: unknown) {
+  if (actual !== expected) throw new Error(`Expected ${String(expected)}, received ${String(actual)}`);
+}
+
+function assertThrows(fn: () => unknown, expectedError?: new (...args: never[]) => Error, expectedMessage?: string) {
+  try { fn(); } catch (error) {
+    if (expectedError && !(error instanceof expectedError)) throw new Error(`Unexpected error type: ${String(error)}`);
+    if (expectedMessage && (!(error instanceof Error) || !error.message.includes(expectedMessage))) {
+      throw new Error(`Expected error message to include ${expectedMessage}`);
+    }
+    return;
+  }
+  throw new Error("Expected function to throw");
+}
 
 Deno.test("accepts Ethereum and BNB Smart Chain EVM address format", () => {
   assertEquals(
