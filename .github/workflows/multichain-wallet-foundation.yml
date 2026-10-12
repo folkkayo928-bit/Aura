@@ -8,6 +8,7 @@ on:
       - "supabase/migrations/20261012160000_multichain_usdt_wallet_foundation.sql"
       - "supabase/functions/multichain-wallet-config/**"
       - "supabase/functions/multichain-wallet-validate-address/**"
+      - "supabase/functions/_shared/**"
       - "supabase/config.toml"
       - "scripts/validate-multichain-wallet-foundation.mjs"
       - ".github/workflows/multichain-wallet-foundation.yml"
@@ -35,3 +36,7 @@ jobs:
           node-version: "22"
       - name: Validate migration safety and four-network coverage
         run: node scripts/validate-multichain-wallet-foundation.mjs
+      - name: Set up Deno for address unit tests
+        uses: denoland/setup-deno@v2
+      - name: Run multichain address unit tests
+        run: deno test supabase/functions/_shared/multichain-address-validation.test.ts
