@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 import { PaymentMethodType } from '../../types';
 import { X, Plus, ShieldCheck, FileText, CreditCard } from 'lucide-react';
 
@@ -9,6 +10,7 @@ interface CreateP2POfferModalProps {
 
 export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClose }) => {
   const { createP2POffer, walletBalance } = useApp();
+  const { user } = useAuth();
   const [type, setType] = useState<'buy' | 'sell'>('sell');
   const [price, setPrice] = useState('');
   const [fiatCurrency, setFiatCurrency] = useState<'ETB' | 'USD' | 'EUR' | 'GBP' | 'AED'>('ETB');
@@ -21,19 +23,41 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   useEffect(() => {
+    if (!user?.id) {
+      setSavedMethods([]);
+      setSelectedMethods([]);
+      setLoadingMethods(false);
+      return;
+    }
+
+    let cancelled = false;
     void (async () => {
       setLoadingMethods(true);
-      const { supabase } = await import('../../lib/supabase');
-      const { data } = await supabase.from('p2p_payment_methods')
-        .select('id,method_type,label,account_holder_name,account_identifier,instructions')
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false });
-      const rows = (data || []) as any[];
-      setSavedMethods(rows);
-      if (rows.length > 0) setSelectedMethods([rows[0].method_type]);
-      setLoadingMethods(false);
+      try {
+        const { supabase } = await import('../../lib/supabase');
+        const { data, error } = await supabase.from('p2p_payment_methods')
+          .select('id,method_type,label,account_holder_name,account_identifier,instructions')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('updated_at', { ascending: false });
+        if (error) throw error;
+        if (cancelled) return;
+        const rows = (data || []) as any[];
+        setSavedMethods(rows);
+        setSelectedMethods(rows.length > 0 ? [rows[0].method_type] : []);
+      } catch {
+        if (!cancelled) {
+          setSavedMethods([]);
+          setSelectedMethods([]);
+          setErrorMessage('Could not load your saved payment methods. Check your connection and try again.');
+        }
+      } finally {
+        if (!cancelled) setLoadingMethods(false);
+      }
     })();
-  }, []);
+
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const [instructions, setInstructions] = useState(
     'Tell the counterparty where and how to pay. AURA reserves the seller’s USDT in its internal ledger until the trade is completed or cancelled.'
