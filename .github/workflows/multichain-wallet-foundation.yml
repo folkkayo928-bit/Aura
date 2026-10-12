@@ -40,4 +40,4 @@ jobs:
       - name: Set up Deno for address unit tests
         uses: denoland/setup-deno@v2
       - name: Run multichain address unit tests
-        run: deno test supabase/functions/_shared/multichain-address-validation.test.ts
+        run: deno test supabase/functions/_shared/*.test.ts
