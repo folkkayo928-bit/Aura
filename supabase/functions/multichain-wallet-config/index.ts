@@ -50,15 +50,24 @@ Deno.serve(async (req) => {
     const networks = networkResult.data ?? [];
     const assets = assetResult.data ?? [];
     const required = ["ethereum", "bsc", "solana", "ton"];
-    const enabledUsdtNetworks = new Set(
-      assets.filter((asset) => asset.symbol === "USDT").map((asset) => asset.network_key),
+    // Use the explicitly reviewed asset keys, not a display ticker: BSC's
+    // existing 0x55d3...7955 contract is Binance-Peg BSC-USD, not issuer-native USDT.
+    const requiredAssetKeys: Record<string, string> = {
+      ethereum: "usdt_ethereum",
+      bsc: "usdt_bsc",
+      solana: "usdt_solana",
+      ton: "usdt_ton",
+    };
+    const enabledAssetNetworks = new Set(
+      assets.filter((asset) => asset.asset_key === requiredAssetKeys[asset.network_key])
+        .map((asset) => asset.network_key),
     );
     const ready = required.every((key) =>
       networks.some((network) =>
         network.network_key === key &&
         network.enabled_for_receive &&
         network.enabled_for_send &&
-        enabledUsdtNetworks.has(key)
+        enabledAssetNetworks.has(key)
       )
     );
 
@@ -71,7 +80,7 @@ Deno.serve(async (req) => {
       assets,
       message: ready
         ? "All four target networks are enabled in the registry. This reports configuration only; it does not certify live RPC or transaction health."
-        : "Multichain USDT is not fully enabled. A network is listed only after the backend registry enables it.",
+        : "Multichain stablecoin support is not fully enabled. BSC uses a bridged BSC-USD representation; check the displayed asset identity before sending.",
     });
   } catch {
     return json({ success: false, error: "WALLET_CONFIG_UNAVAILABLE" }, 503);
