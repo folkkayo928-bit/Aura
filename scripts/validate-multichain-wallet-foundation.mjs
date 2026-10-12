@@ -25,6 +25,8 @@ assert.ok(normalized.includes("wallet_chain_events_network_tx_event_uq"), "Missi
 assert.ok(normalized.includes("case when network_key in ('ethereum', 'bsc') then lower(tx_hash) else tx_hash end"), "On-chain event identity must normalize EVM hashes only");
 assert.ok(normalized.includes("amount_raw numeric(78, 0)"), "Token amounts must use integer base units, not floating point");
 assert.ok(normalized.includes("finality_mode text not null"), "Chain-specific finality policy is required");
+assert.ok(normalized.includes("binance-peg bsc-usd (bridged usdt representation)"), "BSC bridged asset must be identified honestly");
+assert.ok(normalized.includes("https://bscscan.com/token/0x55d398326f99059ff775485246999027b3197955"), "BSC asset must cite its explorer identity");
 assert.ok(normalized.includes("case when network_key in ('ethereum', 'bsc') then lower(address) else address end"), "Address normalization must not lowercase Solana or TON addresses");
 assert.ok(normalized.includes("false, false, 'confirmations'") && normalized.includes("false, false, 'finalized'") && normalized.includes("false, false, 'ton_finalized'"), "New networks must remain disabled until integration tests pass");
 assert.doesNotMatch(normalized, /\b(drop\s+table|truncate\s+table|disable\s+row\s+level\s+security)\b/i, "Foundation migration must not contain destructive DDL");
