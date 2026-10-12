@@ -34,6 +34,17 @@ export function normalizeChainEvent(input: ChainEventInput): NormalizedChainEven
     ethereum: "evm", bsc: "evm", solana: "solana", ton: "ton",
   };
   if (input.family !== expectedFamily[input.networkKey]) throw new Error("NETWORK_FAMILY_MISMATCH");
+  const expectedAsset: Record<ChainEventInput["networkKey"], string> = {
+    ethereum: "usdt_ethereum",
+    bsc: "usdt_bsc",
+    solana: "usdt_solana",
+    ton: "usdt_ton",
+  };
+  if (input.assetKey !== expectedAsset[input.networkKey]) throw new Error("ASSET_NETWORK_MISMATCH");
+  const expectedDecimals: Record<ChainEventInput["networkKey"], number> = {
+    ethereum: 6, bsc: 18, solana: 6, ton: 6,
+  };
+  if (input.decimals !== expectedDecimals[input.networkKey]) throw new Error("ASSET_DECIMALS_MISMATCH");
   if (typeof input.assetKey !== "string" || !/^[a-z0-9_]{3,80}$/.test(input.assetKey)) {
     throw new Error("INVALID_ASSET_KEY");
   }
