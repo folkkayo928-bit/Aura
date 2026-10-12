@@ -38,6 +38,7 @@ Deno.test("EVM scan requests exact token logs only through finalized head", asyn
     fromBlock: "80",
     toBlock: "88",
     rpc,
+    recipientAddresses: [to],
   });
   assertEquals(result.finalizedHead, "88");
   assertEquals(result.events.length, 1);
@@ -49,7 +50,7 @@ Deno.test("EVM scan requests exact token logs only through finalized head", asyn
 Deno.test("EVM scan rejects an RPC on the wrong chain", async () => {
   const { rpc } = rpcMock({ chainId: "0x38" });
   await assertRejects(
-    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "80", toBlock: "88", rpc }),
+    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "80", toBlock: "88", rpc, recipientAddresses: [to] }),
     Error,
     "RPC_CHAIN_ID_MISMATCH",
   );
@@ -58,7 +59,7 @@ Deno.test("EVM scan rejects an RPC on the wrong chain", async () => {
 Deno.test("EVM scan refuses ranges beyond configured finality depth", async () => {
   const { rpc } = rpcMock({ latestBlock: "0x64" });
   await assertRejects(
-    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "89", toBlock: "90", rpc }),
+    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "89", toBlock: "90", rpc, recipientAddresses: [to] }),
     Error,
     "SCAN_RANGE_NOT_FINALIZED",
   );
@@ -67,7 +68,7 @@ Deno.test("EVM scan refuses ranges beyond configured finality depth", async () =
 Deno.test("EVM scan enforces a bounded block range", async () => {
   const { rpc } = rpcMock();
   await assertRejects(
-    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "1", toBlock: "2001", rpc, maxBlocks: 2000 }),
+    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "1", toBlock: "2001", rpc, maxBlocks: 2000, recipientAddresses: [to] }),
     Error,
     "SCAN_RANGE_TOO_LARGE",
   );
@@ -76,7 +77,7 @@ Deno.test("EVM scan enforces a bounded block range", async () => {
 Deno.test("EVM scan rejects non-array provider log responses", async () => {
   const { rpc } = rpcMock({ logs: { result: [] } });
   await assertRejects(
-    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "80", toBlock: "88", rpc }),
+    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "80", toBlock: "88", rpc, recipientAddresses: [to] }),
     Error,
     "RPC_LOG_RESPONSE_INVALID",
   );
@@ -85,7 +86,7 @@ Deno.test("EVM scan rejects non-array provider log responses", async () => {
 Deno.test("EVM scan rejects logs returned outside requested range", async () => {
   const { rpc } = rpcMock({ logs: [log({ blockNumber: "0x59" })] });
   await assertRejects(
-    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "80", toBlock: "88", rpc }),
+    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "80", toBlock: "88", rpc, recipientAddresses: [to] }),
     Error,
     "RPC_LOG_OUTSIDE_SCAN_RANGE",
   );
@@ -104,6 +105,8 @@ Deno.test("BSC scan validates chain ID and uses its candidate token", async () =
     fromBlock: "80",
     toBlock: "85",
     rpc,
+    recipientAddresses: [to],
+    recipientAddresses: [to],
   });
   assertEquals(result.events[0]?.assetKey, "usdt_bsc");
   assertEquals(result.events[0]?.decimals, 18);
