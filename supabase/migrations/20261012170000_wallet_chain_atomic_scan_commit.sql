@@ -50,6 +50,8 @@ declare
   v_existing_amount numeric(78,0);
   v_existing_decimals smallint;
   v_existing_to text;
+  v_existing_from text;
+  v_existing_block numeric(78,0);
   v_inserted_id uuid;
 begin
   if p_network_key is null or p_network_key not in ('ethereum','bsc','solana','ton')
@@ -168,8 +170,8 @@ begin
     if v_inserted_id is not null then
       v_inserted := v_inserted + 1;
     else
-      select e.user_id,e.asset_key,e.amount_raw,e.decimals,e.to_address
-        into v_existing_user,v_existing_asset,v_existing_amount,v_existing_decimals,v_existing_to
+      select e.user_id,e.asset_key,e.amount_raw,e.decimals,e.to_address,e.from_address,e.block_number
+        into v_existing_user,v_existing_asset,v_existing_amount,v_existing_decimals,v_existing_to,v_existing_from,v_existing_block
       from public.wallet_chain_events e
       where e.network_key = p_network_key
         and (case when v_family = 'evm' then lower(e.tx_hash) = v_canonical_hash else e.tx_hash = v_canonical_hash end)
@@ -179,7 +181,11 @@ begin
          or v_existing_asset is distinct from v_asset_key
          or v_existing_amount is distinct from v_amount_raw
          or v_existing_decimals is distinct from v_decimals
-         or (case when v_family = 'evm' then lower(v_existing_to) = lower(v_to_address) else v_existing_to = v_to_address end) is not true then
+         or (case when v_family = 'evm' then lower(v_existing_to) else v_existing_to end)
+              is distinct from (case when v_family = 'evm' then lower(v_to_address) else v_to_address end)
+         or (case when v_family = 'evm' then lower(v_existing_from) else v_existing_from end)
+              is distinct from (case when v_family = 'evm' then lower(v_from_address) else v_from_address end)
+         or v_existing_block is distinct from v_event_block then
         raise exception 'CHAIN_EVENT_IDENTITY_CONFLICT';
       end if;
       v_duplicates := v_duplicates + 1;
