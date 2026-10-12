@@ -142,14 +142,14 @@ values
   ('ton', 'ton', 'TON', null, 'TON', false, false, 'ton_finalized', 1)
 on conflict (network_key) do nothing;
 
--- Candidate USDT identifiers based on Tether's protocol guidance and the existing
--- AURA BSC configuration. Independently verify each token on its explorer before
--- enabling it; the registry is intentionally disabled until that review and adapter tests pass.
+-- Candidate token identifiers. The BSC address inherited from AURA's existing config
+-- is Binance-Peg BSC-USD, not issuer-native Tether USDt; label it honestly and verify
+-- provenance/decimals on-chain before enabling. All assets remain disabled pending adapter tests.
 insert into public.wallet_asset_registry
   (asset_key, network_key, symbol, display_name, token_standard, token_address, decimals, enabled, issuer_reference)
 values
   ('usdt_ethereum', 'ethereum', 'USDT', 'Tether USD', 'ERC-20', '0xdAC17F958D2ee523a2206206994597C13D831ec7', 6, false, 'https://tether.to/en/supported-protocols/'),
-  ('usdt_bsc', 'bsc', 'USDT', 'Tether USD', 'BEP-20', '0x55d398326f99059fF775485246999027B3197955', 18, false, 'https://tether.to/en/supported-protocols/'),
+  ('usdt_bsc', 'bsc', 'BSC-USD', 'Binance-Peg BSC-USD (bridged USDT representation)', 'BEP-20', '0x55d398326f99059fF775485246999027B3197955', 18, false, 'https://bscscan.com/token/0x55d398326f99059fF775485246999027B3197955'),
   ('usdt_solana', 'solana', 'USDT', 'Tether USD', 'SPL Token', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 6, false, 'https://tether.to/en/supported-protocols/'),
   ('usdt_ton', 'ton', 'USDT', 'Tether USD', 'Jetton', 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs', 6, false, 'https://tether.to/en/supported-protocols/')
 on conflict (asset_key) do nothing;
