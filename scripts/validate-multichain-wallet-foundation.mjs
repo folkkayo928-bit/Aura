@@ -48,6 +48,8 @@ const scanCommitSql = readFileSync(scanCommitPath, "utf8");
 const scanCommitNormalized = scanCommitSql.toLowerCase();
 assert.ok(scanCommitNormalized.includes("create table if not exists public.wallet_chain_scan_cursors"), "Missing durable multichain scan cursor table");
 assert.ok(scanCommitNormalized.includes("for update"), "Scan cursor must be locked during commit");
+assert.ok(scanCommitNormalized.includes("trunc(p_from_block) <> p_from_block") && scanCommitNormalized.includes("trunc(v_event_block) <> v_event_block"), "Block heights must be integer values");
+assert.ok(scanCommitNormalized.includes("jsonb_array_length(p_events) > 10000"), "Scan event batch must be bounded");
 assert.ok(scanCommitNormalized.includes("commit_wallet_chain_scan_range"), "Missing atomic scan-range commit RPC");
 assert.ok(scanCommitNormalized.includes("on conflict do nothing"), "Chain event writes must be idempotent");
 assert.ok(scanCommitNormalized.includes("unverified_recipient_address"), "Deposit event must map to a verified recipient address");
