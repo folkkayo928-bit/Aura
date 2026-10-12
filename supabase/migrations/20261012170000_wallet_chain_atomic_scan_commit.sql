@@ -54,6 +54,9 @@ begin
   if p_to_block - p_from_block > 100000 then
     raise exception 'SCAN_RANGE_TOO_LARGE';
   end if;
+  if jsonb_array_length(p_events) > 10000 then
+    raise exception 'TOO_MANY_SCAN_EVENTS';
+  end if;
 
   select n.family, n.enabled_for_receive
     into v_family, v_network_enabled
