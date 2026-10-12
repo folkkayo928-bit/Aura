@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     const [networkResult, assetResult] = await Promise.all([
       client
         .from("wallet_network_registry")
-        .select("network_key,family,display_name,chain_id,native_symbol,min_confirmations,enabled_for_receive,enabled_for_send")
+        .select("network_key,family,display_name,chain_id,native_symbol,finality_mode,min_confirmations,enabled_for_receive,enabled_for_send")
         .or("enabled_for_receive.eq.true,enabled_for_send.eq.true")
         .order("network_key"),
       client
