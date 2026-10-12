@@ -39,6 +39,8 @@ export async function fetchFinalizedEvmUsdtTransfers(input: {
   toBlock: string;
   rpc: EvmReadRpc;
   maxBlocks?: number;
+  recipientAddresses: string[];
+  recipientBatchSize?: number;
 }): Promise<EvmFinalizedScan> {
   if (!input || (input.networkKey !== "ethereum" && input.networkKey !== "bsc")) {
     throw new Error("UNSUPPORTED_EVM_NETWORK");
@@ -52,6 +54,20 @@ export async function fetchFinalizedEvmUsdtTransfers(input: {
   if (to < from) throw new Error("INVALID_SCAN_RANGE");
   if (to - from + 1n > BigInt(maxBlocks)) throw new Error("SCAN_RANGE_TOO_LARGE");
 
+  if (!Array.isArray(input.recipientAddresses) || input.recipientAddresses.length > 5_000) {
+    throw new Error("INVALID_RECIPIENT_ADDRESSES");
+  }
+  const recipients = [...new Set(input.recipientAddresses.map((address) => {
+    if (typeof address !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      throw new Error("INVALID_RECIPIENT_ADDRESS");
+    }
+    return address.toLowerCase();
+  }))];
+  const recipientBatchSize = input.recipientBatchSize ?? 100;
+  if (!Number.isSafeInteger(recipientBatchSize) || recipientBatchSize < 1 || recipientBatchSize > 100) {
+    throw new Error("INVALID_RECIPIENT_BATCH_SIZE");
+  }
+
   const network = NETWORKS[input.networkKey];
   const rawChainId = await input.rpc("eth_chainId", []);
   const chainId = parseRpcHex(rawChainId, "chain_id");
@@ -64,21 +80,41 @@ export async function fetchFinalizedEvmUsdtTransfers(input: {
   const finalizedHead = latestBlock - BigInt(network.minConfirmations);
   if (to > finalizedHead) throw new Error("SCAN_RANGE_NOT_FINALIZED");
 
-  const rawLogs = await input.rpc("eth_getLogs", [{
-    fromBlock: "0x" + from.toString(16),
-    toBlock: "0x" + to.toString(16),
-    address: network.token,
-    topics: [TRANSFER_TOPIC],
-  }]);
-  if (!Array.isArray(rawLogs)) throw new Error("RPC_LOG_RESPONSE_INVALID");
-
-  const events = rawLogs.map((raw) => {
-    if (!raw || typeof raw !== "object") throw new Error("RPC_LOG_RESPONSE_INVALID");
-    const event = parseEvmUsdtTransferLog(input.networkKey, raw as EvmTransferLog);
+  const logsByIdentity = new Map<string, EvmTransferLog>();
+  for (let offset = 0; offset < recipients.length; offset += recipientBatchSize) {
+    const batch = recipients.slice(offset, offset + recipientBatchSize);
+    const rawLogs = await input.rpc("eth_getLogs", [{
+      fromBlock: "0x" + from.toString(16),
+      toBlock: "0x" + to.toString(16),
+      address: network.token,
+      topics: [TRANSFER_TOPIC, null, batch.map((address) => "0x" + address.slice(2).padStart(64, "0"))],
+    }]);
+    if (!Array.isArray(rawLogs)) throw new Error("RPC_LOG_RESPONSE_INVALID");
+    for (const raw of rawLogs) {
+      if (!raw || typeof raw !== "object") throw new Error("RPC_LOG_RESPONSE_INVALID");
+      const event = parseEvmUsdtTransferLog(input.networkKey, raw as EvmTransferLog);
+      if (!event) throw new Error("RPC_RETURNED_NONMATCHING_LOG");
+      if (!event.toAddress || !recipients.includes(event.toAddress.toLowerCase())) {
+        throw new Error("RPC_LOG_RECIPIENT_MISMATCH");
+      }
+      if (event.blockNumber === null) throw new Error("RPC_LOG_MISSING_BLOCK_NUMBER");
+      const eventBlock = BigInt(event.blockNumber);
+      if (eventBlock < from || eventBlock > to) throw new Error("RPC_LOG_OUTSIDE_SCAN_RANGE");
+      const identity = event.txHash + ":" + event.eventIndex;
+      const existing = logsByIdentity.get(identity);
+      if (existing) {
+        const prior = parseEvmUsdtTransferLog(input.networkKey, existing);
+        if (!prior || prior.amountRaw !== event.amountRaw || prior.toAddress !== event.toAddress) {
+          throw new Error("RPC_LOG_IDENTITY_CONFLICT");
+        }
+      } else {
+        logsByIdentity.set(identity, raw as EvmTransferLog);
+      }
+    }
+  }
+  const events = [...logsByIdentity.values()].map((raw) => {
+    const event = parseEvmUsdtTransferLog(input.networkKey, raw);
     if (!event) throw new Error("RPC_RETURNED_NONMATCHING_LOG");
-    if (event.blockNumber === null) throw new Error("RPC_LOG_MISSING_BLOCK_NUMBER");
-    const eventBlock = BigInt(event.blockNumber);
-    if (eventBlock < from || eventBlock > to) throw new Error("RPC_LOG_OUTSIDE_SCAN_RANGE");
     return event;
   });
 
