@@ -45,6 +45,7 @@ Deno.test("EVM scan requests exact token logs only through finalized head", asyn
   assertEquals(result.events[0]?.amountRaw, "1234567");
   assertEquals(calls[2]?.method, "eth_getLogs");
   assertEquals((calls[2]?.params[0] as Record<string, unknown>).address, "0xdac17f958d2ee523a2206206994597c13d831ec7");
+  assertEquals(((calls[2]?.params[0] as Record<string, unknown>).topics as unknown[])[2], [topicAddress(to)]);
 });
 
 Deno.test("EVM scan rejects an RPC on the wrong chain", async () => {
@@ -106,9 +107,17 @@ Deno.test("BSC scan validates chain ID and uses its candidate token", async () =
     toBlock: "85",
     rpc,
     recipientAddresses: [to],
-    recipientAddresses: [to],
   });
   assertEquals(result.events[0]?.assetKey, "usdt_bsc");
   assertEquals(result.events[0]?.decimals, 18);
   assertEquals((calls[2]?.params[0] as Record<string, unknown>).address, "0x55d398326f99059ff775485246999027b3197955");
+});
+
+Deno.test("EVM scan rejects invalid recipient addresses before RPC", async () => {
+  const { rpc } = rpcMock();
+  await assertRejects(
+    () => fetchFinalizedEvmUsdtTransfers({ networkKey: "ethereum", fromBlock: "80", toBlock: "88", rpc, recipientAddresses: ["not-an-address"] }),
+    Error,
+    "INVALID_RECIPIENT_ADDRESS",
+  );
 });
