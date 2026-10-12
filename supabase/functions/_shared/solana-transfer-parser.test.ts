@@ -108,7 +108,8 @@ Deno.test("ignores other mints and transfers to accounts not owned by the wallet
 });
 
 Deno.test("does not emit deposits for failed transactions", () => {
-  const failed = fixture({ meta: { ...fixture().meta as Record<string, unknown>, err: { InstructionError: [0, "Custom"] } } });
+  const originalMeta = fixture().meta;
+  const failed = fixture({ meta: { ...originalMeta, err: { InstructionError: [0, "Custom"] } } });
   if (parseSolanaUsdtTransfers(failed, wallet).length !== 0) throw new Error("failed transaction was credited");
 });
 
