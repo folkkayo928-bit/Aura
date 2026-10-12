@@ -37,7 +37,8 @@ export function normalizeChainEvent(input: ChainEventInput): NormalizedChainEven
   if (typeof input.assetKey !== "string" || !/^[a-z0-9_]{3,80}$/.test(input.assetKey)) {
     throw new Error("INVALID_ASSET_KEY");
   }
-  if (!Number.isSafeInteger(input.eventIndex) || input.eventIndex < 0) {
+  // The migration stores event_index as PostgreSQL integer (signed 32-bit).
+  if (!Number.isInteger(input.eventIndex) || input.eventIndex < 0 || input.eventIndex > 2_147_483_647) {
     throw new Error("INVALID_EVENT_INDEX");
   }
   if (input.direction !== "deposit" && input.direction !== "withdrawal") {
