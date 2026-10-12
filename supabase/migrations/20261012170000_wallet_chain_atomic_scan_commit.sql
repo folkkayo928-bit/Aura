@@ -4,7 +4,7 @@
 
 create table if not exists public.wallet_chain_scan_cursors (
   network_key text primary key references public.wallet_network_registry(network_key),
-  last_scanned_block numeric(78, 0) not null check (last_scanned_block >= 0),
+  last_scanned_block numeric(78, 0) check (last_scanned_block is null or last_scanned_block >= 0),
   updated_at timestamptz not null default now()
 );
 
@@ -26,7 +26,6 @@ set search_path = ''
 as $function$
 declare
   v_cursor numeric(78, 0);
-  v_has_cursor boolean := false;
   v_inserted integer := 0;
   v_event jsonb;
   v_user_id uuid;
@@ -48,7 +47,7 @@ begin
      or p_from_block is null or p_to_block is null or p_finalized_head is null
      or p_from_block < 0 or p_to_block < p_from_block
      or p_to_block > p_finalized_head
-     or jsonb_typeof(p_events) <> 'array' then
+     or p_events is null or jsonb_typeof(p_events) is distinct from 'array' then
     raise exception 'INVALID_SCAN_RANGE_OR_EVENTS';
   end if;
 
@@ -64,24 +63,22 @@ begin
   if not v_network_enabled then raise exception 'NETWORK_RECEIVE_DISABLED'; end if;
 
   insert into public.wallet_chain_scan_cursors(network_key, last_scanned_block)
-    values (p_network_key, 0)
+    values (p_network_key, null)
     on conflict (network_key) do nothing;
 
   select c.last_scanned_block into v_cursor
     from public.wallet_chain_scan_cursors c
     where c.network_key = p_network_key
     for update;
-  v_has_cursor := found;
-
-  -- A newly initialized cursor at zero is only a sentinel. A null expected
-  -- cursor means this is the first commit; the caller may start at a configured
-  -- historical block. Existing cursors must be compare-and-set and contiguous.
+  -- A NULL cursor means this network has never committed a range. The first
+  -- range may start at a configured historical height; subsequent ranges must
+  -- compare-and-set the exact cursor and remain contiguous.
   if p_expected_previous_block is null then
-    if v_cursor <> 0 then
+    if v_cursor is not null then
       raise exception 'SCAN_CURSOR_CHANGED';
     end if;
   else
-    if v_cursor <> p_expected_previous_block then
+    if v_cursor is distinct from p_expected_previous_block then
       raise exception 'SCAN_CURSOR_CHANGED';
     end if;
     if p_from_block <> p_expected_previous_block + 1 then
