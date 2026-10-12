@@ -35,3 +35,10 @@
 
 ## Current first milestone
 Add a secure, additive multichain registry and append-only transaction-event model. Keep all legacy backend components intact while the replacement is implemented and tested on this branch.
+
+## Adapter implementation status (branch-only)
+- The shared read-only JSON-RPC transport now allowlists read methods and rejects transaction submission methods. It requires HTTPS, rejects endpoint credentials/redirects, bounds timeouts and response size, and verifies the JSON-RPC response ID.
+- The first EVM scan adapter now checks the RPC chain ID, bounds the requested range, enforces the configured confirmation depth, requests only the candidate token's ERC-20 Transfer logs, and rejects provider responses with malformed or out-of-range logs.
+- This adapter returns normalized observations only. It does not look up account ownership, write the database, advance a cursor, sign transactions, or credit balances. Those remain explicit caller/transaction responsibilities.
+- CI runs Deno tests for shared helpers and a separate PostgreSQL 16 service to apply both additive migrations and verify atomic cursor/event persistence plus rollback on malformed input. This PostgreSQL database exists only inside the workflow; it is not the live AURA Supabase project.
+- Solana and TON parsers are still parsing helpers, not complete provider scanners. No network is enabled by this work, and no real-money send/deposit claim should be made until per-chain provider scanning, finality, ownership mapping, send/gas paths, and ledger reconciliation pass the acceptance checklist.
