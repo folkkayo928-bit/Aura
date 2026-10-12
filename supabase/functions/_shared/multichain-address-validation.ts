@@ -1,5 +1,3 @@
-import { getAddress } from "npm:ethers@6.15.0";
-
 function decodeBase58(value: string): Uint8Array {
   const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
   let n = 0n;
@@ -64,7 +62,7 @@ function validateAddress(network: string, address: string) {
     case "ethereum":
     case "bsc":
       if (!/^0x[a-fA-F0-9]{40}$/.test(address)) throw new Error("INVALID_EVM_ADDRESS");
-      return getAddress(address);
+      return address.toLowerCase();
     case "solana":
       decodeBase58(address);
       return address;
