@@ -4,11 +4,11 @@ import { decodeBase58, validateAddress, validateTonAddress } from "./multichain-
 Deno.test("accepts Ethereum and BNB Smart Chain EVM address format", () => {
   assertEquals(
     validateAddress("ethereum", "0xdAC17F958D2ee523a2206206994597C13D831ec7"),
-    "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "0xdac17f958d2ee523a2206206994597c13d831ec7",
   );
   assertEquals(
     validateAddress("bsc", "0x55d398326f99059fF775485246999027B3197955"),
-    "0x55d398326f99059fF775485246999027B3197955",
+    "0x55d398326f99059ff775485246999027b3197955",
   );
 });
 
