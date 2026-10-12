@@ -1,0 +1,70 @@
+name: Multichain wallet foundation checks
+
+on:
+  push:
+    branches:
+      - rebuild/multichain-usdt-foundation
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/multichain-wallet-config/**"
+      - "supabase/functions/multichain-wallet-validate-address/**"
+      - "supabase/functions/_shared/**"
+      - "supabase/config.toml"
+      - "scripts/validate-multichain-wallet-foundation.mjs"
+      - "scripts/test-multichain-wallet-migrations.sh"
+      - ".github/workflows/multichain-wallet-foundation.yml"
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/**"
+      - "supabase/migrations/**"
+      - "supabase/functions/multichain-wallet-config/**"
+      - "supabase/functions/multichain-wallet-validate-address/**"
+      - "supabase/config.toml"
+      - "scripts/validate-multichain-wallet-foundation.mjs"
+      - ".github/workflows/multichain-wallet-foundation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate migration safety and four-network coverage
+        run: node scripts/validate-multichain-wallet-foundation.mjs
+      - name: Set up Deno for address unit tests
+        uses: denoland/setup-deno@v2
+      - name: Run multichain address unit tests
+        run: deno test supabase/functions/_shared/*.test.ts
+
+  migration-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aura_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aura_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply additive migrations to isolated PostgreSQL
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aura_test
+        run: bash scripts/test-multichain-wallet-migrations.sh
