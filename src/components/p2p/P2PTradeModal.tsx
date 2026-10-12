@@ -192,7 +192,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
 
   if (!offer && !activeP2POrder) return null;
 
-  const isAcceptancePending = Boolean(activeP2POrder && !activeP2POrder.acceptedAt);
+  const isAcceptancePending = Boolean(activeP2POrder && activeP2POrder.status === 'escrow_locked' && !activeP2POrder.acceptedAt);
   const isOrderAcceptor = Boolean(
     activeP2POrder &&
     (activeP2POrder.type === 'sell'
@@ -347,11 +347,16 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-400">Trade State:</span>
-                <span className="font-mono text-emerald-400 flex items-center gap-1">
+                <span className={`font-mono ${activeP2POrder.status === 'in_dispute' ? 'text-amber-300' : 'text-emerald-400'} flex items-center gap-1`}>
                   {isAcceptancePending ? (
                     <>
                       <Clock className="w-3.5 h-3.5 text-amber-300" />
                       Waiting for acceptance · Request ${activeP2POrder.escrowTxHash}
+                    </>
+                  ) : activeP2POrder.status === 'in_dispute' ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-amber-300" />
+                      Dispute review · Funds remain locked
                     </>
                   ) : (
                     <>
@@ -365,17 +370,42 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
               </div>
               <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
                 <span className="text-stone-400">
-                  {isAcceptancePending
-                    ? 'Acceptance Window:'
-                    : activeP2POrder.status === 'payment_marked'
-                      ? 'Release Window:'
-                      : 'Payment Window:'}
+                  {activeP2POrder.status === 'in_dispute'
+                    ? 'Review Status:'
+                    : isAcceptancePending
+                      ? 'Acceptance Window:'
+                      : activeP2POrder.status === 'payment_marked'
+                        ? 'Release Window:'
+                        : 'Payment Window:'}
                 </span>
                 <span className="font-mono text-amber-300 font-semibold flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> {timeFormatted}
+                  {activeP2POrder.status === 'in_dispute' ? 'Funds held for review' : <><Clock className="w-3 h-3" /> {timeFormatted}</>}
                 </span>
               </div>
             </div>
+
+            {activeP2POrder.status === 'in_dispute' && (
+              <div role="status" className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 space-y-2">
+                <div className="text-sm font-semibold text-amber-200">Trade under dispute review</div>
+                <p className="text-xs leading-relaxed text-stone-200">
+                  AURA has paused this trade for review. Any USDT held for this order stays locked until the dispute is resolved.
+                </p>
+                <p className="text-xs leading-relaxed text-stone-300">
+                  Do not send the fiat payment again or release funds outside AURA. The evidence must be reviewed and actual payment receipt verified before a release or refund decision.
+                </p>
+                {proofs.length > 0 && (
+                  <div className="pt-2 border-t border-amber-400/20 space-y-1">
+                    <div className="text-[10px] uppercase tracking-wider text-amber-200">Payment evidence attached</div>
+                    {proofs.map((proof) => (
+                      <div key={proof.id} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="truncate text-stone-200">{proof.file_name}</span>
+                        {proof.url && <a href={proof.url} target="_blank" rel="noreferrer" className="shrink-0 text-amber-200 underline">View proof</a>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Merchant Details & Amounts */}
             <div className="p-4 rounded-2xl bg-stone-900/60 border border-white/5 space-y-2">
