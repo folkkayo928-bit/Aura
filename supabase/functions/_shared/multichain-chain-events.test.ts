@@ -41,9 +41,9 @@ Deno.test("keeps case-sensitive Solana signatures and creates stable scoped keys
   if (first.idempotencyKey === normalizeChainEvent({ ...input, eventIndex: 1 }).idempotencyKey) {
     throw new Error("different events collided");
   }
-  if (first.idempotencyKey === normalizeChainEvent({ ...input, assetKey: "usdc_solana" }).idempotencyKey) {
-    throw new Error("different assets collided");
-  }
+  let mismatchedAssetRejected = false;
+  try { normalizeChainEvent({ ...input, assetKey: "usdc_solana" }); } catch { mismatchedAssetRejected = true; }
+  if (!mismatchedAssetRejected) throw new Error("asset from another registry was accepted");
 });
 
 Deno.test("rejects family mismatch, malformed raw units, and unsafe event indexes", () => {
