@@ -1,4 +1,4 @@
-import { planFinalizedScanWindow, type ScanWindow } from "./multichain-scan-safety.ts";
+import type { ScanWindow } from "./multichain-scan-safety.ts";
 
 export type CheckpointCommitInput = {
   window: ScanWindow;
@@ -35,9 +35,6 @@ export function getSafeCheckpointToCommit(input: CheckpointCommitInput): string 
     : parseHeight(input.actualPreviousCursor, "previous_cursor");
   if (previous !== null && from !== previous + 1n) {
     throw new Error("NON_CONTIGUOUS_SCAN_RANGE");
-  }
-  if (previous === null && from !== 0n && fromBlock.length === 0) {
-    throw new Error("INVALID_INITIAL_SCAN_RANGE");
   }
   if (input.providerResponseComplete !== true) {
     throw new Error("PROVIDER_RESPONSE_INCOMPLETE");
