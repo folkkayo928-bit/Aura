@@ -14,7 +14,7 @@
 - Current client expects Supabase and existing table/RPC shapes in several places. Replace backend contracts only after the frontend has been adapted and regression-tested.
 
 ## Target design
-1. **Chain registry**: explicit network family, native gas asset, confirmation/finality requirements, and verified USDT token identifier per chain.
+1. **Chain registry**: explicit network family, native gas asset, confirmation/finality requirements, and verified token identifier per chain. Important: the existing BSC contract `0x55d398326f99059fF775485246999027B3197955` is labelled Binance-Peg BSC-USD by BscScan, so it must not be presented as issuer-native Tether USDt. The registry labels it as a bridged USDT representation until the exact supported asset is approved.
 2. **Wallet ownership**: store public addresses only. Never store seed phrases/private keys in ordinary tables, browser logs, telemetry, or client-readable metadata. Require proof of control for imported external addresses. A backend must not be able to sign for a wallet marketed as non-custodial.
 3. **Chain adapters**:
    - EVM adapter shared by Ethereum and BNB Smart Chain, with chain-specific token, RPC, gas, nonce, receipt, and reorg handling.
