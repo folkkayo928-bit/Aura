@@ -35,8 +35,9 @@ export function parseEvmUsdtTransferLog(
   if (!log || typeof log !== "object") throw new Error("INVALID_EVM_LOG");
   const token = TOKEN_BY_NETWORK[networkKey];
   if (typeof log.address !== "string" || log.address.toLowerCase() !== token.address) return null;
-  if (!Array.isArray(log.topics) || log.topics.length < 3) throw new Error("INVALID_TRANSFER_TOPICS");
+  if (!Array.isArray(log.topics) || log.topics.length < 1) throw new Error("INVALID_TRANSFER_TOPICS");
   if (typeof log.topics[0] !== "string" || log.topics[0].toLowerCase() !== TRANSFER_TOPIC) return null;
+  if (log.topics.length < 3) throw new Error("INVALID_TRANSFER_TOPICS");
   if (log.removed === true) throw new Error("REMOVED_LOG_REORG");
   const fromTopic = asHex(log.topics[1], 64, "INVALID_TRANSFER_FROM");
   const toTopic = asHex(log.topics[2], 64, "INVALID_TRANSFER_TO");
