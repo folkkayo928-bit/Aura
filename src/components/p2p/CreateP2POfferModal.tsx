@@ -10,11 +10,11 @@ interface CreateP2POfferModalProps {
 export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClose }) => {
   const { createP2POffer, walletBalance } = useApp();
   const [type, setType] = useState<'buy' | 'sell'>('sell');
-  const [price, setPrice] = useState('1.00');
+  const [price, setPrice] = useState('');
   const [fiatCurrency, setFiatCurrency] = useState<'ETB' | 'USD' | 'EUR' | 'GBP' | 'AED'>('ETB');
-  const [available, setAvailable] = useState('200');
-  const [minLimit, setMinLimit] = useState('10');
-  const [maxLimit, setMaxLimit] = useState('200');
+  const [available, setAvailable] = useState('');
+  const [minLimit, setMinLimit] = useState('');
+  const [maxLimit, setMaxLimit] = useState('');
   const [selectedMethods, setSelectedMethods] = useState<PaymentMethodType[]>([]);
   const [savedMethods, setSavedMethods] = useState<Array<{ id: string; method_type: string; label: string; account_holder_name: string; account_identifier: string; instructions: string | null }>>([]);
   const [loadingMethods, setLoadingMethods] = useState(true);
@@ -41,26 +41,61 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedMethods.length !== 1) { setErrorMessage('Add and select one saved payment method with your name and account number before posting.'); return; }
+
+    const pricePerUnit = Number(price);
+    const availableCrypto = Number(available);
+    const minLimitFiat = Number(minLimit);
+    const maxLimitFiat = Number(maxLimit);
+
+    if (!Number.isFinite(pricePerUnit) || pricePerUnit <= 0) {
+      setErrorMessage('Enter the exact price per USDT. AURA will not guess a price for you.');
+      return;
+    }
+    if (!Number.isFinite(availableCrypto) || availableCrypto <= 0) {
+      setErrorMessage('Enter the exact USDT amount for this offer.');
+      return;
+    }
+    if (type === 'sell' && availableCrypto > walletBalance + 0.00000001) {
+      setErrorMessage('Your available wallet balance is lower than this sell-offer amount.');
+      return;
+    }
+    if (!Number.isFinite(minLimitFiat) || minLimitFiat <= 0 ||
+        !Number.isFinite(maxLimitFiat) || maxLimitFiat < minLimitFiat) {
+      setErrorMessage('Enter a positive minimum and a maximum that is at least the minimum.');
+      return;
+    }
+    if (maxLimitFiat > availableCrypto * pricePerUnit + 0.00000001) {
+      setErrorMessage('The maximum fiat order size cannot exceed this offer’s total value.');
+      return;
+    }
+    if (selectedMethods.length !== 1) {
+      setErrorMessage('Add and select one saved payment method with your name and account number before posting.');
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage('');
-    const ok = await createP2POffer({
-      type,
-      pricePerUnit: parseFloat(price) || 1.0,
-      fiatCurrency,
-      availableCrypto: parseFloat(available) || 100,
-      minLimitFiat: parseFloat(minLimit) || 10,
-      maxLimitFiat: parseFloat(maxLimit) || 200,
-      paymentMethods: selectedMethods,
-      paymentInstructions:
-        instructions.trim() ||
-        'Tell the counterparty where and how to pay. AURA holds the USDT internally until the trade is completed.',
-      isBuyerProtected: true,
-    });
-    setIsSubmitting(false);
-    if (ok) onClose();
-    else setErrorMessage('AURA could not publish this offer. Check your available USDT, price, limits, and payment details.');
+    try {
+      const ok = await createP2POffer({
+        type,
+        pricePerUnit,
+        fiatCurrency,
+        availableCrypto,
+        minLimitFiat,
+        maxLimitFiat,
+        paymentMethods: selectedMethods,
+        paymentInstructions:
+          instructions.trim() ||
+          'Tell the counterparty where and how to pay. AURA holds the USDT internally until the trade is completed.',
+        isBuyerProtected: true,
+      });
+      if (ok) onClose();
+      else setErrorMessage('AURA could not publish this offer. Check your available USDT, price, limits, and payment details.');
+    } catch {
+      setErrorMessage('AURA could not publish this offer. Check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -114,6 +149,7 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
               type="number"
               step="0.0001"
               min="0.0001"
+              inputMode="decimal"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
@@ -143,6 +179,9 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
             <label className="text-xs text-stone-400 block mb-1 font-medium">{type === 'buy' ? 'USDT I Want to Buy' : 'USDT I Want to Sell'}</label>
             <input
               type="number"
+              min="0.00000001"
+              step="0.00000001"
+              inputMode="decimal"
               value={available}
               onChange={(e) => setAvailable(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
@@ -156,6 +195,9 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
               <label className="text-xs text-stone-400 block mb-1 font-medium">{type === 'buy' ? 'Minimum I Will Pay' : 'Minimum I Will Receive'} ({fiatCurrency})</label>
               <input
                 type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
                 value={minLimit}
                 onChange={(e) => setMinLimit(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
@@ -166,6 +208,9 @@ export const CreateP2POfferModal: React.FC<CreateP2POfferModalProps> = ({ onClos
               <label className="text-xs text-stone-400 block mb-1 font-medium">{type === 'buy' ? 'Maximum I Will Pay' : 'Maximum I Will Receive'} ({fiatCurrency})</label>
               <input
                 type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
                 value={maxLimit}
                 onChange={(e) => setMaxLimit(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-stone-100 font-mono focus:outline-none focus:border-amber-400/60"
