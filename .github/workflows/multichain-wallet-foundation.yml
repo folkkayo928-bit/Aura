@@ -1,0 +1,33 @@
+name: Multichain wallet foundation checks
+
+on:
+  push:
+    branches:
+      - rebuild/multichain-usdt-foundation
+    paths:
+      - "supabase/migrations/20261012160000_multichain_usdt_wallet_foundation.sql"
+      - "supabase/functions/multichain-wallet-config/**"
+      - "scripts/validate-multichain-wallet-foundation.mjs"
+      - ".github/workflows/multichain-wallet-foundation.yml"
+  pull_request:
+    paths:
+      - "supabase/migrations/20261012160000_multichain_usdt_wallet_foundation.sql"
+      - "supabase/functions/multichain-wallet-config/**"
+      - "scripts/validate-multichain-wallet-foundation.mjs"
+      - ".github/workflows/multichain-wallet-foundation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate migration safety and four-network coverage
+        run: node scripts/validate-multichain-wallet-foundation.mjs
