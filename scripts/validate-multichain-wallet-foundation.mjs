@@ -53,6 +53,6 @@ assert.ok(scanCommitNormalized.includes("on conflict do nothing"), "Chain event 
 assert.ok(scanCommitNormalized.includes("unverified_recipient_address"), "Deposit event must map to a verified recipient address");
 assert.ok(scanCommitNormalized.includes("network_receive_disabled") && scanCommitNormalized.includes("asset_disabled"), "Disabled networks/assets must reject scan commits");
 assert.ok(scanCommitNormalized.includes("grant execute on function public.commit_wallet_chain_scan_range") && scanCommitNormalized.includes("to service_role"), "Scan commit RPC must be service-role only");
-assert.doesNotMatch(scanCommitNormalized, /\\b(drop\\s+table|truncate\\s+table|disable\\s+row\\s+level\\s+security)\\b/i, "Scan commit migration must not contain destructive DDL");
+assert.doesNotMatch(scanCommitNormalized, /\b(drop\s+table|truncate\s+table|disable\s+row\s+level\s+security)\b/i, "Scan commit migration must not contain destructive DDL");
 
 console.log("AURA multichain wallet foundation checks passed.");
