@@ -1,3 +1,4 @@
+/// <reference lib="deno.ns" />
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
 import { decodeBase58, validateAddress, validateTonAddress } from "./multichain-address-validation.ts";
 
