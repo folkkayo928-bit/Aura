@@ -5,7 +5,7 @@ on:
     branches:
       - rebuild/multichain-usdt-foundation
     paths:
-      - "supabase/migrations/20261012160000_multichain_usdt_wallet_foundation.sql"
+      - "supabase/migrations/**"
       - "supabase/functions/multichain-wallet-config/**"
       - "supabase/functions/multichain-wallet-validate-address/**"
       - "supabase/functions/_shared/**"
