@@ -42,4 +42,17 @@ assert.ok(addressHandler.includes('validation: "format_only"'), "Address validat
 assert.ok(!addressHandler.includes("SUPABASE_SERVICE_ROLE_KEY"), "Address validator must not use a service-role key");
 assert.match(supabaseConfig, /\[functions\.multichain-wallet-validate-address\]\s+verify_jwt = true/i, "Address validator must require Supabase JWT verification");
 
+
+const scanCommitPath = new URL("../supabase/migrations/20261012170000_wallet_chain_atomic_scan_commit.sql", import.meta.url);
+const scanCommitSql = readFileSync(scanCommitPath, "utf8");
+const scanCommitNormalized = scanCommitSql.toLowerCase();
+assert.ok(scanCommitNormalized.includes("create table if not exists public.wallet_chain_scan_cursors"), "Missing durable multichain scan cursor table");
+assert.ok(scanCommitNormalized.includes("for update"), "Scan cursor must be locked during commit");
+assert.ok(scanCommitNormalized.includes("commit_wallet_chain_scan_range"), "Missing atomic scan-range commit RPC");
+assert.ok(scanCommitNormalized.includes("on conflict do nothing"), "Chain event writes must be idempotent");
+assert.ok(scanCommitNormalized.includes("unverified_recipient_address"), "Deposit event must map to a verified recipient address");
+assert.ok(scanCommitNormalized.includes("network_receive_disabled") && scanCommitNormalized.includes("asset_disabled"), "Disabled networks/assets must reject scan commits");
+assert.ok(scanCommitNormalized.includes("grant execute on function public.commit_wallet_chain_scan_range") && scanCommitNormalized.includes("to service_role"), "Scan commit RPC must be service-role only");
+assert.doesNotMatch(scanCommitNormalized, /\\b(drop\\s+table|truncate\\s+table|disable\\s+row\\s+level\\s+security)\\b/i, "Scan commit migration must not contain destructive DDL");
+
 console.log("AURA multichain wallet foundation checks passed.");
