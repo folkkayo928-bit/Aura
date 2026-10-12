@@ -157,6 +157,7 @@ export const P2PTradeModal: React.FC<P2PTradeModalProps> = ({ offer, onClose }) 
       const { data } = await supabase
         .from('p2p_payment_methods')
         .select('id,method_type,label,account_holder_name,account_identifier')
+        .eq('user_id', user.id)
         .eq('is_active', true)
         .order('updated_at', { ascending: false });
       setSavedReceiveMethods((data || []) as any[]);
