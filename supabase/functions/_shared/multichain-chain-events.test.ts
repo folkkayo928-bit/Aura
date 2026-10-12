@@ -49,6 +49,8 @@ Deno.test("keeps case-sensitive Solana signatures and creates stable scoped keys
 Deno.test("rejects family mismatch, malformed raw units, and unsafe event indexes", () => {
   const cases = [
     { ...evmEvent, family: "solana" as const },
+    { ...evmEvent, assetKey: "usdt_ton" },
+    { ...evmEvent, decimals: 18 },
     { ...evmEvent, amountRaw: "1.5" },
     { ...evmEvent, amountRaw: "-1" },
     { ...evmEvent, eventIndex: -1 },
