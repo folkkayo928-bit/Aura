@@ -11,6 +11,7 @@ on:
       - "supabase/functions/_shared/**"
       - "supabase/config.toml"
       - "scripts/validate-multichain-wallet-foundation.mjs"
+      - "scripts/test-multichain-wallet-migrations.sh"
       - ".github/workflows/multichain-wallet-foundation.yml"
   pull_request:
     paths:
