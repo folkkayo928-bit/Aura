@@ -47,6 +47,10 @@ begin
      or p_from_block is null or p_to_block is null or p_finalized_head is null
      or p_from_block < 0 or p_to_block < p_from_block
      or p_to_block > p_finalized_head
+     or trunc(p_from_block) <> p_from_block
+     or trunc(p_to_block) <> p_to_block
+     or trunc(p_finalized_head) <> p_finalized_head
+     or (p_expected_previous_block is not null and (p_expected_previous_block < 0 or trunc(p_expected_previous_block) <> p_expected_previous_block))
      or p_events is null or jsonb_typeof(p_events) is distinct from 'array' then
     raise exception 'INVALID_SCAN_RANGE_OR_EVENTS';
   end if;
@@ -111,6 +115,7 @@ begin
        or v_amount_raw is null or v_amount_raw < 0
        or v_decimals is null or v_event_block is null
        or v_event_block < p_from_block or v_event_block > p_to_block
+       or trunc(v_event_block) <> v_event_block
        or v_to_address is null then
       raise exception 'INVALID_EVENT_FIELDS';
     end if;
