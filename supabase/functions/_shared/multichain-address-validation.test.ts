@@ -5,7 +5,7 @@ function assertEquals(actual: unknown, expected: unknown) {
   if (actual !== expected) throw new Error(`Expected ${String(expected)}, received ${String(actual)}`);
 }
 
-function assertThrows(fn: () => unknown, expectedError?: new (...args: never[]) => Error, expectedMessage?: string) {
+function assertThrows(fn: () => unknown, expectedError?: typeof Error, expectedMessage?: string) {
   try { fn(); } catch (error) {
     if (expectedError && !(error instanceof expectedError)) throw new Error(`Unexpected error type: ${String(error)}`);
     if (expectedMessage && (!(error instanceof Error) || !error.message.includes(expectedMessage))) {
