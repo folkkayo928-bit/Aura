@@ -38,6 +38,14 @@ Deno.test("read-only JSON-RPC rejects endpoint credentials", async () => {
   );
 });
 
+Deno.test("read-only JSON-RPC blocks syntactically valid transaction submission methods", async () => {
+  await assertRejects(
+    () => callReadOnlyJsonRpc({ endpoint: "https://rpc.example.test", method: "eth_sendRawTransaction", fetchImpl: mockFetch({ result: "0x1" }) }),
+    Error,
+    "RPC_METHOD_NOT_ALLOWED",
+  );
+});
+
 Deno.test("read-only JSON-RPC rejects invalid method names", async () => {
   await assertRejects(
     () => callReadOnlyJsonRpc({ endpoint: "https://rpc.example.test", method: "eth_sendRawTransaction;bad", fetchImpl: mockFetch({ result: "0x1" }) }),
