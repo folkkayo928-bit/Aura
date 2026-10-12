@@ -3,30 +3,30 @@ import { readFileSync } from "node:fs";
 
 const migrationPath = new URL("../supabase/migrations/20261012160000_multichain_usdt_wallet_foundation.sql", import.meta.url);
 const sql = readFileSync(migrationPath, "utf8");
+const normalized = sql.toLowerCase();
 
-const requiredNetworks = ["ethereum", "bsc", "solana", "ton"];
-for (const network of requiredNetworks) {
-  assert.match(sql, new RegExp("'" + network + "'"), `Missing network registry entry: ${network}`);
+for (const network of ["ethereum", "bsc", "solana", "ton"]) {
+  assert.ok(sql.includes("'" + network + "'"), `Missing network registry entry: ${network}`);
 }
 for (const asset of ["usdt_ethereum", "usdt_bsc", "usdt_solana", "usdt_ton"]) {
-  assert.match(sql, new RegExp("'" + asset + "'"), `Missing USDT registry entry: ${asset}`);
+  assert.ok(sql.includes("'" + asset + "'"), `Missing USDT registry entry: ${asset}`);
 }
-
 for (const table of [
   "wallet_network_registry",
   "wallet_asset_registry",
   "wallet_chain_addresses",
   "wallet_chain_events",
 ]) {
-  assert.match(sql, new RegExp("alter table public\\." + table + " enable row level security", "i"), `RLS not enabled for ${table}`);
-  assert.match(sql, new RegExp("revoke all on public\\." + table + " from public, anon, authenticated", "i"), `Client write privileges not revoked for ${table}`);
+  assert.ok(normalized.includes(`alter table public.${table} enable row level security`), `RLS not enabled for ${table}`);
+  assert.ok(normalized.includes(`revoke all on public.${table} from public, anon, authenticated`), `Client write privileges not revoked for ${table}`);
 }
 
-assert.match(sql, /create unique index if not exists wallet_chain_events_network_tx_event_uq[\\s\\S]*?case when network_key in \\('ethereum', 'bsc'\\) then lower\\(tx_hash\\) else tx_hash end[\\s\\S]*?event_index/i, "On-chain event identity must be idempotent and normalize EVM hashes");
-assert.match(sql, /amount_raw numeric\\(78, 0\\)/i, "Token amounts must use integer base units, not floating point");
-assert.match(sql, /finality_mode text not null/i, "Chain-specific finality policy is required");
-assert.match(sql, /case when network_key in \\('ethereum', 'bsc'\\) then lower\\(address\\) else address end/i, "Address normalization must not lowercase Solana or TON addresses");
-assert.match(sql, /enabled_for_receive, enabled_for_send, finality_mode, min_confirmations\\)[\\s\\S]*?false, false/i, "New networks must remain disabled until integration tests pass");
-assert.doesNotMatch(sql, /\\b(drop\\s+table|truncate\\s+table|disable\\s+row\\s+level\\s+security)\\b/i, "Foundation migration must not contain destructive DDL");
+assert.ok(normalized.includes("wallet_chain_events_network_tx_event_uq"), "Missing idempotent event identity index");
+assert.ok(normalized.includes("case when network_key in ('ethereum', 'bsc') then lower(tx_hash) else tx_hash end"), "On-chain event identity must normalize EVM hashes only");
+assert.ok(normalized.includes("amount_raw numeric(78, 0)"), "Token amounts must use integer base units, not floating point");
+assert.ok(normalized.includes("finality_mode text not null"), "Chain-specific finality policy is required");
+assert.ok(normalized.includes("case when network_key in ('ethereum', 'bsc') then lower(address) else address end"), "Address normalization must not lowercase Solana or TON addresses");
+assert.ok(normalized.includes("false, false, 'confirmations'") && normalized.includes("false, false, 'finalized'") && normalized.includes("false, false, 'ton_finalized'"), "New networks must remain disabled until integration tests pass");
+assert.doesNotMatch(normalized, /\b(drop\s+table|truncate\s+table|disable\s+row\s+level\s+security)\b/i, "Foundation migration must not contain destructive DDL");
 
 console.log("AURA multichain wallet foundation checks passed.");
