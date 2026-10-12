@@ -29,4 +29,12 @@ assert.ok(normalized.includes("case when network_key in ('ethereum', 'bsc') then
 assert.ok(normalized.includes("false, false, 'confirmations'") && normalized.includes("false, false, 'finalized'") && normalized.includes("false, false, 'ton_finalized'"), "New networks must remain disabled until integration tests pass");
 assert.doesNotMatch(normalized, /\b(drop\s+table|truncate\s+table|disable\s+row\s+level\s+security)\b/i, "Foundation migration must not contain destructive DDL");
 
+const addressValidatorPath = new URL("../supabase/functions/multichain-wallet-validate-address/index.ts", import.meta.url);
+const addressValidator = readFileSync(addressValidatorPath, "utf8");
+assert.ok(addressValidator.includes('case "ethereum":') && addressValidator.includes('case "bsc":'), "Address validator must support both EVM target networks");
+assert.ok(addressValidator.includes('case "solana":') && addressValidator.includes('case "ton":'), "Address validator must support Solana and TON");
+assert.ok(addressValidator.includes('client.auth.getUser()'), "Address validation must require an authenticated user");
+assert.ok(addressValidator.includes('validation: "format_only"'), "Address validation must not claim ownership or transaction verification");
+assert.ok(!addressValidator.includes("SUPABASE_SERVICE_ROLE_KEY"), "Address validator must not use a service-role key");
+
 console.log("AURA multichain wallet foundation checks passed.");
