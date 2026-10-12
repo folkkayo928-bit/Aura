@@ -22,11 +22,11 @@ for (const table of [
   assert.match(sql, new RegExp("revoke all on public\\." + table + " from public, anon, authenticated", "i"), `Client write privileges not revoked for ${table}`);
 }
 
-assert.match(sql, /unique \(network_key, tx_hash, event_index\)/i, "On-chain event identity must be idempotent");
-assert.match(sql, /amount_raw numeric\(78, 0\)/i, "Token amounts must use integer base units, not floating point");
+assert.match(sql, /create unique index if not exists wallet_chain_events_network_tx_event_uq[\\s\\S]*?case when network_key in \\('ethereum', 'bsc'\\) then lower\\(tx_hash\\) else tx_hash end[\\s\\S]*?event_index/i, "On-chain event identity must be idempotent and normalize EVM hashes");
+assert.match(sql, /amount_raw numeric\\(78, 0\\)/i, "Token amounts must use integer base units, not floating point");
 assert.match(sql, /finality_mode text not null/i, "Chain-specific finality policy is required");
-assert.match(sql, /case when network_key in \('ethereum', 'bsc'\) then lower\(address\) else address end/i, "Address normalization must not lowercase Solana or TON addresses");
-assert.match(sql, /enabled_for_receive, enabled_for_send, finality_mode, min_confirmations\)[\s\S]*?false, false/i, "New networks must remain disabled until integration tests pass");
-assert.doesNotMatch(sql, /\b(drop\s+table|truncate\s+table|disable\s+row\s+level\s+security)\b/i, "Foundation migration must not contain destructive DDL");
+assert.match(sql, /case when network_key in \\('ethereum', 'bsc'\\) then lower\\(address\\) else address end/i, "Address normalization must not lowercase Solana or TON addresses");
+assert.match(sql, /enabled_for_receive, enabled_for_send, finality_mode, min_confirmations\\)[\\s\\S]*?false, false/i, "New networks must remain disabled until integration tests pass");
+assert.doesNotMatch(sql, /\\b(drop\\s+table|truncate\\s+table|disable\\s+row\\s+level\\s+security)\\b/i, "Foundation migration must not contain destructive DDL");
 
 console.log("AURA multichain wallet foundation checks passed.");
