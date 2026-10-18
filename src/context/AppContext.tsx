@@ -761,7 +761,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (ledgerRes.data) setTransactions((ledgerRes.data as any[]).map(mapLedgerToTransaction));
       const restoredExternalWallets: ConnectedExternalWallet[] = ((extWalletsRes.data || []) as any[]).map(w => ({
         id: w.id,
-        name: w.provider,
+        name: w.provider === 'TON Connect' ? 'Tonkeeper' : w.provider,
         network: w.network,
         address: w.address,
         connectedAt: new Date(w.connected_at).toLocaleDateString(),
