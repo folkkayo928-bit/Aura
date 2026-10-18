@@ -80,6 +80,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
   const [sendResult, setSendResult] = useState<{
     hash: string;
     network: EvmNetwork;
+    from: string;
     amount: string;
     destination: string;
     status: EvmTransactionStatus;
@@ -193,7 +194,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
     setNotice('');
     try {
       const result = await sendEvmUsdt(walletMnemonic, sendNetwork, sendDestination, sendAmount);
-      setSendResult({ ...result, status: 'pending' });
+      setSendResult({ ...result, from: transferReview.from, status: 'pending' });
       setTransferReview(null);
       setSendConfirmed(false);
       setSendAmount('');
@@ -218,13 +219,19 @@ export const NonCustodialWalletPanel: React.FC = () => {
     if (!sendResult) return;
     setStatusBusy(true);
     try {
-      const status = await readEvmTransactionStatus(sendResult.network, sendResult.hash);
+      const status = await readEvmTransactionStatus(sendResult.network, sendResult.hash, {
+        from: sendResult.from,
+        destination: sendResult.destination,
+        amount: sendResult.amount,
+      });
       setSendResult((previous) => previous ? { ...previous, status } : previous);
       if (status === 'confirmed') {
         setNotice('The chain reports a successful transaction receipt. Refresh the balances to reconcile the latest token amounts.');
         await refreshBalances(metadata?.address);
       } else if (status === 'failed') {
         setError('The chain reports that this transaction failed. Review the explorer receipt; no automatic resend was attempted.');
+      } else if (status === 'unverified') {
+        setError('The receipt succeeded, but its USDT transfer event did not match the expected sender, recipient and amount. Treat this transaction as unverified and check the explorer. Do not resend automatically.');
       } else if (status === 'unavailable') {
         setError('Could not read the transaction receipt from available RPC endpoints. Check the explorer before retrying.');
       } else {
