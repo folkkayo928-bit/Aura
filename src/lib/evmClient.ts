@@ -53,6 +53,13 @@ type NetworkConfig = {
   rpcUrls: string[];
 };
 
+const REQUIRED_CONFIRMATIONS: Record<EvmNetwork, number> = {
+  ethereum: 12,
+  polygon: 30,
+  arbitrum: 20,
+  bsc: 15,
+};
+
 const NETWORKS: Record<EvmNetwork, NetworkConfig> = {
   ethereum: {
     id: 1,
@@ -310,7 +317,13 @@ export async function readEvmTransactionStatus(
       try { units = BigInt(log.data); } catch { return false; }
       return from === expectedFrom && to === expectedTo && units === expectedUnits;
     });
-    return matches ? 'confirmed' : 'unverified';
+    if (!matches) return 'unverified';
+
+    const latestBlock = await client.getBlockNumber();
+    const confirmationCount = latestBlock >= receipt.blockNumber
+      ? Number(latestBlock - receipt.blockNumber + 1n)
+      : 0;
+    return confirmationCount >= REQUIRED_CONFIRMATIONS[network] ? 'confirmed' : 'pending';
   } catch (cause) {
     const name = cause instanceof Error ? cause.name : '';
     const message = cause instanceof Error ? cause.message.toLowerCase() : '';
