@@ -67,6 +67,7 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [x] Implement client-side signing/broadcast code for personal-wallet sends with recipient, chain, token-decimal, token-balance, native gas, simulation, and explicit-confirmation checks. Still require controlled mainnet transfer tests before launch.
 - [x] Implement outgoing receipt checks, canonical block-hash checks before marking transfers confirmed, and device-local history.
 - [x] Add opt-in incoming USDT/USDT0 transfer indexing with receipt/token/sender/recipient/amount verification, configured confirmation thresholds, and canonical block-hash checks before status changes. The latest indexer also stores the receipt block hash for detected/confirmed rows; historical coverage is bounded and users are told that transfers before tracking may not appear.
+- [x] Deploy the incoming-history migration and indexer to production; the additive `block_hash` column is applied and the minute cron is active. The latest live run returned HTTP 200, but `tracked_wallets` was zero, so only the empty-tracker path is verified—not a real personal-wallet scan or deposit.
 - [ ] Retire legacy server-managed receiving, sweeping and Thirdweb payout code only after old funds and queued operations are reconciled.
 - [x] Implement passkey sign-in, registration, listing and removal using the current Supabase JS SDK.
 - [ ] Enable passkeys on the hosted Supabase Auth service with the stable production RP ID/origin, then test registration and sign-in in the live browser/Telegram WebView.
