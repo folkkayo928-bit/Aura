@@ -94,12 +94,12 @@ Deno.serve(async (req) => {
   try {
     const { data: trackedRows, error: trackedError } = await client
       .from("personal_wallet_addresses")
-      .select("user_id,address,created_at")
+      .select("user_id,address,created_at,last_scanned_at")
       .order("created_at", { ascending: true });
     if (trackedError) throw trackedError;
     const tracked = (trackedRows || [])
       .filter((row) => /^0x[0-9a-f]{40}$/.test(String(row.address || "")))
-      .map((row) => ({ user_id: String(row.user_id), address: String(row.address).toLowerCase(), created_at: String(row.created_at) }));
+      .map((row) => ({ user_id: String(row.user_id), address: String(row.address).toLowerCase(), created_at: String(row.created_at), last_scanned_at: row.last_scanned_at ? String(row.last_scanned_at) : null }));
     if (!tracked.length) return Response.json({ ok: true, tracked_wallets: 0, chains: [], detected: 0, confirmed: 0 });
 
     const byAddress = new Map<string, string[]>();
@@ -109,6 +109,9 @@ Deno.serve(async (req) => {
       byAddress.set(wallet.address, users);
     }
     const addressTopics = [...new Set(tracked.map((wallet) => padAddress(wallet.address)))];
+    // New opt-ins need a bounded lookback because the shared chain cursor may
+    // already have passed a deposit block before this address was tracked.
+    const newlyTrackedAddressTopics = [...new Set(tracked.filter((wallet) => !wallet.last_scanned_at).map((wallet) => padAddress(wallet.address)))];
     const detectedBefore = Date.now();
     let detected = 0;
     let confirmed = 0;
@@ -132,12 +135,9 @@ Deno.serve(async (req) => {
         const from = previousCursor === null || previousCursor === undefined
           ? (latest > BigInt(cfg.scanBlocks) ? latest - BigInt(cfg.scanBlocks) : 0n)
           : BigInt(previousCursor) + 1n;
-        if (from > latest) {
-          chainResults.push({ network: chain, ok: true, scanned_blocks: 0, latest_block: latest.toString() });
-          continue;
-        }
-        const scanTo = from + BigInt(cfg.scanBlocks) - 1n < latest
-          ? from + BigInt(cfg.scanBlocks) - 1n
+        const hasMainRange = from <= latest;
+        const scanTo = hasMainRange
+          ? (from + BigInt(cfg.scanBlocks) - 1n < latest ? from + BigInt(cfg.scanBlocks) - 1n : latest)
           : latest;
         const logs: any[] = [];
         const topicBatches: string[][] = [];
@@ -158,6 +158,32 @@ Deno.serve(async (req) => {
             }]).then((value) => Array.isArray(value) ? value : []));
           }
           chunkFrom = chunkTo + 1n;
+        }
+        // If an address was newly opted in after the shared cursor advanced,
+        // rescan a bounded recent window for just those new addresses. This is
+        // read-only and idempotent; it does not rewind or skip the shared cursor.
+        if (previousCursor !== null && previousCursor !== undefined && newlyTrackedAddressTopics.length > 0) {
+          const supplementalFrom = latest > BigInt(cfg.scanBlocks)
+            ? latest - BigInt(cfg.scanBlocks) + 1n
+            : 0n;
+          const supplementalBatches: string[][] = [];
+          for (let i = 0; i < newlyTrackedAddressTopics.length; i += 100) {
+            supplementalBatches.push(newlyTrackedAddressTopics.slice(i, i + 100));
+          }
+          for (let chunkFrom = supplementalFrom; chunkFrom <= latest;) {
+            const chunkTo = chunkFrom + 99n < latest ? chunkFrom + 99n : latest;
+            const batchFrom = chunkFrom;
+            const batchTo = chunkTo;
+            for (const batch of supplementalBatches) {
+              logTasks.push(() => rpc(chain, "eth_getLogs", [{
+                fromBlock: "0x" + batchFrom.toString(16),
+                toBlock: "0x" + batchTo.toString(16),
+                address: cfg.token,
+                topics: [TRANSFER_TOPIC, null, batch],
+              }]).then((value) => Array.isArray(value) ? value : []));
+            }
+            chunkFrom = chunkTo + 1n;
+          }
         }
         // Bounded concurrency keeps scans fast without flooding public RPC endpoints.
         for (let i = 0; i < logTasks.length; i += 5) {
@@ -209,23 +235,35 @@ Deno.serve(async (req) => {
           detected += rows.length;
         }
 
-        const { error: cursorError } = await client.from("personal_wallet_scan_cursors").upsert({
-          network: chain,
-          last_scanned_block: scanTo.toString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "network" });
-        if (cursorError) throw cursorError;
-        const { error: trackingError } = await client.from("personal_wallet_addresses")
-          .update({ last_scanned_at: new Date().toISOString() }).in("address", tracked.map((wallet) => wallet.address));
-        if (trackingError) throw trackingError;
+        if (hasMainRange) {
+          const { error: cursorError } = await client.from("personal_wallet_scan_cursors").upsert({
+            network: chain,
+            last_scanned_block: scanTo.toString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "network" });
+          if (cursorError) throw cursorError;
+        }
         chainResults.push({
-          network: chain, ok: true, from_block: from.toString(), to_block: scanTo.toString(),
-          scanned_blocks: Number(scanTo - from + 1n), logs_found: rows.length, rpc_host: safeHost(preferredRpc[chain] || FALLBACKS[chain][0]),
+          network: chain, ok: true,
+          from_block: hasMainRange ? from.toString() : null,
+          to_block: hasMainRange ? scanTo.toString() : null,
+          scanned_blocks: hasMainRange ? Number(scanTo - from + 1n) : 0,
+          logs_found: rows.length, rpc_host: safeHost(preferredRpc[chain] || FALLBACKS[chain][0]),
+          supplemental_address_scan: previousCursor !== null && previousCursor !== undefined && newlyTrackedAddressTopics.length > 0,
         });
       } catch (error) {
         console.warn("Personal wallet transfer scan deferred", chain, String(error).slice(0, 400));
         chainResults.push({ network: chain, ok: false, error: "NETWORK_SCAN_UNAVAILABLE" });
       }
+    }
+
+    // Mark addresses as seen only after each supported chain has scanned
+    // successfully; otherwise a failed chain must retry the bounded lookback.
+    if (chainResults.length === Object.keys(EVM).length && chainResults.every((item) => item.ok === true)) {
+      const { error: trackingError } = await client.from("personal_wallet_addresses")
+        .update({ last_scanned_at: new Date().toISOString() })
+        .in("address", tracked.map((wallet) => wallet.address));
+      if (trackingError) throw trackingError;
     }
 
     const { data: pendingRows, error: pendingError } = await client.from("personal_wallet_transfers")
