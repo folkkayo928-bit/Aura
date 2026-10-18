@@ -374,7 +374,7 @@ export const WalletView: React.FC = () => {
                 </div>
 
                 <div className="text-right font-mono">
-                  <span className="text-emerald-400 font-medium">{w.balance > 0 ? `${w.balance} USDT` : 'Balance unavailable'}</span>
+                  <span className="text-emerald-400 font-medium">{w.balanceStatus === 'available' ? `${w.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${w.tokenSymbol || 'USDT'}` : w.balanceStatus === 'loading' ? 'Checking balance…' : w.balanceStatus === 'unsupported' ? 'Token balance not integrated' : 'Balance unavailable'}</span>
                   <span className="text-[10px] text-stone-500 block uppercase">{w.network}</span>
                 </div>
               </div>
