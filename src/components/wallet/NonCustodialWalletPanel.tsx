@@ -491,7 +491,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
   const hasUnlockedWallet = Boolean(metadata && walletMnemonic);
 
   return (
-    <section className="mx-1 rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-950/30 to-[#111118] p-4 shadow-xl">
+    <section id="aura-personal-wallet" className="mx-1 rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-950/30 to-[#111118] p-4 shadow-xl">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
           <Wallet className="h-5 w-5" />
