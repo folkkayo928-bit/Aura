@@ -48,6 +48,31 @@ const TRANSACTION_EXPLORERS: Record<EvmNetwork, string> = {
   bsc: 'https://bscscan.com/tx/',
 };
 
+const LOCAL_TRANSACTION_HISTORY_LIMIT = 50;
+type LocalEvmTransaction = {
+  hash: string;
+  network: EvmNetwork;
+  from: string;
+  amount: string;
+  destination: string;
+  status: EvmTransactionStatus;
+  tokenSymbol: string;
+  createdAt: string;
+};
+
+function isLocalEvmTransaction(value: unknown): value is LocalEvmTransaction {
+  if (!value || typeof value !== 'object') return false;
+  const tx = value as Partial<LocalEvmTransaction>;
+  return typeof tx.hash === 'string' && /^0x[a-fA-F0-9]{64}$/.test(tx.hash)
+    && ['ethereum', 'polygon', 'arbitrum', 'bsc'].includes(String(tx.network))
+    && /^0x[a-fA-F0-9]{40}$/.test(String(tx.from))
+    && /^0x[a-fA-F0-9]{40}$/.test(String(tx.destination))
+    && typeof tx.amount === 'string' && Number.isFinite(Number(tx.amount)) && Number(tx.amount) > 0
+    && typeof tx.tokenSymbol === 'string'
+    && ['pending', 'confirmed', 'failed', 'unverified', 'unavailable'].includes(String(tx.status))
+    && typeof tx.createdAt === 'string' && Number.isFinite(new Date(tx.createdAt).getTime());
+}
+
 export const NonCustodialWalletPanel: React.FC = () => {
   const { user, loading: authLoading, openAuth } = useAuth();
   const [mode, setMode] = useState<Mode>('checking');
@@ -77,15 +102,52 @@ export const NonCustodialWalletPanel: React.FC = () => {
   const [transferReview, setTransferReview] = useState<EvmTransferReview | null>(null);
   const [sendConfirmed, setSendConfirmed] = useState(false);
   const [sendBusy, setSendBusy] = useState(false);
-  const [sendResult, setSendResult] = useState<{
-    hash: string;
-    network: EvmNetwork;
-    from: string;
-    amount: string;
-    destination: string;
-    status: EvmTransactionStatus;
-  } | null>(null);
+  const [sendResult, setSendResult] = useState<LocalEvmTransaction | null>(null);
+  const [sentHistory, setSentHistory] = useState<LocalEvmTransaction[]>([]);
+  const [historyOwnerId, setHistoryOwnerId] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState('');
   const [statusBusy, setStatusBusy] = useState(false);
+
+  // Store public transaction references only. Wallet phrases and private keys never enter this history.
+  useEffect(() => {
+    const userId = user?.id;
+    setHistoryOwnerId(null);
+    setSentHistory([]);
+    setSendResult(null);
+    setHistoryError('');
+    if (!userId) return;
+
+    const key = 'aura:noncustodial-evm-tx:v1:' + userId;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) {
+        setHistoryOwnerId(userId);
+        return;
+      }
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed) || !parsed.every(isLocalEvmTransaction)) {
+        setHistoryError('Saved local transaction history is invalid. Existing data was preserved and not overwritten.');
+        return;
+      }
+      const records = parsed.slice(0, LOCAL_TRANSACTION_HISTORY_LIMIT);
+      setSentHistory(records);
+      setSendResult(records[0] || null);
+      setHistoryOwnerId(userId);
+    } catch {
+      setHistoryError('Could not read saved local transaction history. Existing data was preserved and not overwritten.');
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || historyOwnerId !== user.id) return;
+    const key = 'aura:noncustodial-evm-tx:v1:' + user.id;
+    try {
+      if (sentHistory.length) window.localStorage.setItem(key, JSON.stringify(sentHistory.slice(0, LOCAL_TRANSACTION_HISTORY_LIMIT)));
+      else window.localStorage.removeItem(key);
+    } catch {
+      setHistoryError('Could not save local transaction history on this device. Keep the transaction hash shown on the network explorer.');
+    }
+  }, [user?.id, historyOwnerId, sentHistory]);
 
   const refreshBalances = async (addressValue?: string) => {
     const targetAddress = addressValue || metadata?.address;
@@ -194,7 +256,15 @@ export const NonCustodialWalletPanel: React.FC = () => {
     setNotice('');
     try {
       const result = await sendEvmUsdt(walletMnemonic, sendNetwork, sendDestination, sendAmount);
-      setSendResult({ ...result, from: transferReview.from, status: 'pending' });
+      const transactionRecord: LocalEvmTransaction = {
+        ...result,
+        from: transferReview.from,
+        tokenSymbol: transferReview.tokenSymbol,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      setSendResult(transactionRecord);
+      setSentHistory((previous) => [transactionRecord, ...previous.filter((item) => item.hash.toLowerCase() !== transactionRecord.hash.toLowerCase())].slice(0, LOCAL_TRANSACTION_HISTORY_LIMIT));
       setTransferReview(null);
       setSendConfirmed(false);
       setSendAmount('');
@@ -215,31 +285,39 @@ export const NonCustodialWalletPanel: React.FC = () => {
     }
   };
 
-  const checkLatestTransaction = async () => {
-    if (!sendResult) return;
+  const checkTransaction = async (transaction: LocalEvmTransaction) => {
+    if (statusBusy) return;
     setStatusBusy(true);
     try {
-      const status = await readEvmTransactionStatus(sendResult.network, sendResult.hash, {
-        from: sendResult.from,
-        destination: sendResult.destination,
-        amount: sendResult.amount,
+      const status = await readEvmTransactionStatus(transaction.network, transaction.hash, {
+        from: transaction.from,
+        destination: transaction.destination,
+        amount: transaction.amount,
       });
-      setSendResult((previous) => previous ? { ...previous, status } : previous);
+      setSentHistory((previous) => previous.map((item) => item.hash.toLowerCase() === transaction.hash.toLowerCase() ? { ...item, status } : item));
+      setSendResult((previous) => previous?.hash.toLowerCase() === transaction.hash.toLowerCase() ? { ...previous, status } : previous);
       if (status === 'confirmed') {
-        setNotice('The chain reports a successful transaction receipt. Refresh the balances to reconcile the latest token amounts.');
-        await refreshBalances(metadata?.address);
+        setNotice('The chain reports a successful receipt with the expected token transfer and required confirmations.');
+        if (metadata?.address?.toLowerCase() === transaction.from.toLowerCase()) {
+          await refreshBalances(transaction.from);
+        }
       } else if (status === 'failed') {
         setError('The chain reports that this transaction failed. Review the explorer receipt; no automatic resend was attempted.');
       } else if (status === 'unverified') {
-        setError('The receipt succeeded, but its USDT transfer event did not match the expected sender, recipient and amount. Treat this transaction as unverified and check the explorer. Do not resend automatically.');
+        setError('The receipt succeeded, but its transfer event did not match the expected sender, recipient and amount. Treat it as unverified and check the explorer. Do not resend automatically.');
       } else if (status === 'unavailable') {
-        setError('Could not read the transaction receipt from available RPC endpoints. Check the explorer before retrying.');
+        setError('Could not verify the transaction receipt from available RPC endpoints. Check the explorer before retrying.');
       } else {
-        setNotice('The transaction has no confirmed receipt yet. Do not submit it again while it is pending.');
+        setNotice('The transaction is still pending confirmations. Do not submit it again while pending.');
       }
     } finally {
       setStatusBusy(false);
     }
+  };
+
+  const checkLatestTransaction = async () => {
+    if (!sendResult) return;
+    await checkTransaction(sendResult);
   };
 
   const resetForm = () => {
@@ -772,6 +850,36 @@ export const NonCustodialWalletPanel: React.FC = () => {
                   </button>
                 </div>
                 <p className="mt-2 text-[9px] leading-relaxed text-stone-500">Do not send the same amount again if the transaction is pending or the RPC result is unclear.</p>
+              </div>
+            )}
+
+            {historyError && <div role="status" className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.04] p-2.5 text-[9px] leading-relaxed text-amber-100">{historyError}</div>}
+
+            {sentHistory.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <div>
+                  <h4 className="text-[10px] font-semibold text-stone-200">Recent personal-wallet transfers</h4>
+                  <p className="mt-1 text-[9px] leading-relaxed text-stone-500">Saved only on this device. This is outgoing transfer history, not a complete incoming-deposit list.</p>
+                </div>
+                {sentHistory.map((transaction) => (
+                  <div key={transaction.hash} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-xs text-stone-100">{transaction.amount} {transaction.tokenSymbol}</span>
+                      <span className="text-[8px] uppercase tracking-wider text-stone-300">{transaction.status}</span>
+                    </div>
+                    <p className="mt-1 text-[9px] text-stone-500">{EVM_NETWORKS.find((network) => network.key === transaction.network)?.label || transaction.network} · {new Date(transaction.createdAt).toLocaleString()}</p>
+                    <p className="mt-1 break-all font-mono text-[9px] text-stone-400">To: {transaction.destination}</p>
+                    <p className="mt-1 break-all font-mono text-[9px] text-stone-500">{transaction.hash}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <a href={TRANSACTION_EXPLORERS[transaction.network] + transaction.hash} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[10px] text-emerald-200 underline underline-offset-4">
+                        View on explorer <ArrowUpRight className="h-3 w-3" />
+                      </a>
+                      <button type="button" onClick={() => void checkTransaction(transaction)} disabled={statusBusy} className="rounded-lg border border-white/10 px-2.5 py-2 text-[9px] text-stone-200 disabled:opacity-50">
+                        Check receipt
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
