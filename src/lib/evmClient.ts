@@ -39,7 +39,7 @@ const ERC20_ABI = [
       { name: 'to', type: 'address' },
       { name: 'amount', type: 'uint256' },
     ],
-    outputs: [{ name: '', type: 'bool' }],
+    outputs: [],
   },
 ] as const;
 
@@ -49,6 +49,7 @@ type NetworkConfig = {
   nativeSymbol: string;
   token: Address;
   tokenDecimals: number;
+  tokenSymbol: 'USDT' | 'USDT0';
   chain: Chain;
   rpcUrls: string[];
 };
@@ -64,6 +65,7 @@ const NETWORKS: Record<EvmNetwork, NetworkConfig> = {
   ethereum: {
     id: 1,
     label: 'Ethereum',
+    tokenSymbol: 'USDT',
     nativeSymbol: 'ETH',
     token: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     tokenDecimals: 6,
@@ -78,6 +80,7 @@ const NETWORKS: Record<EvmNetwork, NetworkConfig> = {
   polygon: {
     id: 137,
     label: 'Polygon',
+    tokenSymbol: 'USDT0',
     nativeSymbol: 'POL',
     token: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
     tokenDecimals: 6,
@@ -92,6 +95,7 @@ const NETWORKS: Record<EvmNetwork, NetworkConfig> = {
   arbitrum: {
     id: 42161,
     label: 'Arbitrum One',
+    tokenSymbol: 'USDT',
     nativeSymbol: 'ETH',
     token: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
     tokenDecimals: 6,
@@ -106,6 +110,7 @@ const NETWORKS: Record<EvmNetwork, NetworkConfig> = {
   bsc: {
     id: 56,
     label: 'BNB Smart Chain',
+    tokenSymbol: 'USDT',
     nativeSymbol: 'BNB',
     token: '0x55d398326f99059fF775485246999027B3197955',
     tokenDecimals: 18,
@@ -124,12 +129,14 @@ export const EVM_NETWORKS = Object.entries(NETWORKS).map(([key, config]) => ({
   label: config.label,
   nativeSymbol: config.nativeSymbol,
   tokenDecimals: config.tokenDecimals,
+  tokenSymbol: config.tokenSymbol,
 }));
 
 export type EvmBalanceSnapshot = {
   network: EvmNetwork;
   label: string;
   nativeSymbol: string;
+  tokenSymbol: string;
   usdt: string;
   native: string;
   blockNumber: string;
@@ -200,6 +207,7 @@ export async function readEvmBalances(addressValue: string): Promise<EvmBalanceS
         network,
         label: config.label,
         nativeSymbol: config.nativeSymbol,
+        tokenSymbol: config.tokenSymbol,
         usdt: formatUnits(units, config.tokenDecimals),
         native: formatUnits(nativeUnits, 18),
         blockNumber: blockNumber.toString(),
@@ -229,6 +237,7 @@ export async function readEvmBalances(addressValue: string): Promise<EvmBalanceS
 export type EvmTransferReview = {
   network: EvmNetwork;
   label: string;
+  tokenSymbol: string;
   from: Address;
   destination: Address;
   amount: string;
@@ -279,6 +288,7 @@ export async function estimateEvmUsdtTransfer(
   return {
     network,
     label: config.label,
+    tokenSymbol: config.tokenSymbol,
     from: account.address,
     destination,
     amount: formatUnits(amount, config.tokenDecimals),
@@ -396,5 +406,5 @@ export async function sendEvmUsdt(
     // was lost. Never silently retry a money movement with an unknown outcome.
     throw new Error('TRANSFER_SUBMISSION_UNCERTAIN: the RPC response did not confirm whether the network accepted this transfer. Check the transaction explorer and destination wallet before retrying.');
   }
-  return { hash, network, amount: formatUnits(amount, config.tokenDecimals), destination };
+  return { hash, network, amount: formatUnits(amount, config.tokenDecimals), destination, tokenSymbol: config.tokenSymbol };
 }
