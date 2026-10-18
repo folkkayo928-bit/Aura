@@ -176,6 +176,62 @@ function validateRecipient(value: string): Address {
   return getAddress(recipient);
 }
 
+export type EvmTokenBalanceSnapshot = {
+  network: EvmNetwork;
+  tokenSymbol: string;
+  tokenBalance: string;
+  blockNumber: string;
+  available: boolean;
+  error?: string;
+};
+
+/** Read-only balance lookup for an externally connected EVM wallet. This never requests signatures or sends funds. */
+export async function readEvmTokenBalance(
+  network: EvmNetwork,
+  addressValue: string,
+): Promise<EvmTokenBalanceSnapshot> {
+  const config = NETWORKS[network];
+  const fallbackSnapshot: EvmTokenBalanceSnapshot = {
+    network,
+    tokenSymbol: config.tokenSymbol,
+    tokenBalance: '—',
+    blockNumber: '',
+    available: false,
+  };
+  if (!/^0x[a-fA-F0-9]{40}$/.test(addressValue) || !isAddress(addressValue, { strict: false })) {
+    return { ...fallbackSnapshot, error: 'INVALID_WALLET_ADDRESS' };
+  }
+  try {
+    const client = makePublicClient(network);
+    const chainId = await client.getChainId();
+    if (chainId !== config.id) throw new Error('RPC_CHAIN_ID_MISMATCH');
+    const address = getAddress(addressValue);
+    const [units, actualDecimals, blockNumber] = await Promise.all([
+      client.readContract({
+        address: config.token,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+      }),
+      client.readContract({ address: config.token, abi: ERC20_ABI, functionName: 'decimals' }),
+      client.getBlockNumber(),
+    ]);
+    if (Number(actualDecimals) !== config.tokenDecimals) throw new Error('TOKEN_DECIMALS_MISMATCH');
+    return {
+      network,
+      tokenSymbol: config.tokenSymbol,
+      tokenBalance: formatUnits(units, config.tokenDecimals),
+      blockNumber: blockNumber.toString(),
+      available: true,
+    };
+  } catch {
+    return {
+      ...fallbackSnapshot,
+      error: 'NETWORK_DATA_UNAVAILABLE',
+    };
+  }
+}
+
 export async function readEvmBalances(addressValue: string): Promise<EvmBalanceSnapshot[]> {
   if (!/^0x[a-fA-F0-9]{40}$/.test(addressValue)) {
     throw new Error('The saved wallet address is invalid. Restore the wallet before reading balances.');
