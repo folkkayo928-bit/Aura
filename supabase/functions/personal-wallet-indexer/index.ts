@@ -227,6 +227,7 @@ Deno.serve(async (req) => {
     const { data: pendingRows, error: pendingError } = await client.from("personal_wallet_transfers")
       .select("id,network,tx_hash,log_index,block_number,block_hash,from_address,to_address,amount,token_contract,required_confirmations,status")
       .eq("status", "detected")
+      .order("block_number", { ascending: true })
       .limit(200);
     if (pendingError) throw pendingError;
     for (const transfer of pendingRows || []) {
