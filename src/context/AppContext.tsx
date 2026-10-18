@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { createNeutralAvatar } from '../lib/avatar';
 import { readEvmTokenBalance, type EvmNetwork } from '../lib/evmClient';
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import {
   Artwork,
   FeedSection,
@@ -369,6 +370,8 @@ const backendP2POrderToUi = (row: any): P2POrder => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, openAuth } = useAuth();
+  const [tonConnectUI] = useTonConnectUI();
+  const tonWallet = useTonWallet();
   // Marketplace and wallet state are server-authoritative. Do not hydrate from localStorage.
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [collections, setCollections] = useState<NFTCollection[]>([]);
@@ -401,6 +404,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [connectedWallets, setConnectedWallets] = useState<ConnectedExternalWallet[]>([]);
+  const tonProofPayloadRef = useRef<string | null>(null);
+  const tonVerificationInFlightRef = useRef(false);
+  const verifiedTonProofRef = useRef<string | null>(null);
 
   const refreshConnectedWalletBalance = async (wallet: ConnectedExternalWallet) => {
     const isEvmNetwork = wallet.network === 'ethereum' || wallet.network === 'polygon' || wallet.network === 'arbitrum' || wallet.network === 'bsc';
@@ -1562,6 +1568,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let address = '';
       const win = window as any;
       try {
+        if (name === 'Tonkeeper') {
+          if (network !== 'ton') {
+            addNotification('Network Not Supported', 'TON Connect can only connect a TON mainnet wallet.', 'community');
+            return;
+          }
+          const challenge = await supabase.functions.invoke('verify-ton-wallet', { body: { action: 'challenge' } });
+          if (challenge.error || !challenge.data?.success || typeof challenge.data.payload !== 'string') {
+            throw new Error(challenge.data?.error || challenge.error?.message || 'Could not create TON ownership challenge.');
+          }
+          if (tonConnectUI.connected) await tonConnectUI.disconnect();
+          tonProofPayloadRef.current = challenge.data.payload;
+          tonConnectUI.setConnectRequestParameters({ state: 'ready', value: { tonProof: challenge.data.payload } });
+          await tonConnectUI.openModal();
+          return;
+        }
         if (name === 'MetaMask') {
           if (network === 'solana' || network === 'ton') {
             addNotification('Network Not Supported', 'MetaMask connection is available for EVM networks only.', 'community');
@@ -1671,6 +1692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       openAuth('signin');
       return false;
     }
+    const walletToDisconnect = connectedWallets.find((wallet) => wallet.id === id);
     const { error } = await supabase.from('external_wallets')
       .delete()
       .eq('id', id)
@@ -1680,9 +1702,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setConnectedWallets(prev => prev.filter(w => w.id !== id));
+    if (walletToDisconnect?.network === 'ton') {
+      try { await tonConnectUI.disconnect(); } catch { /* database unlink already succeeded */ }
+      verifiedTonProofRef.current = null;
+      tonProofPayloadRef.current = null;
+    }
     addNotification('Wallet Disconnected', 'External wallet session closed.', 'community');
     return true;
   };
+
+  useEffect(() => {
+    const wallet = tonWallet;
+    const tonProofItem = wallet?.connectItems?.tonProof;
+    if (!user?.id || !wallet || !tonProofItem || !('proof' in tonProofItem)) return;
+    const proof = tonProofItem.proof;
+    const expectedPayload = tonProofPayloadRef.current;
+    if (!expectedPayload || proof.payload !== expectedPayload || tonVerificationInFlightRef.current) return;
+    const proofKey = user.id + ':' + wallet.account.address + ':' + proof.payload;
+    if (verifiedTonProofRef.current === proofKey) return;
+
+    tonVerificationInFlightRef.current = true;
+    void (async () => {
+      try {
+        const result = await supabase.functions.invoke('verify-ton-wallet', {
+          body: {
+            action: 'verify',
+            network: wallet.account.chain,
+            address: wallet.account.address,
+            publicKey: wallet.account.publicKey,
+            walletStateInit: wallet.account.walletStateInit,
+            proof,
+          },
+        });
+        if (result.error || !result.data?.success || !result.data.wallet) {
+          throw new Error(result.data?.error || result.error?.message || 'TON ownership proof was rejected.');
+        }
+        const row = result.data.wallet;
+        const connected: ConnectedExternalWallet = {
+          id: row.id,
+          name: 'Tonkeeper',
+          network: 'ton',
+          address: row.address,
+          connectedAt: new Date(row.connected_at || Date.now()).toLocaleDateString(),
+          balance: 0,
+          balanceStatus: 'unsupported',
+          tokenSymbol: 'TON',
+        };
+        setConnectedWallets((previous) => [connected, ...previous.filter((item) => item.id !== connected.id && !(item.network === 'ton' && item.address.toLowerCase() === connected.address.toLowerCase()))]);
+        verifiedTonProofRef.current = proofKey;
+        tonProofPayloadRef.current = null;
+        tonConnectUI.setConnectRequestParameters({ state: 'loading' });
+        addNotification('TON Wallet Verified', 'TON Connect ownership was verified by the AURA server. No transaction was sent and no P2P balance was credited.', 'community');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'TON wallet verification failed.';
+        addNotification('TON Wallet Not Verified', message, 'community');
+        try { await tonConnectUI.disconnect(); } catch { /* keep the verification failure visible */ }
+      } finally {
+        tonVerificationInFlightRef.current = false;
+      }
+    })();
+  }, [tonWallet, user?.id, tonConnectUI]);
+
 
   useEffect(() => {
     const win = window as any;
