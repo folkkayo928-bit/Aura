@@ -39,7 +39,7 @@ const EVM = {
   ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", fallbackRpcs: ["https://eth.drpc.org", "https://ethereum-rpc.publicnode.com"], token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
   polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", fallbackRpcs: ["https://polygon.drpc.org", "https://polygon-bor-rpc.publicnode.com"], token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
   arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", fallbackRpcs: ["https://arbitrum.drpc.org", "https://arb1.arbitrum.io/rpc", "https://arbitrum-one.public.blastapi.io", "https://arbitrum-one-rpc.publicnode.com"], token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
-  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpcs: ["https://bsc.drpc.org", "https://bsc-rpc.publicnode.com", "https://bsc-mainnet.public.blastapi.io", "https://public.1rpc.io/bnb"], token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpcs: ["https://bsc.drpc.org", "https://bsc-rpc.publicnode.com", "https://bsc-mainnet.public.blastapi.io"], token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
 } as const;
 
 async function rpc(url: string, method: string, params: unknown[], fallbacks: string[] = []) {
