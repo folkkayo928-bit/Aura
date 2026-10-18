@@ -72,6 +72,7 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [x] Implement passkey sign-in, registration, listing and removal using the current Supabase JS SDK.
 - [ ] Enable passkeys on the hosted Supabase Auth service with the stable production RP ID/origin, then test registration and sign-in in the live browser/Telegram WebView.
 - [ ] Test incoming indexing on all four chains under RPC failure, reorg, duplicate log, and catch-up conditions. Keep its rows read-only to users and separate from wallet_ledger.
+- [x] Document the safe P2P funding architecture: explicit funding intent, backend receipt/token/sender/destination/amount/canonical-block/confirmation verification, idempotent atomic ledger credit, reorg handling, and separation from legacy deposits and P2P escrow. This is a design milestone only; no funding credit is enabled.
 - [ ] Implement and audit the on-chain-to-ledger funding path before enabling P2P funding from a personal wallet. Required design:
   1. The user explicitly initiates a transfer from their own wallet to a configured AURA-controlled treasury/deposit address; merely tracking their personal wallet never funds the AURA ledger.
   2. The backend independently verifies the chain, allowlisted token contract, destination treasury, sender, amount, transaction receipt, canonical block hash and chain-specific confirmation threshold. Never accept frontend-provided amount/status as proof.
@@ -82,5 +83,6 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
   No crediting function or automatic credit is enabled by the current personal-wallet indexer.
 - [ ] Run controlled low-value mainnet sends/receives on each enabled network, verify balances and receipts across independent RPC/explorers, and test mobile/Telegram WebView recovery before release.
 - [ ] Complete end-to-end P2P tests for funded buy/sell orders, escrow-lock/refund, payment-proof, dispute, and settlement. Preserve the existing open dispute.
-- [ ] Implement TON Connect with server-side TON proof verification and additive database constraint migration; keep it disabled until verified.
+- [x] Add TON Connect UI entry point, one-time server-issued proof payloads, server-side TON proof verification for standard wallet contract versions V1R1 through V5R1, atomic single-use challenge consumption, and additive database constraints. The backend migration/function are deployed; the frontend remains on the PR branch and still needs a controlled live wallet proof test. Unsupported/custom TON wallet contracts fail closed.
+- [ ] Verify TON Connect end-to-end in the released web and Telegram Mini App, including Tonkeeper and another supported wallet; confirm unsupported wallet versions show a safe error and no unverified address is saved.
 - [ ] Run security and end-to-end tests on web and Telegram Mini App before calling the wallet production-ready.
