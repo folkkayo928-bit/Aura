@@ -45,6 +45,7 @@ export const SendModal: React.FC = () => {
   if (!sendModalOpen) return null;
 
   const numAmount = parseFloat(amount) || 0;
+  const withdrawalTokenSymbol = network === 'polygon' ? 'USDT0' : 'USDT';
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,7 +204,7 @@ export const SendModal: React.FC = () => {
                     : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
-                External Web3 Address
+                AURA Balance → External
               </button>
               <button
                 type="button"
@@ -214,14 +215,14 @@ export const SendModal: React.FC = () => {
                     : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
-                Telegram @User / Vault
+                AURA User / Vault
               </button>
             </div>
 
             {/* External Network Selector */}
             {mode === 'external' && (
               <div>
-                <label className="text-xs text-stone-400 block mb-1 font-medium">Select Blockchain Network</label>
+                <label className="text-xs text-stone-400 block mb-1 font-medium">Withdrawal network</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {(['polygon', 'arbitrum', 'ethereum', 'bsc'] as const).map((net) => (
                     <button
@@ -247,8 +248,18 @@ export const SendModal: React.FC = () => {
                   </button>
                 </div>
                 <p className="mt-1.5 text-[10px] text-stone-500">
-                  Solana is shown for clarity, but AURA on-chain withdrawals currently support EVM networks only. Solana sending is not enabled.
+                  This withdraws from your AURA internal-ledger balance using the legacy withdrawal service; it does not spend from your personal non-custodial wallet. Solana withdrawals are not enabled.
                 </p>
+              </div>
+            )}
+
+            {mode === 'external' && (
+              <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-3 space-y-2">
+                <p className="text-[10px] leading-relaxed text-cyan-100">Need to send from the USDT held in your personal non-custodial wallet? That wallet has a separate balance and signs directly on your device.</p>
+                <button type="button" onClick={() => {
+                  setSendModalOpen(false);
+                  document.getElementById('aura-personal-wallet')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }} className="text-[10px] font-semibold text-cyan-200 underline underline-offset-4">Go to personal wallet send</button>
               </div>
             )}
 
@@ -276,8 +287,8 @@ export const SendModal: React.FC = () => {
             {/* Amount */}
             <div>
               <div className="flex items-center justify-between text-xs text-stone-400 mb-1.5">
-                <span>Amount (USDT)</span>
-                <span className="font-mono">Available: ${formatWalletAmount(walletBalance, mode === 'internal' || network === 'bsc' ? 8 : 6)}</span>
+                <span>{mode === 'internal' ? 'Amount (USDT)' : `Withdrawal amount (${withdrawalTokenSymbol})`}</span>
+                <span className="font-mono">AURA ledger: ${formatWalletAmount(walletBalance, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
               </div>
               <div className="relative">
                 <input
@@ -303,14 +314,14 @@ export const SendModal: React.FC = () => {
             {/* Fee summary */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-stone-400 space-y-1.5 font-mono">
               <div className="flex justify-between">
-                <span>{mode === 'internal' ? 'Network Fee:' : 'Network Gas:'}</span>
-                <span className="text-amber-300">{mode === 'internal' ? 'No blockchain fee' : 'Handled by AURA'}</span>
+                <span>{mode === 'internal' ? 'Network Fee:' : 'Withdrawal service:'}</span>
+                <span className="text-amber-300">{mode === 'internal' ? 'No blockchain fee' : 'Legacy AURA sender'}</span>
               </div>
               <div className="flex justify-between font-semibold text-stone-100 pt-1 border-t border-white/5">
                 <span>USDT Amount:</span>
-                <span className="text-amber-300">${formatWalletAmount(numAmount, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
+                <span className="text-amber-300">${formatWalletAmount(numAmount, mode === 'internal' || network === 'bsc' ? 8 : 6)} {mode === 'internal' ? 'USDT' : withdrawalTokenSymbol}</span>
               </div>
-              <p className="pt-1 text-[10px] text-stone-500">{mode === 'internal' ? 'Internal AURA transfers are settled in the AURA ledger and do not broadcast a blockchain transaction.' : 'Actual blockchain gas is handled by AURA’s configured sender/provider; this form does not deduct a separate USDT network fee.'}</p>
+              <p className="pt-1 text-[10px] text-stone-500">{mode === 'internal' ? 'Internal AURA transfers are settled in the AURA ledger and do not broadcast a blockchain transaction.' : 'This is a withdrawal request from the AURA internal ledger. The legacy sender must pass treasury, gas and signer readiness checks before it can broadcast.'}</p>
             </div>
 
             {sendError && (
