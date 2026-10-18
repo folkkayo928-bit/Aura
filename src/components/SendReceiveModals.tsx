@@ -393,6 +393,8 @@ export const ReceiveModal: React.FC = () => {
   }, [receiveModalOpen, receiveTab, selectedNetwork, authLoading, user?.id]);
 
   const externalAddress = depositAddresses[selectedNetwork] || '';
+  // Polygon migrated its token at this address to native USDT0; show the exact asset label to reduce network/token mistakes.
+  const externalAssetSymbol = selectedNetwork === 'polygon' ? 'USDT0' : 'USDT';
   const auraReceiveValue = userProfile.telegramHandle && userProfile.telegramHandle !== '@collector'
     ? `aura.tg://${userProfile.telegramHandle}`
     : userProfile.vaultId || '';
@@ -506,7 +508,7 @@ export const ReceiveModal: React.FC = () => {
         ) : (
           <div className="rounded-3xl bg-cyan-950/20 border border-cyan-500/20 p-4 space-y-4">
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">Receive USDT on-chain</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">Receive {externalAssetSymbol} on-chain</span>
               <p className="mt-1 text-[11px] text-stone-400 leading-relaxed">
                 Choose the exact network the sender will use. Your personal wallet address is controlled by your recovery phrase; AURA does not hold the signing key.
               </p>
@@ -538,7 +540,7 @@ export const ReceiveModal: React.FC = () => {
 
             <div className="flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/5 px-3 py-2">
               <span className="text-[10px] uppercase font-mono text-stone-400">Asset</span>
-              <span className="text-xs font-semibold text-stone-100">USDT</span>
+              <span className="text-xs font-semibold text-stone-100">{externalAssetSymbol}</span>
             </div>
 
             {depositLoading ? (
@@ -549,7 +551,7 @@ export const ReceiveModal: React.FC = () => {
               <>
                 <div className="flex justify-center rounded-2xl bg-white p-4">
                   {qrCodeUrl ? (
-                    <img src={qrCodeUrl} alt={`${selectedNetwork} USDT deposit QR code`} className="w-48 h-48 rounded-xl" />
+                    <img src={qrCodeUrl} alt={`${selectedNetwork} ${externalAssetSymbol} deposit QR code`} className="w-48 h-48 rounded-xl" />
                   ) : (
                     <div className="w-48 h-48 rounded-xl bg-slate-100/10 animate-pulse" />
                   )}
@@ -558,10 +560,10 @@ export const ReceiveModal: React.FC = () => {
                 <div className="rounded-2xl bg-black/20 border border-white/10 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <span className="text-[10px] uppercase font-mono text-cyan-300">{selectedNetwork} · USDT</span>
-                      <p className="mt-1 text-[9px] text-stone-500">Only send USDT on this network.</p>
+                      <span className="text-[10px] uppercase font-mono text-cyan-300">{selectedNetwork} · {externalAssetSymbol}</span>
+                      <p className="mt-1 text-[9px] text-stone-500">Only send {externalAssetSymbol} on this network.</p>
                     </div>
-                    <button onClick={() => handleCopy(externalAddress)} className="p-2 rounded-lg bg-white/5 text-stone-300" aria-label={`Copy ${selectedNetwork} USDT address`}>
+                    <button onClick={() => handleCopy(externalAddress)} className="p-2 rounded-lg bg-white/5 text-stone-300" aria-label={`Copy ${selectedNetwork} ${externalAssetSymbol} address`}>
                       {copied === externalAddress ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
@@ -570,7 +572,7 @@ export const ReceiveModal: React.FC = () => {
               </>
             ) : (
               <div className="rounded-2xl bg-black/20 border border-amber-500/20 p-4 text-[11px] text-stone-400 leading-relaxed">
-                {depositMessage || 'External USDT receiving is currently unavailable.'}
+                {depositMessage || 'External {externalAssetSymbol} receiving is currently unavailable.'}
               </div>
             )}
 
