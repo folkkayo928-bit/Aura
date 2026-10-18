@@ -218,6 +218,7 @@ export async function readEvmBalances(addressValue: string): Promise<EvmBalanceS
         network,
         label: config.label,
         nativeSymbol: config.nativeSymbol,
+        tokenSymbol: config.tokenSymbol,
         usdt: '—',
         native: '—',
         blockNumber: '',
@@ -349,7 +350,7 @@ export async function sendEvmUsdt(
   network: EvmNetwork,
   destinationValue: string,
   amountValue: string,
-): Promise<{ hash: string; network: EvmNetwork; amount: string; destination: Address }> {
+): Promise<{ hash: string; network: EvmNetwork; amount: string; destination: Address; tokenSymbol: 'USDT' | 'USDT0' }> {
   const config = NETWORKS[network];
   if (!config) throw new Error('This EVM network is not supported.');
   const destination = validateRecipient(destinationValue);
