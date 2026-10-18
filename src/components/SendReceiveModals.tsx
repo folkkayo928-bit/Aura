@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 import { useApp } from '../context/AppContext';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { CryptoNetwork } from '../types';
 import { getLocalEvmWalletMetadata } from '../lib/nonCustodialWallet';
