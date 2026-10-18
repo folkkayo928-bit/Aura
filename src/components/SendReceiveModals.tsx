@@ -575,7 +575,7 @@ export const ReceiveModal: React.FC = () => {
             )}
 
             <div className="text-[10px] text-stone-500 leading-relaxed">
-              Important: on-chain balances and in-app send/transaction tracking are not connected to this wallet yet. Only send if you have safely backed up the recovery phrase and can access it in a compatible wallet. Never send another token or use a different network; wrong transfers can permanently lose funds.
+              This is your personal non-custodial address. The Wallet screen reads live balances and can send USDT with local signing; inbound transfers do not automatically credit your older AURA internal ledger or appear in a full deposit-history list. Back up your recovery phrase offline before receiving. Never send another token or use a different network; wrong transfers can permanently lose funds.
             </div>
           </div>
         )}
