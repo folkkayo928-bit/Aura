@@ -380,9 +380,26 @@ export const ReceiveModal: React.FC = () => {
         // Ignore damaged storage and use the authoritative backend value.
       }
 
-      const { data, error } = await supabase.functions.invoke('provision-deposit-address', {
-        body: { chain: selectedNetwork },
-      });
+      let data: any = null;
+      let error: any = null;
+      try {
+        const result = await supabase.functions.invoke('provision-deposit-address', {
+          body: { chain: selectedNetwork },
+        });
+        data = result.data;
+        error = result.error;
+      } catch {
+        // Network-level failures can reject instead of returning a Supabase error.
+        // Keep an already cached address available and never leave the loading
+        // state stuck on an unhandled fetch rejection.
+        if (cancelled) return;
+        if (!hasCachedSelectedAddress) {
+          setDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
+          setDepositMessage('Could not connect to AURA’s secure receiving service. Please try again.');
+        }
+        setDepositLoading(false);
+        return;
+      }
 
       if (cancelled) return;
 
