@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { createNeutralAvatar } from '../lib/avatar';
+import { readEvmTokenBalance, type EvmNetwork } from '../lib/evmClient';
 import {
   Artwork,
   FeedSection,
@@ -401,6 +402,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [connectedWallets, setConnectedWallets] = useState<ConnectedExternalWallet[]>([]);
 
+  const refreshConnectedWalletBalance = async (wallet: ConnectedExternalWallet) => {
+    const isEvmNetwork = wallet.network === 'ethereum' || wallet.network === 'polygon' || wallet.network === 'arbitrum' || wallet.network === 'bsc';
+    if (!isEvmNetwork) {
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id
+        ? { ...item, balanceStatus: 'unsupported' }
+        : item));
+      return;
+    }
+
+    setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id
+      ? { ...item, balanceStatus: 'loading' }
+      : item));
+    try {
+      const snapshot = await readEvmTokenBalance(wallet.network as EvmNetwork, wallet.address);
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+        ? {
+            ...item,
+            balance: snapshot.available ? Number(snapshot.tokenBalance) : 0,
+            balanceStatus: snapshot.available ? 'available' : 'unavailable',
+            tokenSymbol: snapshot.tokenSymbol,
+          }
+        : item));
+    } catch {
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+        ? { ...item, balanceStatus: 'unavailable' }
+        : item));
+    }
+  };
+
   const [p2pOffers, setP2pOffers] = useState<P2POffer[]>([]);
 
   const [activeP2POrder, setActiveP2POrder] = useState<P2POrder | null>(null);
@@ -723,14 +753,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (walletRes.data) setWalletBalance(Number((walletRes.data as any).balance_usdt || 0));
       if (ledgerRes.data) setTransactions((ledgerRes.data as any[]).map(mapLedgerToTransaction));
-      setConnectedWallets(((extWalletsRes.data || []) as any[]).map(w => ({
+      const restoredExternalWallets: ConnectedExternalWallet[] = ((extWalletsRes.data || []) as any[]).map(w => ({
         id: w.id,
         name: w.provider,
         network: w.network,
         address: w.address,
         connectedAt: new Date(w.connected_at).toLocaleDateString(),
         balance: 0,
-      })));
+        balanceStatus: ['ethereum', 'polygon', 'arbitrum', 'bsc'].includes(w.network) ? 'loading' : 'unsupported',
+        tokenSymbol: w.network === 'polygon' ? 'USDT0' : 'USDT',
+      }));
+      setConnectedWallets(restoredExternalWallets);
+      restoredExternalWallets.forEach((wallet) => { void refreshConnectedWalletBalance(wallet); });
       if (p2pOffersRes.data) setP2pOffers((p2pOffersRes.data as any[]).map(backendP2POfferToUi));
       if (activeOrderRes.data) setActiveP2POrder(backendP2POrderToUi(activeOrderRes.data));
       else setActiveP2POrder(null);
@@ -1624,9 +1658,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         address: data.address,
         connectedAt: new Date(data.connected_at).toLocaleDateString(),
         balance: 0,
+        balanceStatus: network === 'ethereum' || network === 'polygon' || network === 'arbitrum' || network === 'bsc' ? 'loading' : 'unsupported',
+        tokenSymbol: network === 'polygon' ? 'USDT0' : 'USDT',
       };
       setConnectedWallets(prev => [connected, ...prev.filter(w => w.id !== connected.id && w.address !== address)]);
       addNotification('🔐 Wallet Ownership Verified', `${name} ownership was cryptographically verified on ${network}.`, 'community');
+      void refreshConnectedWalletBalance(connected);
     })();
   };
   const disconnectExternalWallet = async (id: string): Promise<boolean> => {
