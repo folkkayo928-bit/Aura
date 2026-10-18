@@ -43,6 +43,24 @@ Deno.serve(async (req) => {
     const prealert: any[] = [];
     const live: any[] = [];
 
+    const { data: p2pNotifications, error: p2pError } = await client
+      .from("notifications")
+      .select("id,user_id,title,message,type,created_at,profiles:user_id(telegram_user_id,telegram_bot_alerts)")
+      .is("read_at", null)
+      .eq("type", "p2p")
+      .order("created_at", { ascending: true })
+      .limit(200);
+
+    if (p2pError) throw p2pError;
+
+    const p2pItems: any[] = [];
+    for (const item of p2pNotifications || []) {
+      const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+      const telegramUserId = String(profile?.telegram_user_id || "").trim();
+      if (!profile?.telegram_bot_alerts || !/^\d{1,20}$/.test(telegramUserId)) continue;
+      p2pItems.push({ id: item.id, telegram_user_id: telegramUserId, title: item.title, message: item.message });
+    }
+
     for (const reminder of reminders || []) {
       const profile = Array.isArray(reminder.profiles) ? reminder.profiles[0] : reminder.profiles;
       const drop = Array.isArray(reminder.aura_drops) ? reminder.aura_drops[0] : reminder.aura_drops;
@@ -97,8 +115,14 @@ Deno.serve(async (req) => {
       return await response.json() as { sent?: number; failed?: number; sent_ids?: string[] };
     };
 
+    const p2pResult = await deliver(p2pItems);
     const preResult = await deliver(prealert);
     const liveResult = await deliver(live);
+
+    const p2pSentIds = new Set(p2pResult.sent_ids || []);
+    for (const item of p2pItems.filter((item) => p2pSentIds.has(item.id))) {
+      await client.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", item.id).is("read_at", null);
+    }
     const successfulPre = preResult.sent || 0;
     const successfulLive = liveResult.sent || 0;
     const preSentIds = new Set(preResult.sent_ids || []);
@@ -118,6 +142,8 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       ready: true,
+      queued_p2p: p2pItems.length,
+      sent_p2p: Number(p2pResult.sent || 0),
       queued_prealerts: prealert.length,
       queued_live: live.length,
       sent_prealerts: successfulPre,
