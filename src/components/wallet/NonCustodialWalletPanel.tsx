@@ -196,15 +196,19 @@ export const NonCustodialWalletPanel: React.FC = () => {
       setSendResult({ ...result, status: 'pending' });
       setTransferReview(null);
       setSendConfirmed(false);
-      setNotice('Transaction submitted. Wait for on-chain confirmation before treating it as complete.');
+      setSendAmount('');
+      setSendDestination('');
       lockWallet();
+      setNotice('Transaction submitted. The wallet is locked again. Check the on-chain receipt before treating the transfer as complete.');
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Could not submit the transfer.';
       if (message.includes('TRANSFER_SUBMISSION_UNCERTAIN')) {
-        setNotice('The RPC response was unclear. The wallet was locked to prevent accidental repeat sends. Check the chain explorer and destination wallet before trying again.');
         lockWallet();
+        setNotice('The RPC response was unclear. The wallet was locked to prevent accidental repeat sends. Check the chain explorer and destination wallet before trying again.');
+        setError('AURA could not verify whether the network accepted this transfer. Do not retry until you have checked the transaction explorer and destination wallet.');
+      } else {
+        setError(message);
       }
-      setError(message);
     } finally {
       setSendBusy(false);
     }
