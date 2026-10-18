@@ -357,6 +357,13 @@ export async function sendEvmUsdt(
     transport: fallback(config.rpcUrls.map((url) => http(url, { timeout: 20000, retryCount: 0 }))),
   });
 
-  const hash = await walletClient.writeContract(request);
+  let hash: Hash;
+  try {
+    hash = await walletClient.writeContract(request);
+  } catch {
+    // The provider may have accepted the signed transaction even if its response
+    // was lost. Never silently retry a money movement with an unknown outcome.
+    throw new Error('TRANSFER_SUBMISSION_UNCERTAIN: the RPC response did not confirm whether the network accepted this transfer. Check the transaction explorer and destination wallet before retrying.');
+  }
   return { hash, network, amount: formatUnits(amount, config.tokenDecimals), destination };
 }
