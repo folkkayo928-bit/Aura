@@ -625,7 +625,7 @@ export const BuyModal: React.FC = () => {
         </div>
 
         <p className="mt-4 text-[10px] leading-relaxed text-stone-500">
-          AURA does not create or simulate USDT deposits. External blockchain funding requires a real wallet/provider integration.
+          External USDT sent to your personal on-chain wallet remains under your recovery phrase. It does not automatically increase the separate internal AURA trading balance; use the P2P desk for internal-ledger funding.
         </p>
       </div>
     </div>
