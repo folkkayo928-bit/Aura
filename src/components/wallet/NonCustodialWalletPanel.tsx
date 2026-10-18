@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Check, Copy, Eye, EyeOff, KeyRound, LockKeyhole, ShieldCheck, Wallet } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Check, Copy, Eye, EyeOff, KeyRound, Loader2, LockKeyhole, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import {
+  EVM_NETWORKS,
+  estimateEvmUsdtTransfer,
+  readEvmBalances,
+  readEvmTransactionStatus,
+  sendEvmUsdt,
+  type EvmBalanceSnapshot,
+  type EvmNetwork,
+  type EvmTransferReview,
+  type EvmTransactionStatus,
+} from '../../lib/evmClient';
 import {
   createRecoveryPhrase,
   getLocalEvmWalletMetadata,
@@ -42,6 +53,44 @@ export const NonCustodialWalletPanel: React.FC = () => {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [balances, setBalances] = useState<EvmBalanceSnapshot[]>([]);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceError, setBalanceError] = useState('');
+  const [sendNetwork, setSendNetwork] = useState<EvmNetwork>('polygon');
+  const [sendDestination, setSendDestination] = useState('');
+  const [sendAmount, setSendAmount] = useState('');
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [transferReview, setTransferReview] = useState<EvmTransferReview | null>(null);
+  const [sendConfirmed, setSendConfirmed] = useState(false);
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sendResult, setSendResult] = useState<{
+    hash: string;
+    network: EvmNetwork;
+    amount: string;
+    destination: string;
+    status: EvmTransactionStatus;
+  } | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+
+  const refreshBalances = async (addressValue?: string) => {
+    const targetAddress = addressValue || metadata?.address;
+    if (!targetAddress) return;
+    setBalanceLoading(true);
+    setBalanceError('');
+    try {
+      const next = await readEvmBalances(targetAddress);
+      setBalances(next);
+      if (next.every((item) => !item.available)) {
+        setBalanceError('Could not read balances from the current RPC endpoints. No balance has been changed.');
+      } else if (next.some((item) => !item.available)) {
+        setBalanceError('Some networks are unavailable right now. Balances shown as unavailable must not be treated as zero.');
+      }
+    } catch (cause) {
+      setBalanceError(cause instanceof Error ? cause.message : 'Could not load on-chain balances.');
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +125,97 @@ export const NonCustodialWalletPanel: React.FC = () => {
 
     return () => { cancelled = true; };
   }, [user?.id, authLoading]);
+
+  useEffect(() => {
+    if (!metadata?.address) {
+      setBalances([]);
+      setBalanceError('');
+      return;
+    }
+    let cancelled = false;
+    setBalanceLoading(true);
+    setBalanceError('');
+    void readEvmBalances(metadata.address).then((next) => {
+      if (cancelled) return;
+      setBalances(next);
+      if (next.every((item) => !item.available)) {
+        setBalanceError('Could not read balances from the current RPC endpoints. No balance has been changed.');
+      } else if (next.some((item) => !item.available)) {
+        setBalanceError('Some networks are unavailable right now. Balances shown as unavailable must not be treated as zero.');
+      }
+    }).catch((cause) => {
+      if (!cancelled) setBalanceError(cause instanceof Error ? cause.message : 'Could not load on-chain balances.');
+    }).finally(() => {
+      if (!cancelled) setBalanceLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [metadata?.address]);
+
+  const reviewTransfer = async () => {
+    if (!walletMnemonic) {
+      setError('Unlock your personal wallet with your PIN before reviewing a transfer.');
+      return;
+    }
+    setReviewBusy(true);
+    setError('');
+    setNotice('');
+    setTransferReview(null);
+    setSendConfirmed(false);
+    setSendResult(null);
+    try {
+      const result = await estimateEvmUsdtTransfer(walletMnemonic, sendNetwork, sendDestination, sendAmount);
+      setTransferReview(result);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not validate this transfer.');
+    } finally {
+      setReviewBusy(false);
+    }
+  };
+
+  const submitTransfer = async () => {
+    if (!walletMnemonic || !transferReview || !sendConfirmed) return;
+    setSendBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await sendEvmUsdt(walletMnemonic, sendNetwork, sendDestination, sendAmount);
+      setSendResult({ ...result, status: 'pending' });
+      setTransferReview(null);
+      setSendConfirmed(false);
+      setNotice('Transaction submitted. Wait for on-chain confirmation before treating it as complete.');
+      lockWallet();
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Could not submit the transfer.';
+      if (message.includes('TRANSFER_SUBMISSION_UNCERTAIN')) {
+        setNotice('The RPC response was unclear. The wallet was locked to prevent accidental repeat sends. Check the chain explorer and destination wallet before trying again.');
+        lockWallet();
+      }
+      setError(message);
+    } finally {
+      setSendBusy(false);
+    }
+  };
+
+  const checkLatestTransaction = async () => {
+    if (!sendResult) return;
+    setStatusBusy(true);
+    try {
+      const status = await readEvmTransactionStatus(sendResult.network, sendResult.hash);
+      setSendResult((previous) => previous ? { ...previous, status } : previous);
+      if (status === 'confirmed') {
+        setNotice('The chain reports a successful transaction receipt. Refresh the balances to reconcile the latest token amounts.');
+        await refreshBalances(metadata?.address);
+      } else if (status === 'failed') {
+        setError('The chain reports that this transaction failed. Review the explorer receipt; no automatic resend was attempted.');
+      } else if (status === 'unavailable') {
+        setError('Could not read the transaction receipt from available RPC endpoints. Check the explorer before retrying.');
+      } else {
+        setNotice('The transaction has no confirmed receipt yet. Do not submit it again while it is pending.');
+      }
+    } finally {
+      setStatusBusy(false);
+    }
+  };
 
   const resetForm = () => {
     setMode(metadata ? 'unlock' : 'summary');
