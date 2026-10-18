@@ -78,6 +78,13 @@ function amountFromUnits(units: bigint, decimals: number) {
   return fraction ? whole.toString() + "." + fraction : whole.toString();
 }
 
+function canonicalDecimal(value: string) {
+  const [wholeRaw, fractionRaw = ""] = value.split(".");
+  const whole = wholeRaw.replace(/^0+(?=\\d)/, "") || "0";
+  const fraction = fractionRaw.replace(/0+$/, "");
+  return fraction ? whole + "." + fraction : whole;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*" } });
   if (req.method !== "POST") return Response.json({ ok: false, error: "METHOD_NOT_ALLOWED" }, { status: 405 });
@@ -237,7 +244,7 @@ Deno.serve(async (req) => {
               String(log.topics[0]).toLowerCase() !== TRANSFER_TOPIC ||
               addressFromTopic(String(log.topics[1])) !== expectedFrom ||
               addressFromTopic(String(log.topics[2])) !== expectedTo) return false;
-          return amountFromUnits(asBigInt(log.data), EVM[chain].decimals) === expectedAmount;
+          return canonicalDecimal(amountFromUnits(asBigInt(log.data), EVM[chain].decimals)) === canonicalDecimal(expectedAmount);
         });
         const now = new Date().toISOString();
         if (verified && confirmationsCount >= Number(transfer.required_confirmations)) {
