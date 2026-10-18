@@ -348,6 +348,14 @@ export const WalletView: React.FC = () => {
             <div className="mt-1 text-[10px] font-mono text-purple-300">Solana</div>
             <div className="mt-2 text-[10px] text-stone-500">Connect or open Phantom</div>
           </button>
+          <button
+            onClick={() => connectExternalWallet('Tonkeeper', 'ton')}
+            className="col-span-2 rounded-2xl border border-sky-400/20 bg-sky-400/[0.05] p-3 text-left hover:bg-sky-400/10 transition-colors"
+          >
+            <div className="text-xs font-semibold text-stone-100">TON Connect</div>
+            <div className="mt-1 text-[10px] font-mono text-sky-300">TON Mainnet</div>
+            <div className="mt-2 text-[10px] text-stone-500">Connect a supported TON wallet and verify ownership</div>
+          </button>
         </div>
 
         <div className="space-y-2">
