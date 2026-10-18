@@ -33,6 +33,7 @@ test('local EVM wallet phrase, deterministic derivation, and encrypted recovery'
   const knownPhrase = 'test test test test test test test test test test test junk';
   const address = deriveEvmAddress(knownPhrase);
   assert.match(address, /^0x[0-9a-fA-F]{40}$/);
+  assert.equal(address.toLowerCase(), '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266');
   assert.equal(deriveEvmAddress(knownPhrase), address);
 
   const saved = await storeEncryptedLocalEvmWallet('test-user', knownPhrase, '81726354');
