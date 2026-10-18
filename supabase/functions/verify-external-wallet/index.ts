@@ -106,19 +106,35 @@ Deno.serve(async (req) => {
       const messageBytes = new TextEncoder().encode(challenge.message);
       const signatureBytes = ethers.getBytes(body.signature);
       const publicKeyBytes = bs58Decode(normalized);
+      if (publicKeyBytes.length !== 32 || signatureBytes.length !== 64) {
+        return json({ success: false, error: "INVALID_SOLANA_SIGNATURE" }, 400);
+      }
       valid = ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
     }
 
     if (!valid) return json({ success: false, error: "SIGNATURE_INVALID" }, 400);
 
+    // Claim the challenge atomically before saving the wallet. Concurrent requests cannot reuse it.
     const now = new Date().toISOString();
+    const { data: claimedChallenge, error: claimError } = await admin
+      .from("external_wallet_challenges")
+      .update({ used_at: now })
+      .eq("id", challenge.id)
+      .eq("user_id", user.id)
+      .is("used_at", null)
+      .gt("expires_at", now)
+      .select("id")
+      .maybeSingle();
+    if (claimError || !claimedChallenge) {
+      return json({ success: false, error: "CHALLENGE_ALREADY_USED_OR_EXPIRED" }, 400);
+    }
+
     const { data: wallet, error: walletError } = await admin.from("external_wallets")
-      .upsert({ user_id: user.id, provider, network, address: normalized, verified_at: now, connected_at: now }, { onConflict: "user_id,provider,address" })
+      .upsert({ user_id: user.id, provider, network, address: normalized, verified_at: now, connected_at: now }, { onConflict: "user_id,provider,network,address" })
       .select()
       .maybeSingle();
-    if (walletError) return json({ success: false, error: walletError.message }, 500);
+    if (walletError) return json({ success: false, error: "WALLET_SAVE_FAILED" }, 500);
 
-    await admin.from("external_wallet_challenges").update({ used_at: now }).eq("id", challenge.id);
     return json({ success: true, wallet });
   } catch (error) {
     return json({ success: false, error: error instanceof Error ? error.message : "VERIFICATION_FAILED" }, 400);
