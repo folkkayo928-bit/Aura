@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { ConnectButton, ThirdwebProvider } from 'thirdweb/react';
-import { createWallet } from 'thirdweb/wallets';
-import { AURA_THIRDWEB_TEST_CHAIN, getThirdwebClient } from '../../../lib/thirdweb';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
 import { TransactionHistoryModal } from '../wallet/TransactionHistoryModal';
+import { NonCustodialWalletPanel } from '../wallet/NonCustodialWalletPanel';
 
 const formatExactUsdtBalance = (value: number): string => {
   if (!Number.isFinite(value)) return '0';
@@ -15,11 +13,6 @@ const formatExactUsdtBalance = (value: number): string => {
 };
 
 // Explicitly isolated testnet wallet preview; never used for AURA USDT settlement.
-const AURA_THIRDWEB_TEST_WALLETS = [
-  createWallet('io.metamask'),
-  createWallet('app.phantom'),
-];
-
 import {
   Send,
   QrCode,
@@ -65,9 +58,6 @@ export const WalletView: React.FC = () => {
   const ownedArtworks = artworks.filter((a) => a.isOwned);
   const digitalArtValuation = ownedArtworks.reduce((acc, a) => acc + a.currentValue, 0);
   const totalNetWorth = walletBalance + digitalArtValuation;
-  const thirdwebClient = getThirdwebClient();
-  const thirdwebConfigured = Boolean(thirdwebClient);
-
   const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawAsset, setWithdrawAsset] = useState<'USDT'>('USDT');
@@ -394,63 +384,7 @@ export const WalletView: React.FC = () => {
         </div>
       </div>
 
-      {/* THIRDWEB TESTNET PREVIEW — deliberately separate from production USDT custody. */}
-      <div className="px-1">
-        <div className="rounded-3xl border border-violet-400/20 bg-violet-400/[0.04] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-stone-200">thirdweb smart wallet preview</div>
-              <div className="mt-1 text-sm font-semibold text-stone-100">Base Sepolia testnet only</div>
-            </div>
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-mono ${thirdwebConfigured ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
-              {thirdwebConfigured ? 'CLIENT READY' : 'CLIENT ID MISSING'}
-            </span>
-          </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-stone-400">
-            Connect MetaMask or Phantom as the owner of an ERC-4337 smart account on Base Sepolia. This testnet-only smart account is separate from AURA sign-in and ledger balances; it does not deposit, send, withdraw, or move mainnet USDT.
-          </p>
-          {thirdwebClient ? (
-            <div className="mt-4">
-              <ThirdwebProvider>
-                <ConnectButton
-                  client={thirdwebClient}
-                  chain={AURA_THIRDWEB_TEST_CHAIN}
-                  accountAbstraction={{
-                    chain: AURA_THIRDWEB_TEST_CHAIN,
-                    sponsorGas: true,
-                  }}
-                  wallets={AURA_THIRDWEB_TEST_WALLETS}
-                  showAllWallets={false}
-                  autoConnect={false}
-                  theme="dark"
-                  connectModal={{ size: 'compact' }}
-                  connectButton={{
-                    label: 'Connect Test Smart Wallet',
-                    style: {
-                      width: '100%',
-                      borderRadius: '12px',
-                      backgroundColor: '#f5c45e',
-                      color: '#18181b',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      minHeight: '42px',
-                    },
-                  }}
-                  appMetadata={{
-                    name: 'AURA Testnet Preview',
-                    url: 'https://aura-8bom.onrender.com',
-                    description: 'Base Sepolia only; does not access AURA production balances or send mainnet funds.',
-                  }}
-                />
-              </ThirdwebProvider>
-            </div>
-          ) : (
-            <p className="mt-3 text-[10px] text-stone-500">
-              Configure the public VITE_THIRDWEB_CLIENT_ID in Render to enable this optional preview. Do not put a thirdweb Secret Key in a VITE_ variable.
-            </p>
-          )}
-        </div>
-      </div>
+      <NonCustodialWalletPanel />
 
       {/* CONVERT QUICK ACCESS STRIP */}
       {ownedArtworks.length > 0 && (
