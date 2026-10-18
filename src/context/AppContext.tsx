@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { createNeutralAvatar } from '../lib/avatar';
 import { readEvmTokenBalance, type EvmNetwork } from '../lib/evmClient';
+import { readSolanaUsdtBalance } from '../lib/solanaClient';
 import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import {
   Artwork,
@@ -410,6 +411,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshConnectedWalletBalance = async (wallet: ConnectedExternalWallet) => {
     const isEvmNetwork = wallet.network === 'ethereum' || wallet.network === 'polygon' || wallet.network === 'arbitrum' || wallet.network === 'bsc';
+    if (wallet.network === 'solana') {
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id
+        ? { ...item, balanceStatus: 'loading', tokenSymbol: 'USDT' }
+        : item));
+      try {
+        const snapshot = await readSolanaUsdtBalance(wallet.address);
+        setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+          ? {
+              ...item,
+              balance: snapshot.available ? Number(snapshot.tokenBalance) : 0,
+              balanceStatus: snapshot.available ? 'available' : 'unavailable',
+              tokenSymbol: snapshot.tokenSymbol,
+            }
+          : item));
+      } catch {
+        setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+          ? { ...item, balanceStatus: 'unavailable' }
+          : item));
+      }
+      return;
+    }
     if (!isEvmNetwork) {
       setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id
         ? { ...item, balanceStatus: 'unsupported' }
@@ -766,7 +788,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         address: w.address,
         connectedAt: new Date(w.connected_at).toLocaleDateString(),
         balance: 0,
-        balanceStatus: ['ethereum', 'polygon', 'arbitrum', 'bsc'].includes(w.network) ? 'loading' : 'unsupported',
+        balanceStatus: ['ethereum', 'polygon', 'arbitrum', 'bsc', 'solana'].includes(w.network) ? 'loading' : 'unsupported',
         tokenSymbol: w.network === 'polygon' ? 'USDT0' : 'USDT',
       }));
       setConnectedWallets(restoredExternalWallets);
@@ -1679,7 +1701,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         address: data.address,
         connectedAt: new Date(data.connected_at).toLocaleDateString(),
         balance: 0,
-        balanceStatus: network === 'ethereum' || network === 'polygon' || network === 'arbitrum' || network === 'bsc' ? 'loading' : 'unsupported',
+        balanceStatus: network === 'ethereum' || network === 'polygon' || network === 'arbitrum' || network === 'bsc' || network === 'solana' ? 'loading' : 'unsupported',
         tokenSymbol: network === 'polygon' ? 'USDT0' : 'USDT',
       };
       setConnectedWallets(prev => [connected, ...prev.filter(w => w.id !== connected.id && !(w.name === name && w.network === network && w.address.toLowerCase() === address.toLowerCase()))]);
