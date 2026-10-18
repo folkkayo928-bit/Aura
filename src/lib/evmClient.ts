@@ -9,6 +9,7 @@ import {
   parseUnits,
   type Address,
   type Chain,
+  type Hash,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { normalizeRecoveryPhrase } from './nonCustodialWallet';
@@ -279,6 +280,27 @@ export async function estimateEvmUsdtTransfer(
     nativeBalance: formatUnits(nativeBalance, 18),
     estimatedNativeFee: formatUnits(estimatedCost, 18),
   };
+}
+
+export type EvmTransactionStatus = 'pending' | 'confirmed' | 'failed' | 'unavailable';
+
+export async function readEvmTransactionStatus(
+  network: EvmNetwork,
+  hashValue: string,
+): Promise<EvmTransactionStatus> {
+  if (!/^0x[a-fA-F0-9]{64}$/.test(hashValue)) return 'unavailable';
+  try {
+    const client = makePublicClient(network);
+    const receipt = await client.getTransactionReceipt({ hash: hashValue as Hash });
+    return receipt.status === 'success' ? 'confirmed' : 'failed';
+  } catch (cause) {
+    const name = cause instanceof Error ? cause.name : '';
+    const message = cause instanceof Error ? cause.message.toLowerCase() : '';
+    if (name.includes('TransactionReceiptNotFound') || message.includes('transaction receipt could not be found')) {
+      return 'pending';
+    }
+    return 'unavailable';
+  }
 }
 
 export async function sendEvmUsdt(
