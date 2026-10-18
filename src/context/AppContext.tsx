@@ -1692,6 +1692,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [user]);
 
+  const refreshInternalWallet = async () => {
+    if (!user) return;
+    try {
+      const [wallet, ledger] = await Promise.all([
+        supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
+        supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+      ]);
+      if (!wallet.error && wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+      if (!ledger.error && ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    } catch {
+      // Keep the last known balance if the refresh endpoint is temporarily unavailable.
+      // The server-side wallet ledger remains authoritative.
+    }
+  };
+
   const startP2POrder = async ({
     offer,
     cryptoAmount,
@@ -1743,6 +1758,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const uiOrder = backendP2POrderToUi(enriched);
     setActiveP2POrder(uiOrder);
+    await refreshInternalWallet();
 
     const isArtworkTrade = Boolean(orderRow.artwork_id || offer.artworkId);
     addNotification(
@@ -1794,6 +1810,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setP2pOffers(prev => prev
       .map(o => o.id === row.offer_id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - offerAmount) } : o)
       .filter(o => o.availableCrypto > 0));
+
+    await refreshInternalWallet();
 
     addNotification(
       row.artwork_id ? '✅ Artwork P2P Order Accepted' : '✅ P2P Order Accepted',
@@ -1860,10 +1878,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
 
-    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
-    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
-    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
-    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    const offerRes = await supabase.from('p2p_offers')
+      .select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)')
+      .eq('id', row.offer_id)
+      .maybeSingle();
+    if (offerRes.data) {
+      const restored = backendP2POfferToUi(offerRes.data as any);
+      setP2pOffers((previous) => {
+        const remaining = previous.filter((offer) => offer.id !== restored.id);
+        return offerRes.data.is_active && Number(offerRes.data.available_crypto) > 0
+          ? [restored, ...remaining]
+          : remaining;
+      });
+    }
+    await refreshInternalWallet();
     addNotification('✅ P2P Trade Completed', `${row.crypto_amount} USDT was released to the buyer.`, 'p2p');
     return true;
   };
@@ -1928,6 +1956,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setP2pOffers(prev => prev.filter(o => o.id !== offerId));
+    await refreshInternalWallet();
     addNotification('🔓 P2P Reserve Released', 'Your unused reserved USDT was returned to your available wallet balance.', 'p2p');
     return true;
   };
@@ -1957,6 +1986,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }),
     };
     setP2pOffers(prev => [localOffer, ...prev]);
+    await refreshInternalWallet();
     addNotification('📣 P2P Offer Published', 'Your live offer was saved to the AURA order book.', 'p2p');
     return true;
   };
