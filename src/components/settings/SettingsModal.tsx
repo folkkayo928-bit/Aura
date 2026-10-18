@@ -17,7 +17,6 @@ import {
   Plus,
   Camera,
   Image as ImageIcon,
-  Smartphone,
   AlertTriangle,
   CreditCard,
 } from 'lucide-react';
@@ -44,7 +43,6 @@ export const SettingsModal: React.FC = () => {
   const [coverImage, setCoverImage] = useState(userProfile.coverImage || '');
   const [defaultCurrency, setDefaultCurrency] = useState(userProfile.defaultCurrency);
   const [telegramBotAlerts, setTelegramBotAlerts] = useState(userProfile.telegramBotAlerts);
-  const [biometricAuth, setBiometricAuth] = useState(userProfile.biometricAuth);
 
   const [connectWalletPickerOpen, setConnectWalletPickerOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -115,7 +113,6 @@ export const SettingsModal: React.FC = () => {
       defaultCurrency,
       telegramBotAlerts,
       twoFactorEnabled: Boolean(mfaFactorId),
-      biometricAuth,
     });
     if (saved) setSettingsModalOpen(false);
   };
@@ -378,22 +375,15 @@ export const SettingsModal: React.FC = () => {
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setBiometricAuth((current) => !current)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5"
-                >
+                <div className="w-full rounded-xl border border-white/5 bg-white/[0.02] p-3 opacity-80">
                   <div className="flex items-center gap-2 text-left">
-                    <Smartphone className="w-4 h-4 text-cyan-300" />
+                    <ShieldCheck className="h-4 w-4 text-cyan-300" />
                     <div>
-                      <span className="text-xs font-medium text-stone-200 block">Biometric / Passkey</span>
-                      <span className="text-[10px] text-stone-500 block">
-                        Preference only until AURA Passkey is enabled in Supabase Auth.
-                      </span>
+                      <span className="block text-xs font-medium text-stone-200">Passkey sign-in</span>
+                      <span className="mt-0.5 block text-[10px] text-stone-500">Not enabled yet. AURA will show this as available only after Supabase Auth passkeys are configured and a real registration/sign-in test passes.</span>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-mono ${biometricAuth ? 'text-emerald-300' : 'text-stone-500'}`}>{biometricAuth ? 'ON' : 'OFF'}</span>
-                </button>
+                </div>
               </div>
 
               <button type="button" onClick={() => void signOut()} className="w-full py-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-300 font-semibold text-xs hover:bg-rose-500/10">Sign out of AURA</button>
@@ -421,7 +411,7 @@ export const SettingsModal: React.FC = () => {
 
               <button
                 onClick={() => {
-                  void updateUserProfile({ defaultCurrency, telegramBotAlerts, twoFactorEnabled: Boolean(mfaFactorId), biometricAuth });
+                  void updateUserProfile({ defaultCurrency, telegramBotAlerts, twoFactorEnabled: Boolean(mfaFactorId) });
                   setSettingsModalOpen(false);
                 }}
                 className="w-full py-3.5 rounded-xl bg-amber-400 text-stone-950 font-bold text-xs"
