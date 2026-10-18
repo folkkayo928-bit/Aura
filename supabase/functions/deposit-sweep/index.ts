@@ -191,8 +191,25 @@ Deno.serve(async (req) => {
       const rpcUrl = rpcEndpoint(chain as keyof typeof CHAINS, alchemy);
       const treasury = Deno.env.get(cfg.treasury) || "";
       if (!rpcUrl || !treasury) {
+        const blockedQuery = await client
+          .from("wallet_deposits")
+          .select("id", { count: "exact", head: true })
+          .eq("chain", chain)
+          .in("status", ["confirmed", "credited"])
+          .not("credited_at", "is", null)
+          .in("sweep_status", ["pending", "failed"])
+          .is("sweep_tx_hash", null);
+        if (blockedQuery.error) throw blockedQuery.error;
         skipped++;
-        summaries.push({ chain, status: "configuration_missing" });
+        summaries.push({
+          chain,
+          status: "configuration_missing",
+          missing_settings: [
+            !rpcUrl ? cfg.rpc : null,
+            !treasury ? cfg.treasury : null,
+          ].filter(Boolean),
+          blocked_pending_deposits: blockedQuery.count ?? 0,
+        });
         continue;
       }
       if (!validAddress(treasury)) {
@@ -540,7 +557,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ ok: true, swept, skipped, failed, summaries });
+    const blockedChains = summaries.filter((item) =>
+      ["configuration_missing", "invalid_treasury_address", "rpc_chain_id_mismatch"].includes(String(item.status))
+    );
+    return json({
+      ok: true,
+      ready: failed === 0 && blockedChains.length === 0,
+      swept,
+      skipped,
+      failed,
+      blocked_chains: blockedChains,
+      summaries,
+    });
   } catch (error) {
     console.error("deposit-sweep failed", error);
     return json({ ok: false, error: "DEPOSIT_SWEEP_ERROR" }, 500);
