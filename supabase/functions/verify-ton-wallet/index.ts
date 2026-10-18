@@ -81,8 +81,7 @@ function publicKeyFromSupportedStateInit(stateInit: ReturnType<typeof loadStateI
   const data = stateInit.data.beginParse();
   if (layout === "v5") data.loadBit(); // signature-auth flag
   data.loadUint(32); // seqno
-  if (layout !== "v1" && layout !== "v2") data.loadUint(32); // wallet id / subwallet id
-  else if (layout === "v2") data.loadUint(32); // wallet id in V2
+  if (layout === "v3" || layout === "v4" || layout === "v5") data.loadUint(32); // wallet id / subwallet id
   return data.loadBuffer(32);
 }
 async function verifyTonProof(input: {
