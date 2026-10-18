@@ -627,7 +627,7 @@ export const BuyModal: React.FC = () => {
         </div>
 
         <p className="mt-4 text-[10px] leading-relaxed text-stone-500">
-          External USDT sent to your personal on-chain wallet remains under your recovery phrase. It does not automatically increase the separate internal AURA trading balance; use the P2P desk for internal-ledger funding.
+          Your personal on-chain wallet and AURA P2P balance are separate. P2P trades use the AURA internal-ledger balance; sending USDT to your personal address does not fund that balance. Automatic on-chain-to-ledger funding is not enabled here, so do not expect a personal-wallet deposit to appear in P2P.
         </p>
       </div>
     </div>
