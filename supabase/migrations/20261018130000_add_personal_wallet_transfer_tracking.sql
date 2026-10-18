@@ -44,7 +44,7 @@ create table if not exists public.personal_wallet_transfers (
   status text not null default 'detected' check (status in ('detected','confirmed','failed')),
   detected_at timestamptz not null default now(),
   confirmed_at timestamptz,
-  unique (network, tx_hash, log_index, address)
+  unique (user_id, network, tx_hash, log_index, address)
 );
 
 alter table public.personal_wallet_transfers enable row level security;
