@@ -12,7 +12,6 @@ const formatExactUsdtBalance = (value: number): string => {
   return value.toFixed(8).replace(/\.?0+$/, '');
 };
 
-// Explicitly isolated testnet wallet preview; never used for AURA USDT settlement.
 import {
   Send,
   QrCode,
