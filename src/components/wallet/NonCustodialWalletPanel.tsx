@@ -148,6 +148,15 @@ export const NonCustodialWalletPanel: React.FC = () => {
         .limit(50);
       if (error) throw error;
       setIncomingTransfers((data || []) as IncomingTransfer[]);
+      const tracking = await supabase.from('personal_wallet_addresses')
+        .select('id,last_scanned_at')
+        .eq('user_id', user.id)
+        .eq('address', metadata.address.toLowerCase())
+        .maybeSingle();
+      if (!tracking.error) {
+        setTrackingEnabled(Boolean(tracking.data));
+        setLastScannedAt(tracking.data?.last_scanned_at || null);
+      }
     } catch {
       setIncomingHistoryError('Incoming history is unavailable right now. Your on-chain balance remains separate and unchanged.');
     } finally {
