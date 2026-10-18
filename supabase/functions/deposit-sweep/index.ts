@@ -6,7 +6,6 @@ const CHAINS = {
     rpc: "AURA_EVM_RPC_ETHEREUM",
     chainId: 1,
 confirmations: 12,
-    alchemy: "eth-mainnet",
     token: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
     treasury: "AURA_EVM_TREASURY_ETHEREUM",
     tokenDecimals: 6,
@@ -15,7 +14,6 @@ confirmations: 12,
     rpc: "AURA_EVM_RPC_POLYGON",
     chainId: 137,
 confirmations: 30,
-    alchemy: "polygon-mainnet",
     token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
     treasury: "AURA_EVM_TREASURY_POLYGON",
     tokenDecimals: 6,
@@ -24,7 +22,6 @@ confirmations: 30,
     rpc: "AURA_EVM_RPC_ARBITRUM",
     chainId: 42161,
 confirmations: 20,
-    alchemy: "arb-mainnet",
     token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
     treasury: "AURA_EVM_TREASURY_ARBITRUM",
     tokenDecimals: 6,
@@ -33,7 +30,6 @@ confirmations: 20,
     rpc: "AURA_EVM_RPC_BSC",
     chainId: 56,
 confirmations: 15,
-    alchemy: "bnb-mainnet",
     token: "0x55d398326f99059fF775485246999027B3197955",
     treasury: "AURA_EVM_TREASURY_BSC",
     tokenDecimals: 18,
@@ -66,28 +62,24 @@ async function authorized(client: ReturnType<typeof db>, req: Request) {
   return !error && !!data && provided.length > 0 && provided === data;
 }
 
-async function custodySecret(client: ReturnType<typeof db>, name: "xprv" | "mnemonic" | "alchemy" | "xpub") {
+async function custodySecret(client: ReturnType<typeof db>, name: "xprv" | "mnemonic" | "xpub") {
   const fn = name === "xprv"
     ? "get_aura_evm_deposit_xprv"
     : name === "mnemonic"
       ? "get_aura_evm_deposit_mnemonic"
-      : name === "xpub"
-        ? "get_aura_evm_deposit_xpub"
-        : "get_aura_alchemy_api_key";
+      : "get_aura_evm_deposit_xpub";
   const { data } = await client.rpc(fn);
   return String(data || "").trim();
 }
-function rpcEndpoint(chain: keyof typeof CHAINS, apiKey: string) {
+function rpcEndpoint(chain: keyof typeof CHAINS) {
   const configured = Deno.env.get(CHAINS[chain].rpc)?.trim();
   if (configured) return configured;
-  // Prefer the connected Alchemy app when configured; public fallbacks keep
-  // all four supported mainnet chains available without a separate RPC secret.
-  if (apiKey) return `https://${CHAINS[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
+  // The legacy sweep uses the same dRPC endpoints as the personal wallet.
   const fallback: Record<keyof typeof CHAINS, string> = {
-    ethereum: "https://ethereum-rpc.publicnode.com",
-    polygon: "https://polygon-bor-rpc.publicnode.com",
-    arbitrum: "https://arb1.arbitrum.io/rpc",
-    bsc: "https://bsc-rpc.publicnode.com",
+    ethereum: "https://eth.drpc.org",
+    polygon: "https://polygon.drpc.org",
+    arbitrum: "https://arbitrum.drpc.org",
+    bsc: "https://bsc.drpc.org",
   };
   return fallback[chain];
 }
@@ -135,7 +127,6 @@ Deno.serve(async (req) => {
 
   const xprv = Deno.env.get("AURA_EVM_DEPOSIT_XPRV")?.trim() || await custodySecret(client, "xprv");
   const mnemonic = Deno.env.get("AURA_EVM_DEPOSIT_MNEMONIC")?.trim() || await custodySecret(client, "mnemonic");
-  const alchemy = Deno.env.get("ALCHEMY_API_KEY")?.trim() || await custodySecret(client, "alchemy");
   if (!xprv && !mnemonic) {
     return json({
       ok: true,
@@ -188,7 +179,7 @@ Deno.serve(async (req) => {
 
   try {
     for (const [chain, cfg] of Object.entries(CHAINS)) {
-      const rpcUrl = rpcEndpoint(chain as keyof typeof CHAINS, alchemy);
+      const rpcUrl = rpcEndpoint(chain as keyof typeof CHAINS);
       const treasury = Deno.env.get(cfg.treasury) || "";
       if (!rpcUrl || !treasury) {
         skipped++;
