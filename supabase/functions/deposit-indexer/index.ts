@@ -1,10 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 const ERC20_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const EVM = {
-  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
-  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
-  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
-  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
+  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", alchemy: "eth-mainnet", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
+  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", alchemy: "polygon-mainnet", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
+  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", alchemy: "arb-mainnet", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", alchemy: "bnb-mainnet", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
 } as const;
 function secretKey() {
   const raw = Deno.env.get("SUPABASE_SECRET_KEYS") || "";
@@ -16,6 +16,10 @@ async function authorized(client: ReturnType<typeof db>, req: Request) {
   const provided = req.headers.get("x-aura-worker-secret") || "";
   const { data, error } = await client.rpc("get_aura_worker_secret");
   return !error && !!data && provided.length > 0 && provided === data;
+}
+async function alchemyKey(client: ReturnType<typeof db>) {
+  const { data } = await client.rpc("get_aura_alchemy_api_key");
+  return String(data || "").trim();
 }
 type Chain = keyof typeof EVM;
 const EVM_READ_RPC_FALLBACKS: Record<Chain, string[]> = {
@@ -41,9 +45,10 @@ const EVM_READ_RPC_FALLBACKS: Record<Chain, string[]> = {
   ],
 };
 const preferredReadRpc: Partial<Record<Chain, string>> = {};
-function rpcUrl(chain: Chain) {
+function rpcUrl(chain: Chain, apiKey: string) {
   const configured = Deno.env.get(EVM[chain].rpc)?.trim();
   if (configured) return configured;
+  if (apiKey) return `https://${EVM[chain].alchemy}.g.alchemy.com/v2/${apiKey}`;
   return EVM_READ_RPC_FALLBACKS[chain][0] || "";
 }
 async function rpc(url: string, method: string, params: unknown[], chain?: Chain) {
@@ -127,7 +132,8 @@ Deno.serve(async (req) => {
   const client = db();
   if (!(await authorized(client, req))) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   try {
-      const { data: wallets, error: walletError } = await client
+    const alchemy = await alchemyKey(client);
+    const { data: wallets, error: walletError } = await client
       .from("onchain_wallets").select("user_id,chain,address,created_at")
       .in("chain", Object.keys(EVM));
     if (walletError) throw walletError;
@@ -150,7 +156,7 @@ Deno.serve(async (req) => {
       const typedChain = chain as keyof typeof EVM;
       const cfg = EVM[typedChain];
       if (!cfg || tracked.length === 0) continue;
-      const rpcEndpoint = rpcUrl(typedChain);
+      const rpcEndpoint = rpcUrl(typedChain, alchemy);
       if (!rpcEndpoint) continue;
       const chainScanBlocks = typedChain === "bsc"
         ? bscScanBlocks
@@ -299,7 +305,7 @@ Deno.serve(async (req) => {
       const cfg = EVM[String(deposit.chain).toLowerCase() as keyof typeof EVM];
       if (!cfg) continue;
       const chain = String(deposit.chain).toLowerCase() as keyof typeof EVM;
-      const rpcEndpoint = rpcUrl(chain);
+      const rpcEndpoint = rpcUrl(chain, alchemy);
       if (!rpcEndpoint) continue;
       try {
       const receipt = await rpc(rpcEndpoint, "eth_getTransactionReceipt", [deposit.tx_hash], chain);
