@@ -614,7 +614,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <span className="block font-mono text-xs text-emerald-200">
-                        {balance?.available ? displayBalance(balance.usdt) + ' USDT' : balanceLoading ? 'Checking…' : 'Unavailable'}
+                        {balance?.available ? displayBalance(balance.usdt) + ' ' + network.tokenSymbol : balanceLoading ? 'Checking…' : 'Unavailable'}
                       </span>
                       <span className="mt-0.5 block text-[8px] text-stone-600">
                         {balance?.available ? 'Block ' + balance.blockNumber : 'Not assumed to be zero'}
@@ -631,7 +631,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
           <div className="rounded-2xl border border-emerald-400/20 bg-emerald-950/10 p-3">
             <div className="flex items-center gap-2">
               <ArrowUpRight className="h-4 w-4 text-emerald-300" />
-              <h3 className="text-xs font-semibold text-stone-100">Send USDT from your wallet</h3>
+              <h3 className="text-xs font-semibold text-stone-100">Send the network token from your wallet</h3>
             </div>
             <p className="mt-1 text-[9px] leading-relaxed text-stone-500">Transactions are signed on this device. Aura does not receive your recovery phrase. You must hold the network's native gas token.</p>
 
@@ -654,7 +654,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
                     className="w-full rounded-xl border border-white/10 bg-[#111118] p-3 text-xs text-stone-100 outline-none focus:border-emerald-300/50"
                   >
                     {EVM_NETWORKS.map((network) => (
-                      <option key={network.key} value={network.key}>{network.label} · USDT</option>
+                      <option key={network.key} value={network.key}>{network.label} · {network.tokenSymbol}</option>
                     ))}
                   </select>
                 </label>
@@ -678,7 +678,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-[9px] font-mono uppercase tracking-wider text-stone-500">USDT amount</span>
+                  <span className="mb-1 block text-[9px] font-mono uppercase tracking-wider text-stone-500">{sendNetwork === 'polygon' ? 'USDT0' : 'USDT'} amount</span>
                   <input
                     value={sendAmount}
                     onChange={(event) => {
@@ -708,7 +708,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
                   <div className="space-y-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-3">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-[10px] text-stone-400">You will send</span>
-                      <span className="font-mono text-sm font-semibold text-amber-100">{transferReview.amount} USDT</span>
+                      <span className="font-mono text-sm font-semibold text-amber-100">{transferReview.amount} {transferReview.tokenSymbol}</span>
                     </div>
                     <div className="space-y-1.5 border-t border-white/5 pt-2 text-[10px]">
                       <div className="flex items-start justify-between gap-3">
@@ -736,7 +736,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
                     <p className="text-[9px] leading-relaxed text-amber-100">This estimate can change before broadcast. Blockchain transfers cannot be reversed. AURA does not charge an app fee in this wallet flow.</p>
                     <label className="flex items-start gap-2 text-[10px] leading-relaxed text-stone-200">
                       <input type="checkbox" checked={sendConfirmed} onChange={(event) => setSendConfirmed(event.target.checked)} className="mt-0.5 accent-emerald-300" />
-                      I checked the network, amount, and full recipient address. I understand this sends real USDT on mainnet.
+                      I checked the network, token, amount, and full recipient address. I understand this sends a real mainnet transaction.
                     </label>
                     <button
                       type="button"
@@ -745,7 +745,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 py-3 text-xs font-bold text-stone-950 disabled:opacity-40"
                     >
                       {sendBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
-                      {sendBusy ? 'Signing and submitting…' : 'Confirm and send USDT'}
+                      {sendBusy ? 'Signing and submitting…' : 'Confirm and send token'}
                     </button>
                     <button type="button" onClick={() => { setTransferReview(null); setSendConfirmed(false); }} disabled={sendBusy} className="w-full py-1.5 text-[10px] text-stone-400 underline underline-offset-4">Edit transfer details</button>
                   </div>
