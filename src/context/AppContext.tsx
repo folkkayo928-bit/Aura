@@ -1661,7 +1661,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         balanceStatus: network === 'ethereum' || network === 'polygon' || network === 'arbitrum' || network === 'bsc' ? 'loading' : 'unsupported',
         tokenSymbol: network === 'polygon' ? 'USDT0' : 'USDT',
       };
-      setConnectedWallets(prev => [connected, ...prev.filter(w => w.id !== connected.id && w.address !== address)]);
+      setConnectedWallets(prev => [connected, ...prev.filter(w => w.id !== connected.id && !(w.name === name && w.network === network && w.address.toLowerCase() === address.toLowerCase()))]);
       addNotification('🔐 Wallet Ownership Verified', `${name} ownership was cryptographically verified on ${network}.`, 'community');
       void refreshConnectedWalletBalance(connected);
     })();
