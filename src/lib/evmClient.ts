@@ -282,17 +282,35 @@ export async function estimateEvmUsdtTransfer(
   };
 }
 
-export type EvmTransactionStatus = 'pending' | 'confirmed' | 'failed' | 'unavailable';
+export type EvmTransactionStatus = 'pending' | 'confirmed' | 'failed' | 'unverified' | 'unavailable';
+
+const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 export async function readEvmTransactionStatus(
   network: EvmNetwork,
   hashValue: string,
+  expectedTransfer: { from: string; destination: string; amount: string },
 ): Promise<EvmTransactionStatus> {
   if (!/^0x[a-fA-F0-9]{64}$/.test(hashValue)) return 'unavailable';
   try {
+    const config = NETWORKS[network];
     const client = makePublicClient(network);
     const receipt = await client.getTransactionReceipt({ hash: hashValue as Hash });
-    return receipt.status === 'success' ? 'confirmed' : 'failed';
+    if (receipt.status !== 'success') return 'failed';
+
+    const expectedFrom = getAddress(expectedTransfer.from).toLowerCase();
+    const expectedTo = getAddress(expectedTransfer.destination).toLowerCase();
+    const expectedUnits = parseUnits(expectedTransfer.amount, config.tokenDecimals);
+    const matches = receipt.logs.some((log) => {
+      if (log.address.toLowerCase() !== config.token.toLowerCase() || log.topics.length < 3) return false;
+      if (String(log.topics[0]).toLowerCase() !== ERC20_TRANSFER_TOPIC) return false;
+      const from = ('0x' + String(log.topics[1]).slice(-40)).toLowerCase();
+      const to = ('0x' + String(log.topics[2]).slice(-40)).toLowerCase();
+      let units: bigint;
+      try { units = BigInt(log.data); } catch { return false; }
+      return from === expectedFrom && to === expectedTo && units === expectedUnits;
+    });
+    return matches ? 'confirmed' : 'unverified';
   } catch (cause) {
     const name = cause instanceof Error ? cause.name : '';
     const message = cause instanceof Error ? cause.message.toLowerCase() : '';
