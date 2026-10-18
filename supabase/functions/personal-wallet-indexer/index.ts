@@ -80,7 +80,7 @@ function amountFromUnits(units: bigint, decimals: number) {
 
 function canonicalDecimal(value: string) {
   const [wholeRaw, fractionRaw = ""] = value.split(".");
-  const whole = wholeRaw.replace(/^0+(?=\\d)/, "") || "0";
+  const whole = wholeRaw.replace(/^0+(?=\d)/, "") || "0";
   const fraction = fractionRaw.replace(/0+$/, "");
   return fraction ? whole + "." + fraction : whole;
 }
