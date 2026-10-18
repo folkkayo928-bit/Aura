@@ -19,7 +19,7 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Test local wallet recovery and encryption
+      - name: Test wallet recovery, encryption, and EVM send safety
         run: npm run test:wallet
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.web.json --noUnusedLocals
