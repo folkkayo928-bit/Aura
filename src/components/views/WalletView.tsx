@@ -102,7 +102,7 @@ export const WalletView: React.FC = () => {
             </span>
             <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
-              Wallet Balance
+              AURA Ledger Balance
             </span>
           </div>
 
@@ -123,7 +123,7 @@ export const WalletView: React.FC = () => {
               className="p-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 hover:border-emerald-500/40 cursor-pointer transition-all"
             >
               <div className="flex items-center justify-between text-[11px] text-emerald-300 mb-0.5">
-                <span>USDT Balance</span>
+                <span>AURA Ledger USDT</span>
                 <span className="text-[10px] text-emerald-400 font-mono">₮ 1:1 USD</span>
               </div>
               <span className="font-serif text-lg font-bold text-stone-100 tabular-nums">
@@ -308,7 +308,7 @@ export const WalletView: React.FC = () => {
             </div>
           </div>
           <p className="text-[11px] text-stone-400 leading-relaxed">
-            Use this Vault ID or your AURA handle to receive internal USDT from another AURA account. External blockchain deposits require a connected wallet/provider and are not simulated by AURA.
+            Use this Vault ID or your AURA handle only for internal AURA transfers. External on-chain USDT goes to your personal wallet address in Receive and stays separate from this internal ledger balance.
           </p>
           <button onClick={() => setReceiveModalOpen(true)} className="w-full py-3 rounded-xl bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 font-semibold text-xs">
             Show Receive Details
