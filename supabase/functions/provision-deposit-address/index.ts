@@ -4,6 +4,18 @@ import { HDNodeWallet, getAddress } from "npm:ethers@6";
 
 const CHAINS = ["ethereum", "polygon", "arbitrum", "bsc"] as const;
 
+const TREASURY_ENV_BY_CHAIN: Record<(typeof CHAINS)[number], string> = {
+  ethereum: "AURA_EVM_TREASURY_ETHEREUM",
+  polygon: "AURA_EVM_TREASURY_POLYGON",
+  arbitrum: "AURA_EVM_TREASURY_ARBITRUM",
+  bsc: "AURA_EVM_TREASURY_BSC",
+};
+
+function hasValidTreasuryConfiguration(chain: (typeof CHAINS)[number]) {
+  const treasury = (Deno.env.get(TREASURY_ENV_BY_CHAIN[chain]) || "").trim();
+  return /^0x[a-fA-F0-9]{40}$/.test(treasury);
+}
+
 type DepositRow = {
   chain: string;
   address: string;
@@ -214,6 +226,18 @@ Deno.serve(async (req) => {
 
   try {
     const targetChains = requestedChain ? [requestedChain] : CHAINS;
+    const blockedChains = targetChains.filter((chain) => !hasValidTreasuryConfiguration(chain));
+    if (blockedChains.length > 0) {
+      return Response.json(
+        {
+          success: false,
+          error: "CHAIN_DEPOSITS_PAUSED",
+          message: "External USDT receiving is paused on this network while AURA completes treasury setup. Please choose another network; do not use a previously saved address on this network.",
+        },
+        { status: 503, headers: corsHeaders },
+      );
+    }
+
     let byChain = await getCustodialRows(client, userId);
 
     for (const chain of targetChains) {
