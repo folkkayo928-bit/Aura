@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
         for (let i = 0; i < addressTopics.length; i += 100) topicBatches.push(addressTopics.slice(i, i + 100));
         const logTasks: Array<() => Promise<any[]>> = [];
         for (let chunkFrom = from; chunkFrom <= scanTo;) {
-          const chunkTo = chunkFrom + 9n < scanTo ? chunkFrom + 9n : scanTo;
+          const chunkTo = chunkFrom + 99n < scanTo ? chunkFrom + 99n : scanTo;
           for (const batch of topicBatches) {
             logTasks.push(() => rpc(chain, "eth_getLogs", [{
               fromBlock: "0x" + chunkFrom.toString(16),
