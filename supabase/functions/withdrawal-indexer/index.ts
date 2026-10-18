@@ -36,10 +36,10 @@ async function notifyTelegramWithdrawal(client: ReturnType<typeof db>, userId: s
   }
 }
 const EVM = {
-  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", fallbackRpc: "https://ethereum-rpc.publicnode.com", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
-  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", fallbackRpc: "https://polygon-bor-rpc.publicnode.com", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
-  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", fallbackRpc: "https://arb1.arbitrum.io/rpc", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
-  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpc: "https://bsc-rpc.publicnode.com", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
+  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", fallbackRpc: "https://eth.drpc.org", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
+  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", fallbackRpc: "https://polygon.drpc.org", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
+  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", fallbackRpc: "https://arbitrum.drpc.org", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpc: "https://bsc.drpc.org", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
 } as const;
 
 async function rpc(url: string, method: string, params: unknown[]) {
