@@ -87,7 +87,8 @@ test('uncertain signed broadcast returns its hash without retrying on another RP
       }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
 
-    let result: unknown = '0x' + '0'.repeat(64);
+    const abiWord = (value: bigint | number) => '0x' + BigInt(value).toString(16).padStart(64, '0');
+    let result: unknown = abiWord(0);
     if (request.method === 'eth_chainId') result = '0x1';
     else if (request.method === 'eth_getTransactionCount') result = '0x0';
     else if (request.method === 'eth_gasPrice') result = '0x3b9aca00';
@@ -95,9 +96,9 @@ test('uncertain signed broadcast returns its hash without retrying on another RP
     else if (request.method === 'eth_estimateGas') result = '0x186a0';
     else if (request.method === 'eth_call') {
       const callData = String((request.params?.[0] as { data?: string } | undefined)?.data || '').toLowerCase();
-      if (callData.startsWith('0x313ce567')) result = '0x6';
-      else if (callData.startsWith('0x70a08231')) result = '0x3b9aca00';
-      else if (callData.startsWith('0xa9059cbb')) result = '0x' + '0'.repeat(63) + '1';
+      if (callData.startsWith('0x313ce567')) result = abiWord(6);
+      else if (callData.startsWith('0x70a08231')) result = abiWord(1_000_000_000);
+      else if (callData.startsWith('0xa9059cbb')) result = abiWord(1);
     }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }), {
       status: 200,
