@@ -19,7 +19,7 @@ This is the source of truth for the wallet direction. Keep the product small: Su
 - Thirdweb's optional Base Sepolia preview and its direct frontend dependency have been removed.
 - The deposit indexer now prefers its dRPC endpoint list and public fallbacks instead of reaching for Alchemy first.
 
-This branch now contains the code paths for public-RPC balance reads, locally signed EVM token sends, recipient/token/chain validation, gas estimates, simulation, transaction receipt checks, and device-local outgoing transfer history for Ethereum, Polygon, Arbitrum One and BNB Smart Chain. These are implementation milestones, not proof of production operation: no controlled mainnet send/receive has been verified for this release; public RPC availability has not been load/soak-tested; incoming transfers are not shown in a complete in-app history; and on-chain funds do not automatically credit the separate AURA/P2P ledger. Keep those limitations visible until independently tested.
+This branch contains public-RPC balances and locally signed EVM sends for Ethereum, Polygon, Arbitrum One and BNB Smart Chain, with validation, simulation, precomputed transaction hashes, receipt verification and device-local outgoing history. It also adds opt-in incoming USDT/USDT0 indexing in a separate table. Incoming tracking starts from a bounded recent scan/cursor and is not a full historical archive; it never credits the AURA/P2P ledger. These are implementation milestones, not proof of production operation: no controlled mainnet send/receive has been verified and public RPC availability has not been load/soak-tested.
 
 ## RPC configuration
 
@@ -65,11 +65,13 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [ ] Complete dRPC API configuration and test every target network.
 - [x] Implement public-RPC reads for native and network-token balances, with chain ID and token-decimal checks. Still verify every network against reliable production RPC endpoints.
 - [x] Implement client-side signing/broadcast code for personal-wallet sends with recipient, chain, token-decimal, token-balance, native gas, simulation, and explicit-confirmation checks. Still require controlled mainnet transfer tests before launch.
-- [x] Implement receipt status checks for outgoing transfers, comparing the expected token contract, sender, recipient, amount and confirmation count, plus device-local outgoing history. Full incoming/deposit history is not implemented yet.
+- [x] Implement outgoing receipt checks and device-local history.
+- [x] Add opt-in incoming USDT/USDT0 transfer indexing with receipt/token/sender/recipient/amount verification and confirmation tracking. Historical coverage is bounded; users are told that transfers before tracking may not appear.
 - [ ] Retire legacy server-managed receiving, sweeping and Thirdweb payout code only after old funds and queued operations are reconciled.
 - [x] Implement passkey sign-in, registration, listing and removal using the current Supabase JS SDK.
 - [ ] Enable passkeys on the hosted Supabase Auth service with the stable production RP ID/origin, then test registration and sign-in in the live browser/Telegram WebView.
-- [ ] Add and test reliable incoming-transfer history and a separately designed, server-verified on-chain-to-ledger credit path if P2P funding from personal wallets is required. Never trust a frontend assertion or credit the ledger from an address alone.
+- [ ] Test incoming indexing on all four chains under RPC failure, reorg, duplicate log, and catch-up conditions. Keep its rows read-only to users and separate from wallet_ledger.
+- [ ] Design a separately audited on-chain-to-ledger credit path if P2P funding from personal wallets is required. Never trust a frontend assertion or credit the ledger from an address alone.
 - [ ] Run controlled low-value mainnet sends/receives on each enabled network, verify balances and receipts across independent RPC/explorers, and test mobile/Telegram WebView recovery before release.
 - [ ] Complete end-to-end P2P tests for funded buy/sell orders, escrow-lock/refund, payment-proof, dispute, and settlement. Preserve the existing open dispute.
 - [ ] Implement TON Connect with server-side TON proof verification and additive database constraint migration; keep it disabled until verified.
