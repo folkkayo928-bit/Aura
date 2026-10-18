@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit -p tsconfig.web.json --noUnusedLocals",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:wallet": "node --experimental-strip-types --test src/lib/nonCustodialWallet.test.ts"
   },
   "dependencies": {
     "@scure/bip39": "^1.6.0",
