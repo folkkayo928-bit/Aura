@@ -7,7 +7,7 @@ This is the source of truth for the wallet direction. Keep the product small: Su
 1. Users control their own EVM recovery phrase and private key. New phrases are generated in the browser. AURA must never upload a recovery phrase, private key, PIN, or decrypted wallet material to Supabase, Render, logs, analytics, or support.
 2. The personal wallet uses the standard EVM path m/44'/60'/0'/0/0. Ethereum, Polygon, Arbitrum One, and BNB Smart Chain use the same EVM address for this account.
 3. The phrase is encrypted on the current device with AES-GCM. The encryption key is derived using PBKDF2-SHA256 with 600,000 iterations and a unique salt. The local record contains public address metadata plus ciphertext; it does not store the plaintext phrase. The 8–12 digit device PIN is not the recovery phrase. Recommend a longer, unpredictable PIN and maintain an offline phrase backup.
-4. Google/Apple/email/Telegram sign-in establishes the AURA app identity. It does not control or recover the non-custodial wallet. TOTP MFA already exists for the AURA account. Passkey sign-in is not yet implemented/enabled in the current project and must not be advertised as available.
+4. Google/Apple/email/Telegram sign-in establishes the AURA app identity. It does not control or recover the non-custodial wallet. TOTP MFA already exists for the AURA account. Passkey registration, listing/removal and sign-in are implemented with the current Supabase JS SDK in this branch; the hosted Supabase Auth project must have passkeys enabled with the production WebAuthn relying-party ID/origin before they can work.
 5. User-owned wallet funds are not the same as the legacy AURA internal USDT ledger. Never credit the internal ledger based only on a local address, submitted transaction, or frontend success message. Server-side on-chain proof and a deliberately designed ledger policy are required before any reconciliation feature is added.
 
 ## What is in the current non-custodial foundation
@@ -67,5 +67,6 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [ ] Implement client-side signing and broadcasting for non-custodial sends; validate chain, recipient, amount and gas before signing.
 - [ ] Implement reliable transaction status and history; do not report success before observing the transaction hash and confirmed receipt.
 - [ ] Retire legacy server-managed receiving, sweeping and Thirdweb payout code only after old funds and queued operations are reconciled.
-- [ ] Upgrade/configure Supabase Auth and implement passkeys.
+- [x] Implement passkey sign-in, registration, listing and removal using the current Supabase JS SDK.
+- [ ] Enable passkeys on the hosted Supabase Auth service with the stable production RP ID/origin, then test registration and sign-in in the live browser/Telegram WebView.
 - [ ] Run security and end-to-end tests on web and Telegram Mini App before calling the wallet production-ready.
