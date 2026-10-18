@@ -428,7 +428,7 @@ export const ReceiveModal: React.FC = () => {
               else localStorage.removeItem(cacheKey);
             }
           } catch {
-            localStorage.removeItem(cacheKey);
+            // Storage may be unavailable in restricted Telegram webviews.
           }
           setDepositMessage(String(backendPayload.message || 'External USDT receiving is paused on this network. Do not send funds to a previously saved address.'));
         } else if (!hasCachedSelectedAddress) {
