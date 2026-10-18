@@ -145,10 +145,14 @@ Deno.serve(async (req) => {
         const logTasks: Array<() => Promise<any[]>> = [];
         for (let chunkFrom = from; chunkFrom <= scanTo;) {
           const chunkTo = chunkFrom + 99n < scanTo ? chunkFrom + 99n : scanTo;
+          // Capture immutable block bounds. The tasks execute after this loop,
+          // so closing over the mutable loop variables would scan the wrong range.
+          const batchFrom = chunkFrom;
+          const batchTo = chunkTo;
           for (const batch of topicBatches) {
             logTasks.push(() => rpc(chain, "eth_getLogs", [{
-              fromBlock: "0x" + chunkFrom.toString(16),
-              toBlock: "0x" + chunkTo.toString(16),
+              fromBlock: "0x" + batchFrom.toString(16),
+              toBlock: "0x" + batchTo.toString(16),
               address: cfg.token,
               topics: [TRANSFER_TOPIC, null, batch],
             }]).then((value) => Array.isArray(value) ? value : []));
