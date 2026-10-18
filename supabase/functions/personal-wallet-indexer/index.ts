@@ -183,6 +183,7 @@ Deno.serve(async (req) => {
               tx_hash: txHash,
               log_index: logIndex,
               block_number: blockNumber.toString(),
+              block_hash: String(log.blockHash || '').toLowerCase(),
               from_address: addressFromTopic(String(log.topics[1])),
               to_address: destination,
               amount: amountFromUnits(units, cfg.decimals),
@@ -224,7 +225,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: pendingRows, error: pendingError } = await client.from("personal_wallet_transfers")
-      .select("id,network,tx_hash,log_index,block_number,from_address,to_address,amount,token_contract,required_confirmations,status")
+      .select("id,network,tx_hash,log_index,block_number,block_hash,from_address,to_address,amount,token_contract,required_confirmations,status")
       .eq("status", "detected")
       .limit(200);
     if (pendingError) throw pendingError;
@@ -234,14 +235,20 @@ Deno.serve(async (req) => {
       try {
         const latest = latestByChain[chain] ?? asBigInt(await rpc(chain, "eth_blockNumber", []));
         const receipt = await rpc(chain, "eth_getTransactionReceipt", [transfer.tx_hash]);
-        if (!receipt) continue;
+        if (!receipt || String(receipt.transactionHash || "").toLowerCase() !== String(transfer.tx_hash).toLowerCase()) continue;
+        const minedBlock = asBigInt(receipt.blockNumber);
+        const receiptBlockHash = String(receipt.blockHash || "").toLowerCase();
+        if (!/^0x[0-9a-f]{64}$/.test(receiptBlockHash)) continue;
+        // Only update confirmation state after verifying the receipt is still on the canonical chain.
+        const canonicalBlock = await rpc(chain, "eth_getBlockByNumber", ["0x" + minedBlock.toString(16), false]);
+        if (!canonicalBlock || String(canonicalBlock.hash || "").toLowerCase() !== receiptBlockHash) continue;
+        const confirmationsCount = Number(latest >= minedBlock ? latest - minedBlock + 1n : 0n);
         if (String(receipt.status) !== "0x1") {
-          const { error } = await client.from("personal_wallet_transfers").update({ status: "failed", confirmations: 0 }).eq("id", transfer.id).eq("status", "detected");
+          const update = { status: confirmationsCount >= Number(transfer.required_confirmations) ? "failed" : "detected", confirmations: confirmationsCount, block_number: minedBlock.toString(), block_hash: receiptBlockHash };
+          const { error } = await client.from("personal_wallet_transfers").update(update).eq("id", transfer.id).eq("status", "detected");
           if (error) throw error;
           continue;
         }
-        const minedBlock = asBigInt(receipt.blockNumber);
-        const confirmationsCount = Number(latest >= minedBlock ? latest - minedBlock + 1n : 0n);
         const expectedLogIndex = Number(transfer.log_index);
         const expectedFrom = String(transfer.from_address).toLowerCase();
         const expectedTo = String(transfer.to_address).toLowerCase();
@@ -249,6 +256,8 @@ Deno.serve(async (req) => {
         const expectedAmount = String(transfer.amount);
         const verified = Array.isArray(receipt.logs) && receipt.logs.some((log: any) => {
           if (Number(asBigInt(log.logIndex)) !== expectedLogIndex ||
+              String(log.transactionHash || "").toLowerCase() !== String(transfer.tx_hash).toLowerCase() ||
+              String(log.blockHash || "").toLowerCase() !== receiptBlockHash ||
               String(log.address || "").toLowerCase() !== expectedToken ||
               !Array.isArray(log.topics) || log.topics.length < 3 ||
               String(log.topics[0]).toLowerCase() !== TRANSFER_TOPIC ||
@@ -259,13 +268,13 @@ Deno.serve(async (req) => {
         const now = new Date().toISOString();
         if (verified && confirmationsCount >= Number(transfer.required_confirmations)) {
           const { error } = await client.from("personal_wallet_transfers").update({
-            status: "confirmed", confirmations: confirmationsCount, block_number: minedBlock.toString(), confirmed_at: now,
+            status: "confirmed", confirmations: confirmationsCount, block_number: minedBlock.toString(), block_hash: receiptBlockHash, confirmed_at: now,
           }).eq("id", transfer.id).eq("status", "detected");
           if (error) throw error;
           confirmed++;
         } else {
           const { error } = await client.from("personal_wallet_transfers").update({
-            confirmations: confirmationsCount,
+            confirmations: confirmationsCount, block_number: minedBlock.toString(), block_hash: receiptBlockHash,
           }).eq("id", transfer.id).eq("status", "detected");
           if (error) throw error;
         }
