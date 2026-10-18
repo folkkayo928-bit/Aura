@@ -114,18 +114,24 @@ async function deriveEncryptionKey(pin: string, salt: Uint8Array): Promise<Crypt
   }
   const material = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(pin),
+    asArrayBuffer(encoder.encode(pin)),
     'PBKDF2',
     false,
     ['deriveKey'],
   );
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: asArrayBuffer(salt), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     material,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt'],
   );
+}
+
+function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
 }
 
 function additionalData(userId: string): Uint8Array {
@@ -157,9 +163,9 @@ export async function storeEncryptedLocalEvmWallet(
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encryptionKey = await deriveEncryptionKey(pin, salt);
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv, additionalData: additionalData(userId) },
+    { name: 'AES-GCM', iv: asArrayBuffer(iv), additionalData: asArrayBuffer(additionalData(userId)) },
     encryptionKey,
-    encoder.encode(mnemonic),
+    asArrayBuffer(encoder.encode(mnemonic)),
   );
 
   const record: StoredLocalEvmWallet = {
@@ -199,11 +205,11 @@ export async function unlockLocalEvmWallet(
     const decrypted = await crypto.subtle.decrypt(
       {
         name: 'AES-GCM',
-        iv: fromBase64(record.iv),
-        additionalData: additionalData(userId),
+        iv: asArrayBuffer(fromBase64(record.iv)),
+        additionalData: asArrayBuffer(additionalData(userId)),
       },
       key,
-      fromBase64(record.ciphertext),
+      asArrayBuffer(fromBase64(record.ciphertext)),
     );
     const mnemonic = normalizeRecoveryPhrase(new TextDecoder().decode(decrypted));
     const address = deriveEvmAddress(mnemonic);
