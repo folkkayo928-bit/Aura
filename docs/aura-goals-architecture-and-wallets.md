@@ -71,7 +71,14 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [x] Implement passkey sign-in, registration, listing and removal using the current Supabase JS SDK.
 - [ ] Enable passkeys on the hosted Supabase Auth service with the stable production RP ID/origin, then test registration and sign-in in the live browser/Telegram WebView.
 - [ ] Test incoming indexing on all four chains under RPC failure, reorg, duplicate log, and catch-up conditions. Keep its rows read-only to users and separate from wallet_ledger.
-- [ ] Design a separately audited on-chain-to-ledger credit path if P2P funding from personal wallets is required. Never trust a frontend assertion or credit the ledger from an address alone.
+- [ ] Implement and audit the on-chain-to-ledger funding path before enabling P2P funding from a personal wallet. Required design:
+  1. The user explicitly initiates a transfer from their own wallet to a configured AURA-controlled treasury/deposit address; merely tracking their personal wallet never funds the AURA ledger.
+  2. The backend independently verifies the chain, allowlisted token contract, destination treasury, sender, amount, transaction receipt, canonical block hash and chain-specific confirmation threshold. Never accept frontend-provided amount/status as proof.
+  3. Record each transfer/log under a unique idempotency key (network + transaction hash + log index + token contract + treasury address) and atomically reconcile it to exactly one ledger credit. Retries must return the same result, not add another credit.
+  4. Keep detected funds pending until confirmation; handle RPC outages and reorgs without prematurely crediting. If a credited transfer is later reorganized, apply a separately audited compensating ledger entry—never rewrite/delete ledger history.
+  5. Verify treasury address ownership/configuration, signing and gas readiness, fee/minimum/deposit policy, unsupported-token rejection, monitoring, reconciliation and rollback before production enablement.
+  6. Keep personal-wallet history, legacy custodial deposits and P2P escrow as distinct records. P2P escrow may reserve only confirmed, available internal-ledger funds; disputes and refunds must use existing server-enforced state transitions.
+  No crediting function or automatic credit is enabled by the current personal-wallet indexer.
 - [ ] Run controlled low-value mainnet sends/receives on each enabled network, verify balances and receipts across independent RPC/explorers, and test mobile/Telegram WebView recovery before release.
 - [ ] Complete end-to-end P2P tests for funded buy/sell orders, escrow-lock/refund, payment-proof, dispute, and settlement. Preserve the existing open dispute.
 - [ ] Implement TON Connect with server-side TON proof verification and additive database constraint migration; keep it disabled until verified.
