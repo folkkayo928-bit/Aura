@@ -65,7 +65,7 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [ ] Complete dRPC API configuration and test every target network.
 - [x] Implement public-RPC reads for native and network-token balances, with chain ID and token-decimal checks. Still verify every network against reliable production RPC endpoints.
 - [x] Implement client-side signing/broadcast code for personal-wallet sends with recipient, chain, token-decimal, token-balance, native gas, simulation, and explicit-confirmation checks. Still require controlled mainnet transfer tests before launch.
-- [x] Implement outgoing receipt checks and device-local history.
+- [x] Implement outgoing receipt checks, canonical block-hash checks before marking transfers confirmed, and device-local history.
 - [x] Add opt-in incoming USDT/USDT0 transfer indexing with receipt/token/sender/recipient/amount verification, configured confirmation thresholds, and canonical block-hash checks before status changes. The latest indexer also stores the receipt block hash for detected/confirmed rows; historical coverage is bounded and users are told that transfers before tracking may not appear.
 - [ ] Retire legacy server-managed receiving, sweeping and Thirdweb payout code only after old funds and queued operations are reconciled.
 - [x] Implement passkey sign-in, registration, listing and removal using the current Supabase JS SDK.
