@@ -102,8 +102,12 @@ Deno.serve(async (req) => {
       .map((row) => ({ user_id: String(row.user_id), address: String(row.address).toLowerCase(), created_at: String(row.created_at) }));
     if (!tracked.length) return Response.json({ ok: true, tracked_wallets: 0, chains: [], detected: 0, confirmed: 0 });
 
-    const byAddress = new Map<string, string>();
-    for (const wallet of tracked) byAddress.set(wallet.address, wallet.user_id);
+    const byAddress = new Map<string, string[]>();
+    for (const wallet of tracked) {
+      const users = byAddress.get(wallet.address) || [];
+      if (!users.includes(wallet.user_id)) users.push(wallet.user_id);
+      byAddress.set(wallet.address, users);
+    }
     const addressTopics = [...new Set(tracked.map((wallet) => padAddress(wallet.address)))];
     const detectedBefore = Date.now();
     let detected = 0;
@@ -162,36 +166,38 @@ Deno.serve(async (req) => {
           if (!Array.isArray(log.topics) || log.topics.length < 3) continue;
           if (String(log.address || "").toLowerCase() !== cfg.token.toLowerCase()) continue;
           const destination = addressFromTopic(String(log.topics[2]));
-          const userId = byAddress.get(destination);
+          const userIds = byAddress.get(destination) || [];
           const txHash = String(log.transactionHash || "").toLowerCase();
-          if (!userId || !/^0x[0-9a-f]{64}$/.test(txHash)) continue;
+          if (!userIds.length || !/^0x[0-9a-f]{64}$/.test(txHash)) continue;
           const units = asBigInt(log.data);
           if (units <= 0n) continue;
           const logIndex = Number(asBigInt(log.logIndex));
           const blockNumber = asBigInt(log.blockNumber);
           if (!Number.isSafeInteger(logIndex) || logIndex < 0) continue;
-          const key = txHash + ":" + logIndex + ":" + destination;
-          records.set(key, {
-            user_id: userId,
-            address: destination,
-            network: chain,
-            tx_hash: txHash,
-            log_index: logIndex,
-            block_number: blockNumber.toString(),
-            from_address: addressFromTopic(String(log.topics[1])),
-            to_address: destination,
-            amount: amountFromUnits(units, cfg.decimals),
-            token_symbol: cfg.symbol,
-            token_contract: cfg.token.toLowerCase(),
-            confirmations: Number(latest >= blockNumber ? latest - blockNumber + 1n : 0n),
-            required_confirmations: cfg.confirmations,
-            status: "detected",
-          });
+          for (const userId of userIds) {
+            const key = userId + ":" + txHash + ":" + logIndex + ":" + destination;
+            records.set(key, {
+              user_id: userId,
+              address: destination,
+              network: chain,
+              tx_hash: txHash,
+              log_index: logIndex,
+              block_number: blockNumber.toString(),
+              from_address: addressFromTopic(String(log.topics[1])),
+              to_address: destination,
+              amount: amountFromUnits(units, cfg.decimals),
+              token_symbol: cfg.symbol,
+              token_contract: cfg.token.toLowerCase(),
+              confirmations: Number(latest >= blockNumber ? latest - blockNumber + 1n : 0n),
+              required_confirmations: cfg.confirmations,
+              status: "detected",
+            });
+          }
         }
         const rows = [...records.values()];
         if (rows.length) {
           const { error } = await client.from("personal_wallet_transfers").upsert(rows, {
-            onConflict: "network,tx_hash,log_index,address",
+            onConflict: "user_id,network,tx_hash,log_index,address",
             ignoreDuplicates: true,
           });
           if (error) throw error;
