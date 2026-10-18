@@ -191,15 +191,6 @@ Deno.serve(async (req) => {
       const rpcUrl = rpcEndpoint(chain as keyof typeof CHAINS, alchemy);
       const treasury = Deno.env.get(cfg.treasury) || "";
       if (!rpcUrl || !treasury) {
-        const blockedQuery = await client
-          .from("wallet_deposits")
-          .select("id", { count: "exact", head: true })
-          .eq("chain", chain)
-          .in("status", ["confirmed", "credited"])
-          .not("credited_at", "is", null)
-          .in("sweep_status", ["pending", "failed"])
-          .is("sweep_tx_hash", null);
-        if (blockedQuery.error) throw blockedQuery.error;
         skipped++;
         summaries.push({
           chain,
@@ -208,7 +199,6 @@ Deno.serve(async (req) => {
             !rpcUrl ? cfg.rpc : null,
             !treasury ? cfg.treasury : null,
           ].filter(Boolean),
-          blocked_pending_deposits: blockedQuery.count ?? 0,
         });
         continue;
       }
