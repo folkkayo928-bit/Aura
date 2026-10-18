@@ -138,19 +138,23 @@ Deno.serve(async (req) => {
         const logs: any[] = [];
         const topicBatches: string[][] = [];
         for (let i = 0; i < addressTopics.length; i += 100) topicBatches.push(addressTopics.slice(i, i + 100));
-
+        const logTasks: Array<Promise<any[]>> = [];
         for (let chunkFrom = from; chunkFrom <= scanTo;) {
           const chunkTo = chunkFrom + 9n < scanTo ? chunkFrom + 9n : scanTo;
           for (const batch of topicBatches) {
-            const batchLogs = await rpc(chain, "eth_getLogs", [{
+            logTasks.push(rpc(chain, "eth_getLogs", [{
               fromBlock: "0x" + chunkFrom.toString(16),
               toBlock: "0x" + chunkTo.toString(16),
               address: cfg.token,
               topics: [TRANSFER_TOPIC, null, batch],
-            }]);
-            if (Array.isArray(batchLogs)) logs.push(...batchLogs);
+            }]).then((value) => Array.isArray(value) ? value : []));
           }
           chunkFrom = chunkTo + 1n;
+        }
+        // Bounded concurrency keeps scans fast without flooding public RPC endpoints.
+        for (let i = 0; i < logTasks.length; i += 5) {
+          const batchResults = await Promise.all(logTasks.slice(i, i + 5));
+          for (const batchLogs of batchResults) logs.push(...batchLogs);
         }
 
         const records = new Map<string, Record<string, unknown>>();
