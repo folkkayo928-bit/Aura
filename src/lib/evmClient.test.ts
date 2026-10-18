@@ -10,7 +10,7 @@ const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
 
 const knownPhrase = 'test test test test test test test test test test test junk';
-const validRecipient = '0x000000000000000000000000000000000000dEaD';
+const validRecipient = '0x000000000000000000000000000000000000dead';
 
 test('EVM wallet supports only the intended four networks and token precision', () => {
   assert.deepEqual(EVM_NETWORKS.map((network) => network.key), [
