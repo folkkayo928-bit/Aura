@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import { AlertTriangle, ArrowUpRight, Check, Copy, Eye, EyeOff, KeyRound, Loader2, LockKeyhole, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -22,6 +23,20 @@ import {
 } from '../../lib/nonCustodialWallet';
 
 type Mode = 'checking' | 'summary' | 'create' | 'import' | 'unlock';
+type IncomingTransfer = {
+  id: string;
+  network: EvmNetwork;
+  tx_hash: string;
+  block_number: number | string;
+  from_address: string;
+  to_address: string;
+  amount: number | string;
+  token_symbol: string;
+  confirmations: number;
+  required_confirmations: number;
+  status: 'detected' | 'confirmed' | 'failed';
+  detected_at: string;
+};
 
 function randomPositions(wordCount: number, count: number): number[] {
   if (!globalThis.crypto?.getRandomValues) throw new Error('Secure randomness is not available in this browser.');
@@ -113,6 +128,98 @@ export const NonCustodialWalletPanel: React.FC = () => {
   const [historyOwnerId, setHistoryOwnerId] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState('');
   const [statusBusy, setStatusBusy] = useState(false);
+  const [trackingEnabled, setTrackingEnabled] = useState(false);
+  const [trackingBusy, setTrackingBusy] = useState(false);
+  const [incomingHistoryLoading, setIncomingHistoryLoading] = useState(false);
+  const [incomingHistoryError, setIncomingHistoryError] = useState('');
+  const [incomingTransfers, setIncomingTransfers] = useState<IncomingTransfer[]>([]);
+  const [lastScannedAt, setLastScannedAt] = useState<string | null>(null);
+
+  const refreshIncomingHistory = useCallback(async () => {
+    if (!user?.id || !metadata?.address) return;
+    setIncomingHistoryLoading(true);
+    setIncomingHistoryError('');
+    try {
+      const { data, error } = await supabase.from('personal_wallet_transfers')
+        .select('id,network,tx_hash,block_number,from_address,to_address,amount,token_symbol,confirmations,required_confirmations,status,detected_at')
+        .eq('user_id', user.id)
+        .eq('address', metadata.address.toLowerCase())
+        .order('block_number', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setIncomingTransfers((data || []) as IncomingTransfer[]);
+    } catch {
+      setIncomingHistoryError('Incoming history is unavailable right now. Your on-chain balance remains separate and unchanged.');
+    } finally {
+      setIncomingHistoryLoading(false);
+    }
+  }, [user?.id, metadata?.address]);
+
+  useEffect(() => {
+    if (!user?.id || !metadata?.address) {
+      setTrackingEnabled(false);
+      setLastScannedAt(null);
+      setIncomingTransfers([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase.from('personal_wallet_addresses')
+        .select('id,last_scanned_at')
+        .eq('user_id', user.id)
+        .eq('address', metadata.address.toLowerCase())
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        setIncomingHistoryError('Could not check the history-tracking setting.');
+        return;
+      }
+      setTrackingEnabled(Boolean(data));
+      setLastScannedAt(data?.last_scanned_at || null);
+      await refreshIncomingHistory();
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, metadata?.address, refreshIncomingHistory]);
+
+  const enableIncomingTracking = async () => {
+    if (!user?.id || !metadata?.address) return;
+    setTrackingBusy(true);
+    setIncomingHistoryError('');
+    try {
+      const address = metadata.address.toLowerCase();
+      const existing = await supabase.from('personal_wallet_addresses')
+        .select('id').eq('user_id', user.id).eq('address', address).maybeSingle();
+      if (existing.error) throw existing.error;
+      if (!existing.data) {
+        const inserted = await supabase.from('personal_wallet_addresses').insert({ user_id: user.id, address });
+        if (inserted.error) throw inserted.error;
+      }
+      setTrackingEnabled(true);
+      setNotice('Incoming history tracking enabled. AURA stores only your public address and on-chain transfer metadata, never your recovery phrase or private key.');
+      await refreshIncomingHistory();
+    } catch {
+      setIncomingHistoryError('Could not enable history tracking. No funds were moved and your wallet remains under your control.');
+    } finally {
+      setTrackingBusy(false);
+    }
+  };
+
+  const disableIncomingTracking = async () => {
+    if (!user?.id || !metadata?.address) return;
+    setTrackingBusy(true);
+    try {
+      const { error } = await supabase.from('personal_wallet_addresses')
+        .delete().eq('user_id', user.id).eq('address', metadata.address.toLowerCase());
+      if (error) throw error;
+      setTrackingEnabled(false);
+      setLastScannedAt(null);
+      setNotice('New incoming history tracking is disabled. Previously indexed public transfer records were not deleted.');
+    } catch {
+      setIncomingHistoryError('Could not disable history tracking. Please retry.');
+    } finally {
+      setTrackingBusy(false);
+    }
+  };
 
   // Store public transaction references only. Wallet phrases and private keys never enter this history.
   useEffect(() => {
@@ -712,6 +819,53 @@ export const NonCustodialWalletPanel: React.FC = () => {
             </div>
 
             {balanceError && <div className="mt-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.04] p-2.5 text-[9px] leading-relaxed text-amber-100">{balanceError}</div>}
+          </div>
+
+          <div className="rounded-2xl border border-cyan-400/15 bg-cyan-950/10 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold text-stone-100">Incoming on-chain history</h3>
+                <p className="mt-1 text-[9px] leading-relaxed text-stone-500">Optional public-address tracking. History begins when tracking is enabled; older transfers may not appear. This never credits your separate AURA/P2P ledger.</p>
+              </div>
+              <span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-[8px] uppercase tracking-wider text-stone-300">{trackingEnabled ? 'Tracking on' : 'Tracking off'}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!trackingEnabled ? (
+                <button type="button" onClick={() => void enableIncomingTracking()} disabled={trackingBusy || !user?.id || !metadata?.address} className="rounded-lg bg-cyan-300 px-3 py-2 text-[10px] font-bold text-stone-950 disabled:opacity-50">
+                  {trackingBusy ? 'Enabling…' : 'Enable incoming history'}
+                </button>
+              ) : (
+                <button type="button" onClick={() => void disableIncomingTracking()} disabled={trackingBusy} className="rounded-lg border border-white/10 px-3 py-2 text-[10px] text-stone-200 disabled:opacity-50">
+                  {trackingBusy ? 'Updating…' : 'Stop tracking'}
+                </button>
+              )}
+              <button type="button" onClick={() => void refreshIncomingHistory()} disabled={incomingHistoryLoading || !user?.id || !metadata?.address} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-[10px] text-stone-200 disabled:opacity-50">
+                {incomingHistoryLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Refresh history
+              </button>
+            </div>
+            {trackingEnabled && <p className="mt-2 text-[8px] text-stone-500">Last indexer scan: {lastScannedAt ? new Date(lastScannedAt).toLocaleString() : 'Waiting for first scan'}</p>}
+            {incomingHistoryError && <p role="status" className="mt-2 rounded-lg border border-amber-400/15 bg-amber-400/[0.04] p-2 text-[9px] text-amber-100">{incomingHistoryError}</p>}
+            {incomingTransfers.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {incomingTransfers.map((transfer) => (
+                  <div key={transfer.id} className="rounded-xl border border-white/5 bg-black/20 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs text-emerald-200">+{String(transfer.amount)} {transfer.token_symbol}</span>
+                      <span className={transfer.status === 'confirmed' ? 'text-[8px] uppercase text-emerald-200' : transfer.status === 'failed' ? 'text-[8px] uppercase text-rose-200' : 'text-[8px] uppercase text-amber-100'}>{transfer.status}</span>
+                    </div>
+                    <p className="mt-1 text-[9px] text-stone-500">{transfer.network} · Block {transfer.block_number} · {transfer.confirmations}/{transfer.required_confirmations} confirmations</p>
+                    <p className="mt-1 break-all font-mono text-[8px] text-stone-500">From: {transfer.from_address}</p>
+                    <div className="mt-2 flex justify-between gap-2">
+                      <a href={TRANSACTION_EXPLORERS[transfer.network] + transfer.tx_hash} target="_blank" rel="noreferrer" className="text-[9px] text-cyan-200 underline underline-offset-2">View transaction</a>
+                      <span className="break-all font-mono text-[8px] text-stone-600">{transfer.tx_hash.slice(0, 18)}…</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-[9px] leading-relaxed text-stone-500">{trackingEnabled ? 'No indexed incoming transfers yet. The indexer checks supported networks regularly; this list is not a full historical archive.' : 'Enable tracking to let AURA associate this public address with your account and show future incoming transfers.'}</p>
+            )}
           </div>
 
           <div className="rounded-2xl border border-emerald-400/20 bg-emerald-950/10 p-3">
