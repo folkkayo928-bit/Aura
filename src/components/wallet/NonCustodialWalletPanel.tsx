@@ -362,6 +362,28 @@ export const NonCustodialWalletPanel: React.FC = () => {
     setNotice('Wallet locked. The encrypted local copy was not changed.');
   };
 
+  useEffect(() => {
+    if (!walletMnemonic) return;
+    const lockForBackground = () => {
+      setWalletMnemonic('');
+      setShowRecoveryPhrase(false);
+      setPin('');
+      setConfirmPin('');
+      setNotice('Wallet auto-locked. The encrypted local copy was not changed.');
+    };
+    const timeoutId = window.setTimeout(lockForBackground, 5 * 60 * 1000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') lockForBackground();
+    };
+    window.addEventListener('pagehide', lockForBackground);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('pagehide', lockForBackground);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [walletMnemonic]);
+
   const copyAddress = async () => {
     if (!metadata?.address) return;
     try {
