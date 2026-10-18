@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Address, Cell, contractAddress, loadStateInit } from "npm:@ton/core@0.63.1";
 import { WalletContractV3R2, WalletContractV4 } from "npm:@ton/ton@16.0.0";
 import { ed25519 } from "npm:@noble/curves@1.9.7/ed25519";
+import { Buffer } from "node:buffer";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +33,9 @@ function concat(...parts: Uint8Array[]) {
 }
 function utf8(value: string) { return new TextEncoder().encode(value); }
 async function sha256(value: Uint8Array) {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", value));
+  const copy = new Uint8Array(value.length);
+  copy.set(value);
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", copy.buffer as ArrayBuffer));
 }
 function randomPayload() {
   const bytes = new Uint8Array(32);
@@ -60,7 +63,7 @@ function decodeBase64(value: string) {
 }
 function publicKeyFromSupportedStateInit(stateInit: ReturnType<typeof loadStateInit>, workchain: number) {
   if (!stateInit.code || !stateInit.data) throw new Error("STATE_INIT_INCOMPLETE");
-  const dummyKey = new Uint8Array(32);
+  const dummyKey = Buffer.alloc(32);
   const supportedHashes = new Set([
     bytesToHex(WalletContractV3R2.create({ workchain, publicKey: dummyKey }).init.code.hash()),
     bytesToHex(WalletContractV4.create({ workchain, publicKey: dummyKey }).init.code.hash()),
