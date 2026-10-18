@@ -10,7 +10,7 @@ const encoder = new TextEncoder();
 
 export type LocalEvmWalletMetadata = {
   version: typeof STORAGE_VERSION;
-  address: \`0x\${string}\`;
+  address: string;
   derivationPath: string;
 };
 
@@ -39,7 +39,7 @@ export function isValidRecoveryPhrase(value: string): boolean {
   return validateMnemonic(normalized, wordlist);
 }
 
-export function deriveEvmAddress(value: string): \`0x\${string}\` {
+export function deriveEvmAddress(value: string): string {
   const mnemonic = normalizeRecoveryPhrase(value);
   if (!validateMnemonic(mnemonic, wordlist)) {
     throw new Error('That recovery phrase is not a valid English BIP-39 phrase.');
