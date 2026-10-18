@@ -1,103 +1,71 @@
-# AURA: Goals, Architecture, and Function Map
+# AURA wallet architecture and migration status
 
-## Product goal
+This is the source of truth for the wallet direction. Keep the product small: Supabase Auth for AURA accounts, client-side keys for the non-custodial EVM wallet, and dRPC for blockchain RPC access. Do not introduce another wallet platform unless a specific required feature cannot be implemented safely without it.
 
-AURA is a mobile-first digital-art and Web3 community product, including the Telegram Mini App. Its user journey is:
+## Product rules
 
-**Create → Discover/Collect → Own → Value → Trade → Sell → Convert → Send/Receive → Manage.**
+1. Users control their own EVM recovery phrase and private key. New phrases are generated in the browser. AURA must never upload a recovery phrase, private key, PIN, or decrypted wallet material to Supabase, Render, logs, analytics, or support.
+2. The personal wallet uses the standard EVM path m/44'/60'/0'/0/0. Ethereum, Polygon, Arbitrum One, and BNB Smart Chain use the same EVM address for this account.
+3. The phrase is encrypted on the current device with AES-GCM. The encryption key is derived using PBKDF2-SHA256 with 600,000 iterations and a unique salt. The local record contains public address metadata plus ciphertext; it does not store the plaintext phrase. The 8–12 digit device PIN is not the recovery phrase. Recommend a longer, unpredictable PIN and maintain an offline phrase backup.
+4. Google/Apple/email/Telegram sign-in establishes the AURA app identity. It does not control or recover the non-custodial wallet. TOTP MFA already exists for the AURA account. Passkey sign-in is not yet implemented/enabled in the current project and must not be advertised as available.
+5. User-owned wallet funds are not the same as the legacy AURA internal USDT ledger. Never credit the internal ledger based only on a local address, submitted transaction, or frontend success message. Server-side on-chain proof and a deliberately designed ledger policy are required before any reconciliation feature is added.
 
-The product combines art publishing and collections, creator/collector profiles, community interactions, an AURA USDT internal ledger, on-chain funding/withdrawal, P2P trading, and account/admin tools.
+## What is in the current non-custodial foundation
 
-## The intended thirdweb architecture
+- Wallet creation and import run in the client using BIP-39 and viem.
+- The user confirms three randomly selected recovery words before a new phrase is encrypted locally.
+- The encrypted local wallet can be locked, unlocked by PIN, and restored from the recovery phrase.
+- The receive panel reads the public address from the current account's local wallet record. It no longer requests a new server-controlled deposit address.
+- Thirdweb's optional Base Sepolia preview and its direct frontend dependency have been removed.
+- The deposit indexer now prefers its dRPC endpoint list and public fallbacks instead of reaching for Alchemy first.
 
-AURA should use thirdweb as a Web3 infrastructure layer, not only as a wallet-connect button. The responsibilities are distinct:
+This is a wallet-key foundation, not a claim that all crypto functions are production-ready. The current in-app balance, send/broadcast, fee quote, and on-chain transaction-history paths are not yet fully connected to the new local wallet. The receive UI warns users about that limitation. Do not remove that warning until balances and transaction flows are implemented and independently verified.
 
-- **User smart wallets / account abstraction:** the wallet attached to a member's identity, external-wallet connection, contract calls, and optional gas sponsorship. This must be linked to the signed-in AURA account without merging separate Telegram/Supabase identities.
-- **Server Wallet for backend payouts:** a separate treasury signer used only by authenticated backend workers for USDT withdrawals and approved treasury actions. It must be explicitly registered with the AURA thirdweb project; its address must match the selected network treasury.
-- **Bridge and swap routes:** quote-first token conversion across supported networks, with the exact token contract, chain, output amount, fees, slippage/route, and on-chain final status recorded. A route being quoted or queued is not a completed transfer.
-- **Payments/on-ramp:** optional provider-based purchase flow for tokens and regions that thirdweb currently supports. Never assume a provider or token is supported in Ethiopia without a live quote/eligibility check.
-- **Token/NFT/contract APIs:** read and submit real contract transactions for ownership, collection assets, and supported token operations. Chain results must be reconciled by transaction hash and confirmation before AURA shows final success.
+## RPC configuration
 
-The existing Supabase identity, internal ledger, P2P offer/order state, escrow/settlement, fiat-payment proof, and disputes remain separate application responsibilities. A connected wallet's on-chain balance must never silently become an internal AURA ledger balance. Changes to custody and ledger backing require an explicit migration and reconciliation; they must not be inferred from a successful wallet connection.
+dRPC is the intended RPC provider. Each server-side EVM function accepts optional per-network overrides:
 
-Official thirdweb capabilities documented here: [User and Server Wallet types](https://portal.thirdweb.com/wallets/wallet-types), [Account Abstraction / Smart Accounts](https://portal.thirdweb.com/react/v5/account-abstraction/get-started), [Server Wallet transactions](https://portal.thirdweb.com/wallets/server/send-transactions), and [Bridge and Swap](https://portal.thirdweb.com/bridge/swap).
+- AURA_EVM_RPC_ETHEREUM
+- AURA_EVM_RPC_POLYGON
+- AURA_EVM_RPC_ARBITRUM
+- AURA_EVM_RPC_BSC
 
-## Major product areas
+Add the user's authenticated dRPC endpoints as Supabase Edge Function secrets when they are ready. Do not paste API credentials into chat, source control, a VITE_ variable, or frontend bundles. Public fallback endpoints may be rate-limited and are not a substitute for testing the authenticated configuration.
 
-- **Accounts and identity:** email/password and supported OAuth paths, plus Telegram Mini App authentication that checks the signed Telegram identity and avoids cross-account session reuse.
-- **Home and Discover:** artwork feeds, creator profiles, likes/saves/comments, collections, and artwork detail views.
-- **Create and collections:** artwork uploads, creator-owned collection CRUD, optional scheduled release, and watcher notifications.
-- **AURA Wallet:** internal USDT balance and ledger, internal transfers between AURA accounts, supported on-chain deposit addresses, withdrawal requests with confirmation, and transaction/withdrawal history.
-- **P2P trading:** buy/sell offers, saved fiat payment methods, seller-side reserve/hold rules, 5-minute acceptance expiry, 15-minute payment stage, payment-proof uploads, chat, disputes, settlement, trader stats, notifications, and the dedicated My Trades history/recovery page.
-- **Admin and drops:** authorized admin operations, drop/release management, scheduled publication, and audit-oriented operations.
-- **Thirdweb:** optional wallet-connection preview on **Base Sepolia testnet only**. This preview is deliberately separate from AURA’s production ledger, deposits, withdrawals, and P2P escrow. It is not a production USDT bridge or transaction broadcaster.
+Provider responsibility is simple: RPC reads chain state and submits signed transactions. It does not create wallets, own keys, pay gas, or guarantee execution. A non-custodial EOA must have the chain's native gas token for on-chain sends. There is no automatic gas sponsor in the non-custodial wallet foundation.
 
-## Wallet and USDT network map
+## Legacy custody must be migrated, not erased
 
-The existing AURA custodial on-chain backend defines four supported EVM networks:
+Earlier AURA versions created server-derived per-user deposit addresses and used server-side mnemonic/XPub material, deposit sweeping, and an internal ledger. That is a custodial-compatible flow, not the same as the new locally controlled wallet.
 
-| Network | Chain ID | USDT contract | Token decimals | Deposit confirmations |
-| --- | ---: | --- | ---: | ---: |
-| Ethereum | 1 | `0xdAC17F958D2ee523a2206206994597C13D831ec7` | 6 | 12 |
-| Polygon | 137 | `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` | 6 | 30 |
-| Arbitrum One | 42161 | `0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9` | 6 | 20 |
-| BNB Smart Chain | 56 | `0x55d398326f99059fF775485246999027B3197955` | 18 | 15 |
+A previously detected/credited deposit and an unfinished sweep may still depend on that old path. Keep its data and required secrets until each outstanding deposit is reconciled and affected users' balances are accounted for. Never delete the Vault mnemonic, XPub, RPC credential, deposit rows, or old wallet mappings merely to make the repository look clean.
 
-Mainnet token contracts and chain support must be confirmed independently from UI labels before enabling or changing a network.
+Legacy code that still needs retirement:
+- deposit-sweep still has the old server-side signing and Alchemy fallback path so historic funds can be reconciled safely.
+- withdrawal-request, withdrawal-broadcaster and treasury-health still include the legacy Thirdweb server-wallet route alongside old treasury-signing checks.
+- provision-deposit-address remains deployed for the old flow, although the current frontend no longer calls it.
 
-### How the money paths work
+These are explicitly legacy-only. Do not wire new non-custodial functionality through them. Remove their remaining vendor/custody code only after the old pipeline is drained, transaction records are reconciled, and a replacement flow is tested.
 
-1. **Receive on-chain:** the authenticated user gets a per-user HD deposit address from `provision-deposit-address`. `deposit-indexer` scans token transfer events and credits the internal wallet only after the configured confirmation threshold and server-side accounting checks.
-2. **Deposit sweeping:** `deposit-sweep` moves eligible credited deposits from derived deposit wallets to configured treasury addresses. Credit-to-ledger and sweep-to-treasury are separate states: a credited balance must not be described as swept until the sweep transaction is confirmed.
-3. **Withdraw on-chain:** `withdrawal-request` checks eligibility and reserves funds through the backend; Telegram/email confirmation precedes `withdrawal-broadcaster`. `withdrawal-indexer` reconciles the actual on-chain transfer and final status.
-4. **Internal transfer:** `internal_transfer` moves USDT between two AURA accounts in the database ledger, with idempotency protection. It is not a blockchain transaction and does not need the sender to select a network.
-5. **P2P escrow:** P2P holds and settlement are managed by server-side database functions and the internal ledger. Never mark a trade as settled because a browser modal, wallet connector, or transaction request appeared successful.
-6. **External wallet linking:** MetaMask/Phantom connection is used to verify wallet ownership. A linked wallet is not automatically the owner of the AURA ledger and its balance is not automatically spendable by AURA.
+## Authentication and security status
 
-### Explicitly unavailable / separate
+- Google and Apple OAuth and email/password authentication exist in AuthContext.
+- Telegram Mini App sign-in exists separately; do not replace or merge it with wallet identity.
+- TOTP enrollment and sign-in challenge components exist. Sensitive actions must enforce MFA server-side where configured; hiding a button in the client is not authorization.
+- A wallet PIN currently encrypts/unlocks the local wallet only. It does not replace Supabase authentication or TOTP.
+- Passkeys are a follow-on item. The current Supabase JS dependency and hosted Auth configuration need to be upgraded/configured before passkeys can be exposed to users. Supabase documents current JS passkey support as experimental and requiring a newer SDK; validate the current configuration before implementing.
+- No recovery phrase or private key may appear in logs, crash reports, URLs, clipboard automatically, database tables, or server requests.
 
-- AURA’s on-chain deposit and withdrawal selectors currently support Ethereum, Polygon, Arbitrum One, and BNB Smart Chain.
-- Solana is **not** enabled for AURA USDT deposits or withdrawals. Phantom can be linked for wallet-ownership verification; that is different from Solana USDT support.
-- The thirdweb panel creates/tests a Base Sepolia smart-account flow only. It does not move mainnet assets, credit AURA balances, or substitute for a registered and funded production Server Wallet/treasury. A production rollout still needs a stable mapping from each Supabase user to their Thirdweb smart account and signed ownership checks before any app feature relies on it.
-- Internal AURA USDT is an application ledger balance. It is not a promise that the same amount is immediately liquid in every chain’s external treasury.
+## Release checklist
 
-## Deployment and operational components
-
-- **Frontend:** React + TypeScript + Vite.
-- **Hosting:** Render web service, auto-deployed from GitHub `main`.
-- **Backend/data:** Supabase Auth, Postgres/RLS, Realtime, Storage, Edge Functions, and scheduled database jobs.
-- **Key backend workers:** `provision-deposit-address`, `deposit-indexer`, `deposit-sweep`, `withdrawal-request`, `withdrawal-confirm`, `withdrawal-broadcaster`, `withdrawal-indexer`, `telegram-miniapp-auth`, `telegram-p2p-notifications`.
-- **Safety model:** browser bundle uses only public Supabase configuration; signing keys, custody material, worker secrets, and provider secrets must remain server-side. Production balances should come from the database ledger and confirmed transaction records—not local state or thirdweb connection state.
-
-## Required private deployment configuration
-
-For real EVM withdrawals, configure one server-side signer route in Supabase Edge Function secrets/runtime configuration:
-
-- **Preferred thirdweb Server Wallet route:** `THIRDWEB_SECRET_KEY` plus `THIRDWEB_SERVER_WALLET_ADDRESS`. The address must already be registered in the same thirdweb project as a Server Wallet; the configured address may be that wallet's EOA address or its registered smart-account address when the smart account is set up for server execution.
-- **Native signer fallback:** `AURA_EVM_PRIVATE_KEY`, only when that key derives the exact same public address as the configured treasury.
-- Per-chain RPC endpoints (private provider optional; a read-RPC fallback exists): `AURA_EVM_RPC_ETHEREUM`, `AURA_EVM_RPC_POLYGON`, `AURA_EVM_RPC_ARBITRUM`, and `AURA_EVM_RPC_BSC`.
-- Per-chain treasury addresses: `AURA_EVM_TREASURY_ETHEREUM`, `AURA_EVM_TREASURY_POLYGON`, `AURA_EVM_TREASURY_ARBITRUM`, and `AURA_EVM_TREASURY_BSC`. When using thirdweb, each treasury address must equal the registered Server Wallet or its registered smart-account address. A standard EOA wallet must have USDT and native gas token; a smart Server Wallet may use Thirdweb gas sponsorship if it is enabled for that wallet and chain.
-- Deposit sweeping still requires server-side derivation custody that matches the registered XPub, plus a valid funded treasury for each chain.
-- `VITE_THIRDWEB_CLIENT_ID` is a **public** frontend Client ID. It cannot sign server payouts and is not a substitute for `THIRDWEB_SECRET_KEY`.
-
-Never paste private keys or secret values into chat, source control, browser variables, or logs. A queued withdrawal can only be broadcast after the real signer, treasury address, USDT balance, and gas balance all validate. If configuration is missing, the queue pauses and can be retried automatically after repair. Do not manually replay a transaction whose submission status is uncertain.
-
-## Release acceptance checklist
-
-- [ ] Main GitHub typecheck and production build are green.
-- [ ] Latest Render deployment commit matches the merged GitHub commit.
-- [ ] P2P My Trades loads server-side rows and remains available after background/return.
-- [ ] Two separate accounts pass the P2P acceptance, proof, release/cancel, chat, and notification flow.
-- [ ] Deposit indexer cursor advances on each supported network and the credited amount matches the actual token transfer.
-- [ ] Each credited deposit's treasury sweep reaches a confirmed on-chain state, or an actionable non-secret configuration error is recorded.
-- [ ] Withdrawals have valid server-only signer/treasury configuration and pass confirmation, broadcast, and indexer reconciliation without stuck queued funds.
-- [ ] Internal transfers are tested with idempotent retry, correct debits/credits, and updated history.
-- [ ] Thirdweb test connection works only on Base Sepolia and cannot silently affect AURA balances or production transaction flows.
-- [ ] Security advisor warnings and Auth dashboard settings are reviewed before declaring production readiness.
-
-## Known release caveats (updated 2026-10-10)
-
-- The BSC deposit record inspected during this audit is marked `credited` while its sweep state remains `pending`; ledger credit is not proof of a completed sweep.
-- An Ethereum withdrawal inspected during this audit remains `queued` with no broadcast hash. The worker recorded that broadcaster credentials are not configured. Do not retry it manually or report it as sent until the server configuration and chain state have been reconciled.
-- Supabase Edge Function logs show Alchemy free-tier `eth_getLogs` range warnings. The scanner also has fallback RPC endpoints and its chain cursors were observed advancing; continue monitoring cursor progress and confirmed deposit reconciliation.
-- The thirdweb Client ID is a public frontend setting (`VITE_THIRDWEB_CLIENT_ID`) and must be configured/restricted by origin in the thirdweb dashboard if the testnet preview is to be used. Never expose a thirdweb Secret Key in frontend code.
+- [x] Client-side create/import, recovery-word check, local encryption and PIN unlock implemented in the branch.
+- [x] Google OAuth and TOTP reviewed as existing features rather than rebuilt.
+- [x] Thirdweb browser preview removed.
+- [x] Deposit indexer moved to dRPC-first fallbacks.
+- [ ] Complete dRPC API configuration and test every target network.
+- [ ] Read on-chain balances and USDT balances for the local wallet, using verified token contracts and correct decimals.
+- [ ] Implement client-side signing and broadcasting for non-custodial sends; validate chain, recipient, amount and gas before signing.
+- [ ] Implement reliable transaction status and history; do not report success before observing the transaction hash and confirmed receipt.
+- [ ] Retire legacy server-managed receiving, sweeping and Thirdweb payout code only after old funds and queued operations are reconciled.
+- [ ] Upgrade/configure Supabase Auth and implement passkeys.
+- [ ] Run security and end-to-end tests on web and Telegram Mini App before calling the wallet production-ready.
