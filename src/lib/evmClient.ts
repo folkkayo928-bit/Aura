@@ -152,15 +152,15 @@ function makePublicClient(network: EvmNetwork) {
   });
 }
 
-function validAmountText(value: string, decimals: number): bigint {
+function validAmountText(value: string, decimals: number, tokenSymbol = 'USDT'): bigint {
   const amount = value.trim();
   if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(amount)) {
-    throw new Error('Enter a positive USDT amount using digits and an optional decimal point.');
+    throw new Error('Enter a positive ' + tokenSymbol + ' amount using digits and an optional decimal point.');
   }
 
   const fraction = amount.split('.')[1] || '';
   if (fraction.length > decimals) {
-    throw new Error('This network supports up to ' + decimals + ' decimal places for USDT.');
+    throw new Error('This network supports up to ' + decimals + ' decimal places for ' + tokenSymbol + '.');
   }
 
   const parsed = parseUnits(amount, decimals);
@@ -239,6 +239,7 @@ export type EvmTransferReview = {
   network: EvmNetwork;
   label: string;
   tokenSymbol: string;
+  tokenAddress: Address;
   from: Address;
   destination: Address;
   amount: string;
@@ -256,7 +257,7 @@ export async function estimateEvmUsdtTransfer(
 ): Promise<EvmTransferReview> {
   const config = NETWORKS[network];
   const destination = validateRecipient(destinationValue);
-  const amount = validAmountText(amountValue, config.tokenDecimals);
+  const amount = validAmountText(amountValue, config.tokenDecimals, config.tokenSymbol);
   const account = mnemonicToAccount(normalizeRecoveryPhrase(mnemonicValue), { path: "m/44'/60'/0'/0/0" });
   const client = makePublicClient(network);
 
@@ -270,8 +271,8 @@ export async function estimateEvmUsdtTransfer(
     client.getGasPrice(),
   ]);
 
-  if (Number(actualDecimals) !== config.tokenDecimals) throw new Error('The USDT token decimals do not match the expected network configuration.');
-  if (tokenBalance < amount) throw new Error('The local wallet does not have enough USDT for this transfer.');
+  if (Number(actualDecimals) !== config.tokenDecimals) throw new Error(config.tokenSymbol + ' token decimals do not match the expected network configuration.');
+  if (tokenBalance < amount) throw new Error('The local wallet does not have enough ' + config.tokenSymbol + ' for this transfer.');
 
   const estimatedGas = await client.estimateContractGas({
     account: account.address,
@@ -283,13 +284,14 @@ export async function estimateEvmUsdtTransfer(
   const estimatedCost = estimatedGas * gasPrice;
   const requiredNative = estimatedCost + estimatedCost / 5n;
   if (nativeBalance < requiredNative) {
-    throw new Error('Not enough ' + config.nativeSymbol + ' for network gas. No USDT transaction was sent.');
+    throw new Error('Not enough ' + config.nativeSymbol + ' for network gas. No ' + config.tokenSymbol + ' transaction was sent.');
   }
 
   return {
     network,
     label: config.label,
     tokenSymbol: config.tokenSymbol,
+    tokenAddress: config.token,
     from: account.address,
     destination,
     amount: formatUnits(amount, config.tokenDecimals),
