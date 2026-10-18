@@ -91,7 +91,8 @@ async function verifyTonProof(input: {
   publicKey?: string;
 }) {
   const { address, stateInitBoc, proof, publicKey } = input;
-  if (!Number.isSafeInteger(proof.timestamp) || Math.abs(Math.floor(Date.now() / 1000) - proof.timestamp) > 600) {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(proof.timestamp) || proof.timestamp > nowSeconds + 60 || nowSeconds - proof.timestamp > 600) {
     throw new Error("TON_PROOF_EXPIRED");
   }
   if (proof.domain.value.toLowerCase() !== EXPECTED_DOMAIN) throw new Error("TON_PROOF_DOMAIN_MISMATCH");
