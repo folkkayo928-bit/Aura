@@ -177,12 +177,13 @@ Deno.serve(async (req) => {
       publicKey: typeof body.publicKey === "string" ? body.publicKey : undefined,
     });
 
+    const claimTime = new Date().toISOString();
     const { data: claimed, error: claimError } = await admin.from("external_wallet_ton_challenges")
-      .update({ used_at: now })
+      .update({ used_at: claimTime })
       .eq("id", challenge.id)
       .eq("user_id", user.id)
       .is("used_at", null)
-      .gt("expires_at", now)
+      .gt("expires_at", claimTime)
       .select("id")
       .maybeSingle();
     if (claimError || !claimed) return json({ success: false, error: "TON_CHALLENGE_ALREADY_USED" }, 400);
@@ -191,7 +192,7 @@ Deno.serve(async (req) => {
     const { data: wallet, error: walletError } = await admin.from("external_wallets")
       .upsert({
         user_id: user.id, provider: "TON Connect", network: "ton", address: rawAddress,
-        verified_at: now, connected_at: now,
+        verified_at: claimTime, connected_at: claimTime,
       }, { onConflict: "user_id,provider,network,address" })
       .select()
       .maybeSingle();
