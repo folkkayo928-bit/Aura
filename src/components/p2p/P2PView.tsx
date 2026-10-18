@@ -335,7 +335,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
             </span>
           </div>
           <p className="text-[11px] text-stone-300 leading-relaxed">
-            USDT trades can use an AURA internal ledger hold until the trade is completed or cancelled. Fiat payments are handled directly through the selected payment rail, and dispute controls are available when supported by the order.
+            USDT trades use AURA’s separate internal ledger and server-enforced trade holds. Your personal non-custodial wallet balance is not included here, and on-chain funds are not automatically credited to this P2P balance. Fiat payments are handled directly through the selected payment rail; never release a trade until you independently verify payment.
           </p>
         </div>
       </div>
@@ -370,6 +370,7 @@ export const P2PView: React.FC<P2PViewProps> = ({ onSelectOffer, onOpenCreateOff
         </div>
 
         <div className="text-right text-[11px] font-mono text-stone-400">
+          <span className="block text-[9px] text-stone-500">AURA internal ledger only</span>
           <span>Vault Balance: </span>
           <span className="text-emerald-400 font-medium">${walletBalance.toFixed(2)} USDT</span>
         </div>

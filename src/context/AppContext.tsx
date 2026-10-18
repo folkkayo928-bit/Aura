@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { createNeutralAvatar } from '../lib/avatar';
+import { readEvmTokenBalance, type EvmNetwork } from '../lib/evmClient';
+import { readSolanaUsdtBalance } from '../lib/solanaClient';
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import {
   Artwork,
   FeedSection,
@@ -368,6 +371,8 @@ const backendP2POrderToUi = (row: any): P2POrder => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, openAuth } = useAuth();
+  const [tonConnectUI] = useTonConnectUI();
+  const tonWallet = useTonWallet();
   // Marketplace and wallet state are server-authoritative. Do not hydrate from localStorage.
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [collections, setCollections] = useState<NFTCollection[]>([]);
@@ -400,6 +405,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [connectedWallets, setConnectedWallets] = useState<ConnectedExternalWallet[]>([]);
+  const tonProofPayloadRef = useRef<string | null>(null);
+  const tonVerificationInFlightRef = useRef(false);
+  const verifiedTonProofRef = useRef<string | null>(null);
+
+  const refreshConnectedWalletBalance = async (wallet: ConnectedExternalWallet) => {
+    const isEvmNetwork = wallet.network === 'ethereum' || wallet.network === 'polygon' || wallet.network === 'arbitrum' || wallet.network === 'bsc';
+    if (wallet.network === 'solana') {
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id
+        ? { ...item, balanceStatus: 'loading', tokenSymbol: 'USDT' }
+        : item));
+      try {
+        const snapshot = await readSolanaUsdtBalance(wallet.address);
+        setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+          ? {
+              ...item,
+              balance: snapshot.available ? Number(snapshot.tokenBalance) : 0,
+              balanceStatus: snapshot.available ? 'available' : 'unavailable',
+              tokenSymbol: snapshot.tokenSymbol,
+            }
+          : item));
+      } catch {
+        setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+          ? { ...item, balanceStatus: 'unavailable' }
+          : item));
+      }
+      return;
+    }
+    if (!isEvmNetwork) {
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id
+        ? { ...item, balanceStatus: 'unsupported' }
+        : item));
+      return;
+    }
+
+    setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id
+      ? { ...item, balanceStatus: 'loading' }
+      : item));
+    try {
+      const snapshot = await readEvmTokenBalance(wallet.network as EvmNetwork, wallet.address);
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+        ? {
+            ...item,
+            balance: snapshot.available ? Number(snapshot.tokenBalance) : 0,
+            balanceStatus: snapshot.available ? 'available' : 'unavailable',
+            tokenSymbol: snapshot.tokenSymbol,
+          }
+        : item));
+    } catch {
+      setConnectedWallets((previous) => previous.map((item) => item.id === wallet.id && item.address === wallet.address
+        ? { ...item, balanceStatus: 'unavailable' }
+        : item));
+    }
+  };
 
   const [p2pOffers, setP2pOffers] = useState<P2POffer[]>([]);
 
@@ -723,14 +781,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       if (walletRes.data) setWalletBalance(Number((walletRes.data as any).balance_usdt || 0));
       if (ledgerRes.data) setTransactions((ledgerRes.data as any[]).map(mapLedgerToTransaction));
-      setConnectedWallets(((extWalletsRes.data || []) as any[]).map(w => ({
+      const restoredExternalWallets: ConnectedExternalWallet[] = ((extWalletsRes.data || []) as any[]).map(w => ({
         id: w.id,
-        name: w.provider,
+        name: w.provider === 'TON Connect' ? 'Tonkeeper' : w.provider,
         network: w.network,
         address: w.address,
         connectedAt: new Date(w.connected_at).toLocaleDateString(),
         balance: 0,
-      })));
+        balanceStatus: ['ethereum', 'polygon', 'arbitrum', 'bsc', 'solana'].includes(w.network) ? 'loading' : 'unsupported',
+        tokenSymbol: w.network === 'polygon' ? 'USDT0' : 'USDT',
+      }));
+      setConnectedWallets(restoredExternalWallets);
+      restoredExternalWallets.forEach((wallet) => { void refreshConnectedWalletBalance(wallet); });
       if (p2pOffersRes.data) setP2pOffers((p2pOffersRes.data as any[]).map(backendP2POfferToUi));
       if (activeOrderRes.data) setActiveP2POrder(backendP2POrderToUi(activeOrderRes.data));
       else setActiveP2POrder(null);
@@ -1528,6 +1590,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let address = '';
       const win = window as any;
       try {
+        if (name === 'Tonkeeper') {
+          if (network !== 'ton') {
+            addNotification('Network Not Supported', 'TON Connect can only connect a TON mainnet wallet.', 'community');
+            return;
+          }
+          const challenge = await supabase.functions.invoke('verify-ton-wallet', { body: { action: 'challenge' } });
+          if (challenge.error || !challenge.data?.success || typeof challenge.data.payload !== 'string') {
+            throw new Error(challenge.data?.error || challenge.error?.message || 'Could not create TON ownership challenge.');
+          }
+          if (tonConnectUI.connected) await tonConnectUI.disconnect();
+          tonProofPayloadRef.current = challenge.data.payload;
+          tonConnectUI.setConnectRequestParameters({ state: 'ready', value: { tonProof: challenge.data.payload } });
+          await tonConnectUI.openModal();
+          return;
+        }
         if (name === 'MetaMask') {
           if (network === 'solana' || network === 'ton') {
             addNotification('Network Not Supported', 'MetaMask connection is available for EVM networks only.', 'community');
@@ -1624,9 +1701,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         address: data.address,
         connectedAt: new Date(data.connected_at).toLocaleDateString(),
         balance: 0,
+        balanceStatus: network === 'ethereum' || network === 'polygon' || network === 'arbitrum' || network === 'bsc' || network === 'solana' ? 'loading' : 'unsupported',
+        tokenSymbol: network === 'polygon' ? 'USDT0' : 'USDT',
       };
-      setConnectedWallets(prev => [connected, ...prev.filter(w => w.id !== connected.id && w.address !== address)]);
+      setConnectedWallets(prev => [connected, ...prev.filter(w => w.id !== connected.id && !(w.name === name && w.network === network && w.address.toLowerCase() === address.toLowerCase()))]);
       addNotification('🔐 Wallet Ownership Verified', `${name} ownership was cryptographically verified on ${network}.`, 'community');
+      void refreshConnectedWalletBalance(connected);
     })();
   };
   const disconnectExternalWallet = async (id: string): Promise<boolean> => {
@@ -1634,6 +1714,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       openAuth('signin');
       return false;
     }
+    const walletToDisconnect = connectedWallets.find((wallet) => wallet.id === id);
     const { error } = await supabase.from('external_wallets')
       .delete()
       .eq('id', id)
@@ -1643,9 +1724,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setConnectedWallets(prev => prev.filter(w => w.id !== id));
+    if (walletToDisconnect?.network === 'ton') {
+      try { await tonConnectUI.disconnect(); } catch { /* database unlink already succeeded */ }
+      verifiedTonProofRef.current = null;
+      tonProofPayloadRef.current = null;
+    }
     addNotification('Wallet Disconnected', 'External wallet session closed.', 'community');
     return true;
   };
+
+  useEffect(() => {
+    const wallet = tonWallet;
+    const tonProofItem = wallet?.connectItems?.tonProof;
+    if (!wallet || !tonProofItem) return;
+    if (!('proof' in tonProofItem)) {
+      if (tonProofPayloadRef.current) {
+        tonProofPayloadRef.current = null;
+        addNotification('TON Proof Not Supported', 'This TON wallet did not provide a verifiable TON proof. AURA did not save it as a connected wallet.', 'community');
+        void tonConnectUI.disconnect();
+      }
+      return;
+    }
+    if (!user?.id) return;
+    const proof = tonProofItem.proof;
+    const expectedPayload = tonProofPayloadRef.current;
+    if (!expectedPayload || proof.payload !== expectedPayload || tonVerificationInFlightRef.current) return;
+    const proofKey = user.id + ':' + wallet.account.address + ':' + proof.payload;
+    if (verifiedTonProofRef.current === proofKey) return;
+
+    tonVerificationInFlightRef.current = true;
+    void (async () => {
+      try {
+        const result = await supabase.functions.invoke('verify-ton-wallet', {
+          body: {
+            action: 'verify',
+            network: wallet.account.chain,
+            address: wallet.account.address,
+            publicKey: wallet.account.publicKey,
+            walletStateInit: wallet.account.walletStateInit,
+            proof,
+          },
+        });
+        if (result.error || !result.data?.success || !result.data.wallet) {
+          throw new Error(result.data?.error || result.error?.message || 'TON ownership proof was rejected.');
+        }
+        const row = result.data.wallet;
+        const connected: ConnectedExternalWallet = {
+          id: row.id,
+          name: 'Tonkeeper',
+          network: 'ton',
+          address: row.address,
+          connectedAt: new Date(row.connected_at || Date.now()).toLocaleDateString(),
+          balance: 0,
+          balanceStatus: 'unsupported',
+          tokenSymbol: 'TON',
+        };
+        setConnectedWallets((previous) => [connected, ...previous.filter((item) => item.id !== connected.id && !(item.network === 'ton' && item.address.toLowerCase() === connected.address.toLowerCase()))]);
+        verifiedTonProofRef.current = proofKey;
+        tonProofPayloadRef.current = null;
+        tonConnectUI.setConnectRequestParameters({ state: 'loading' });
+        addNotification('TON Wallet Verified', 'TON Connect ownership was verified by the AURA server. No transaction was sent and no P2P balance was credited.', 'community');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'TON wallet verification failed.';
+        addNotification('TON Wallet Not Verified', message, 'community');
+        try { await tonConnectUI.disconnect(); } catch { /* keep the verification failure visible */ }
+      } finally {
+        tonVerificationInFlightRef.current = false;
+      }
+    })();
+  }, [tonWallet, user?.id, tonConnectUI]);
+
 
   useEffect(() => {
     const win = window as any;
@@ -1691,6 +1839,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       solana?.removeListener?.('accountChanged', handleSolanaAccountChanged);
     };
   }, [user]);
+
+  const refreshInternalWallet = async () => {
+    if (!user) return;
+    try {
+      const [wallet, ledger] = await Promise.all([
+        supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle(),
+        supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+      ]);
+      if (!wallet.error && wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
+      if (!ledger.error && ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    } catch {
+      // Keep the last known balance if the refresh endpoint is temporarily unavailable.
+      // The server-side wallet ledger remains authoritative.
+    }
+  };
 
   const startP2POrder = async ({
     offer,
@@ -1743,6 +1906,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const uiOrder = backendP2POrderToUi(enriched);
     setActiveP2POrder(uiOrder);
+    await refreshInternalWallet();
 
     const isArtworkTrade = Boolean(orderRow.artwork_id || offer.artworkId);
     addNotification(
@@ -1794,6 +1958,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setP2pOffers(prev => prev
       .map(o => o.id === row.offer_id ? { ...o, availableCrypto: Math.max(0, o.availableCrypto - offerAmount) } : o)
       .filter(o => o.availableCrypto > 0));
+
+    await refreshInternalWallet();
 
     addNotification(
       row.artwork_id ? '✅ Artwork P2P Order Accepted' : '✅ P2P Order Accepted',
@@ -1860,10 +2026,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
 
-    const wallet = await supabase.from('wallet_accounts').select('balance_usdt').eq('user_id', user.id).maybeSingle();
-    if (wallet.data) setWalletBalance(Number((wallet.data as any).balance_usdt || 0));
-    const ledger = await supabase.from('wallet_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
-    if (ledger.data) setTransactions((ledger.data as any[]).map(mapLedgerToTransaction));
+    const offerRes = await supabase.from('p2p_offers')
+      .select('*,merchant:profiles!p2p_offers_merchant_id_fkey(id,handle,display_name,avatar_url,p2p_stats:p2p_trader_stats!p2p_trader_stats_user_id_fkey(*)),artwork:artworks!p2p_offers_artwork_id_fkey(id,title,media_url)')
+      .eq('id', row.offer_id)
+      .maybeSingle();
+    if (offerRes.data) {
+      const restored = backendP2POfferToUi(offerRes.data as any);
+      setP2pOffers((previous) => {
+        const remaining = previous.filter((offer) => offer.id !== restored.id);
+        return offerRes.data.is_active && Number(offerRes.data.available_crypto) > 0
+          ? [restored, ...remaining]
+          : remaining;
+      });
+    }
+    await refreshInternalWallet();
     addNotification('✅ P2P Trade Completed', `${row.crypto_amount} USDT was released to the buyer.`, 'p2p');
     return true;
   };
@@ -1928,6 +2104,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
     setP2pOffers(prev => prev.filter(o => o.id !== offerId));
+    await refreshInternalWallet();
     addNotification('🔓 P2P Reserve Released', 'Your unused reserved USDT was returned to your available wallet balance.', 'p2p');
     return true;
   };
@@ -1957,6 +2134,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }),
     };
     setP2pOffers(prev => [localOffer, ...prev]);
+    await refreshInternalWallet();
     addNotification('📣 P2P Offer Published', 'Your live offer was saved to the AURA order book.', 'p2p');
     return true;
   };

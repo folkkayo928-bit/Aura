@@ -15,6 +15,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithTelegram: () => Promise<{ error?: string; telegramId?: string }>;
   signInWithProvider: (provider: 'google' | 'apple') => Promise<{ error?: string }>;
+  signInWithPasskey: () => Promise<{ error?: string }>;
   signUp: (params: { name: string; email: string; password: string }) => Promise<{ error?: string; needsConfirmation?: boolean }>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
@@ -33,6 +34,9 @@ const humanizeAuthError = (message: string) => {
   if (m.includes('email not confirmed')) return 'Please confirm your email address, then sign in again.';
   if (m.includes('user already registered')) return 'An account with this email already exists. Try Sign in.';
   if (m.includes('password should be at least')) return 'Use a password with at least 6 characters.';
+  if (m.includes('passkey_disabled')) return 'Passkey sign-in is not enabled in AURA authentication yet. Use Google, Apple, Telegram or email for now.';
+  if (m.includes('notallowederror') || m.includes('not allowed')) return 'Passkey sign-in was canceled or not allowed by this device.';
+  if (m.includes('publickeycredential') || m.includes('webauthn')) return 'This browser or device could not complete passkey authentication. Try another sign-in method.';
   if (m.includes('rate limit')) return 'Too many attempts. Wait a moment and try again.';
   return message;
 };
@@ -104,6 +108,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error || '');
         return { error: humanizeAuthError(message || `Could not start ${provider} sign-in.`) };
+      }
+    },
+
+    signInWithPasskey: async () => {
+      if (typeof window === 'undefined' || !window.isSecureContext || !('credentials' in navigator)) {
+        return { error: 'Passkeys require a supported browser on a secure HTTPS origin. Use Google, Apple, Telegram or email instead.' };
+      }
+      try {
+        const { error } = await supabase.auth.signInWithPasskey();
+        return error ? { error: humanizeAuthError(error.message) } : {};
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : String(cause || '');
+        return { error: humanizeAuthError(message || 'Passkey sign-in could not be completed.') };
       }
     },
 

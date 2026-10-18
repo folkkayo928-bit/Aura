@@ -20,12 +20,12 @@ export const SeedPhraseModal: React.FC = () => {
         </div>
         <div className="space-y-4">
           <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 text-sm text-stone-200 leading-relaxed">
-            <strong className="block text-cyan-300 mb-1">No seed phrase is stored by AURA</strong>
-            Your AURA account uses secure account authentication and an internal ledger. AURA does not place a private seed phrase in the browser or database.
+            <strong className="block text-cyan-300 mb-1">Your recovery phrase stays under your control</strong>
+            AURA's personal EVM wallet creates or imports the phrase on your device and stores only an encrypted local copy protected by your wallet PIN. The phrase is never uploaded to AURA's database or server.
           </div>
           <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 text-xs text-stone-400 leading-relaxed space-y-2">
-            <p>External wallets such as MetaMask, Phantom, or Tonkeeper keep their own recovery credentials.</p>
-            <p>AURA will never ask you to paste a recovery phrase into the app.</p>
+            <p>Your AURA login, Google sign-in and authenticator app protect your AURA account; they cannot recover or decrypt your wallet.</p>
+            <p>Never share the phrase with anyone or paste it into support chats. If this device is lost, restore using your offline backup phrase.</p>
           </div>
           <button onClick={() => setSeedPhraseModalOpen(false)} className="w-full py-3.5 rounded-xl bg-stone-100 text-stone-950 font-bold text-xs">Done</button>
         </div>

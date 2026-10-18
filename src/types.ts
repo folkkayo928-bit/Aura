@@ -237,6 +237,8 @@ export interface ConnectedExternalWallet {
   address: string;
   connectedAt: string;
   balance: number;
+  balanceStatus?: 'loading' | 'available' | 'unavailable' | 'unsupported';
+  tokenSymbol?: string;
 }
 
 export type TelegramViewMode = 'bot_profile' | 'bot_chat' | 'miniapp';

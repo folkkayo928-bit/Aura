@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 
 import { useApp } from '../context/AppContext';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { CryptoNetwork } from '../types';
+import { getLocalEvmWalletMetadata } from '../lib/nonCustodialWallet';
 import {
   X,
   Send,
@@ -45,6 +46,7 @@ export const SendModal: React.FC = () => {
   if (!sendModalOpen) return null;
 
   const numAmount = parseFloat(amount) || 0;
+  const withdrawalTokenSymbol = network === 'polygon' ? 'USDT0' : 'USDT';
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,7 +205,7 @@ export const SendModal: React.FC = () => {
                     : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
-                External Web3 Address
+                AURA Balance → External
               </button>
               <button
                 type="button"
@@ -214,14 +216,14 @@ export const SendModal: React.FC = () => {
                     : 'text-stone-400 hover:text-stone-200'
                 }`}
               >
-                Telegram @User / Vault
+                AURA User / Vault
               </button>
             </div>
 
             {/* External Network Selector */}
             {mode === 'external' && (
               <div>
-                <label className="text-xs text-stone-400 block mb-1 font-medium">Select Blockchain Network</label>
+                <label className="text-xs text-stone-400 block mb-1 font-medium">Withdrawal network</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {(['polygon', 'arbitrum', 'ethereum', 'bsc'] as const).map((net) => (
                     <button
@@ -247,8 +249,18 @@ export const SendModal: React.FC = () => {
                   </button>
                 </div>
                 <p className="mt-1.5 text-[10px] text-stone-500">
-                  Solana is shown for clarity, but AURA on-chain withdrawals currently support EVM networks only. Solana sending is not enabled.
+                  This withdraws from your AURA internal-ledger balance using the legacy withdrawal service; it does not spend from your personal non-custodial wallet. Solana withdrawals are not enabled.
                 </p>
+              </div>
+            )}
+
+            {mode === 'external' && (
+              <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-3 space-y-2">
+                <p className="text-[10px] leading-relaxed text-cyan-100">Need to send from the USDT held in your personal non-custodial wallet? That wallet has a separate balance and signs directly on your device.</p>
+                <button type="button" onClick={() => {
+                  setSendModalOpen(false);
+                  document.getElementById('aura-personal-wallet')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }} className="text-[10px] font-semibold text-cyan-200 underline underline-offset-4">Go to personal wallet send</button>
               </div>
             )}
 
@@ -276,8 +288,8 @@ export const SendModal: React.FC = () => {
             {/* Amount */}
             <div>
               <div className="flex items-center justify-between text-xs text-stone-400 mb-1.5">
-                <span>Amount (USDT)</span>
-                <span className="font-mono">Available: ${formatWalletAmount(walletBalance, mode === 'internal' || network === 'bsc' ? 8 : 6)}</span>
+                <span>{mode === 'internal' ? 'Amount (USDT)' : `Withdrawal amount (${withdrawalTokenSymbol})`}</span>
+                <span className="font-mono">AURA ledger: ${formatWalletAmount(walletBalance, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
               </div>
               <div className="relative">
                 <input
@@ -303,14 +315,14 @@ export const SendModal: React.FC = () => {
             {/* Fee summary */}
             <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-stone-400 space-y-1.5 font-mono">
               <div className="flex justify-between">
-                <span>{mode === 'internal' ? 'Network Fee:' : 'Network Gas:'}</span>
-                <span className="text-amber-300">{mode === 'internal' ? 'No blockchain fee' : 'Handled by AURA'}</span>
+                <span>{mode === 'internal' ? 'Network Fee:' : 'Withdrawal service:'}</span>
+                <span className="text-amber-300">{mode === 'internal' ? 'No blockchain fee' : 'Legacy AURA sender'}</span>
               </div>
               <div className="flex justify-between font-semibold text-stone-100 pt-1 border-t border-white/5">
                 <span>USDT Amount:</span>
-                <span className="text-amber-300">${formatWalletAmount(numAmount, mode === 'internal' || network === 'bsc' ? 8 : 6)} USDT</span>
+                <span className="text-amber-300">${formatWalletAmount(numAmount, mode === 'internal' || network === 'bsc' ? 8 : 6)} {mode === 'internal' ? 'USDT' : withdrawalTokenSymbol}</span>
               </div>
-              <p className="pt-1 text-[10px] text-stone-500">{mode === 'internal' ? 'Internal AURA transfers are settled in the AURA ledger and do not broadcast a blockchain transaction.' : 'Actual blockchain gas is handled by AURA’s configured sender/provider; this form does not deduct a separate USDT network fee.'}</p>
+              <p className="pt-1 text-[10px] text-stone-500">{mode === 'internal' ? 'Internal AURA transfers are settled in the AURA ledger and do not broadcast a blockchain transaction.' : 'This is a withdrawal request from the AURA internal ledger. The legacy sender must pass treasury, gas and signer readiness checks before it can broadcast.'}</p>
             </div>
 
             {sendError && (
@@ -340,7 +352,11 @@ export const ReceiveModal: React.FC = () => {
   const [depositAddresses, setDepositAddresses] = useState<Record<string, string>>({});
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositMessage, setDepositMessage] = useState<string | null>(null);
-  const [receiveTab, setReceiveTab] = useState<'aura' | 'external'>('aura');
+  const [ledgerDepositAddresses, setLedgerDepositAddresses] = useState<Record<string, string>>({});
+  const [ledgerDepositLoading, setLedgerDepositLoading] = useState(false);
+  const [ledgerDepositMessage, setLedgerDepositMessage] = useState<string | null>(null);
+  const [ledgerFundingAcknowledged, setLedgerFundingAcknowledged] = useState(false);
+  const [receiveTab, setReceiveTab] = useState<'aura' | 'ledger' | 'external'>('aura');
   const [selectedNetwork, setSelectedNetwork] = useState<'polygon' | 'ethereum' | 'arbitrum' | 'bsc'>('polygon');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
@@ -348,135 +364,122 @@ export const ReceiveModal: React.FC = () => {
     if (!receiveModalOpen || receiveTab !== 'external') return;
     let cancelled = false;
 
-    const loadDepositAddress = async () => {
+    const loadLocalWalletAddress = async () => {
       setDepositMessage(null);
       setDepositLoading(true);
 
-      if (authLoading) {
-        // Keep the modal in a real loading state while Telegram/Supabase
-        // restores the session instead of showing a false error.
-        return;
-      }
-
-      if (!user) {
+      if (authLoading) return;
+      if (!user?.id) {
         setDepositAddresses({});
         setDepositLoading(false);
-        setDepositMessage('Sign in to enable secure external USDT receiving.');
+        setDepositMessage('Sign in to AURA, then create or import your non-custodial wallet in the Wallet screen.');
         return;
       }
 
-      const cacheKey = `aura:evm-deposit-addresses:${user.id}`;
-      let hasCachedSelectedAddress = false;
-
       try {
-        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-        const cachedAddress = cached?.[selectedNetwork];
-        if (typeof cachedAddress === 'string' && /^0x[0-9a-fA-F]{40}$/.test(cachedAddress)) {
-          setDepositAddresses((previous) => ({ ...previous, ...cached }));
-          hasCachedSelectedAddress = true;
-          setDepositLoading(false);
-        }
-      } catch {
-        // Ignore damaged storage and use the authoritative backend value.
-      }
-
-      let data: any = null;
-      let error: any = null;
-      try {
-        const result = await supabase.functions.invoke('provision-deposit-address', {
-          body: { chain: selectedNetwork },
-        });
-        data = result.data;
-        error = result.error;
-      } catch {
-        // Network-level failures can reject instead of returning a Supabase error.
-        // Keep an already cached address available and never leave the loading
-        // state stuck on an unhandled fetch rejection.
+        const wallet = getLocalEvmWalletMetadata(user.id);
         if (cancelled) return;
-        if (!hasCachedSelectedAddress) {
-          setDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
-          setDepositMessage('Could not connect to AURA’s secure receiving service. Please try again.');
+        if (!wallet?.address) {
+          setDepositAddresses({});
+          setDepositMessage('No personal EVM wallet is saved on this device. Create or import one in Wallet before receiving. Do not reuse an old AURA-managed deposit address.');
+          return;
         }
-        setDepositLoading(false);
-        return;
+
+        // A single EVM key derives the same address across these four EVM networks.
+        // Never surface previously cached server-managed deposit addresses here.
+        setDepositAddresses({
+          ethereum: wallet.address,
+          polygon: wallet.address,
+          arbitrum: wallet.address,
+          bsc: wallet.address,
+        });
+      } catch (cause) {
+        if (cancelled) return;
+        setDepositAddresses({});
+        setDepositMessage(cause instanceof Error
+          ? cause.message
+          : 'The local wallet record could not be read. Restore it using your recovery phrase before receiving.');
+      } finally {
+        if (!cancelled) setDepositLoading(false);
       }
-
-      if (cancelled) return;
-
-      let backendPayload: any = data || null;
-      const status = Number((error as any)?.context?.status || 0);
-      if (!backendPayload && (error as any)?.context instanceof Response) {
-        try {
-          backendPayload = await (error as any).context.clone().json();
-        } catch {
-          backendPayload = null;
-        }
-      }
-
-      if (error || !backendPayload?.success) {
-        if (backendPayload?.error === 'CHAIN_DEPOSITS_PAUSED') {
-          setDepositAddresses((previous) => {
-            const next = { ...previous };
-            delete next[selectedNetwork];
-            return next;
-          });
-          try {
-            const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
-            if (cached && typeof cached === 'object' && !Array.isArray(cached)) {
-              delete cached[selectedNetwork];
-              if (Object.keys(cached).length > 0) localStorage.setItem(cacheKey, JSON.stringify(cached));
-              else localStorage.removeItem(cacheKey);
-            }
-          } catch {
-            // Storage may be unavailable in restricted Telegram webviews.
-          }
-          setDepositMessage(String(backendPayload.message || 'External USDT receiving is paused on this network. Do not send funds to a previously saved address.'));
-        } else if (!hasCachedSelectedAddress) {
-          setDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
-          if (status === 401 || backendPayload?.error === 'UNAUTHORIZED') {
-            setDepositMessage('Your AURA session is not ready. Please close and reopen the Receive panel.');
-          } else if (backendPayload?.message) {
-            setDepositMessage(String(backendPayload.message));
-          } else {
-            setDepositMessage('External USDT receiving is temporarily unavailable. Please try again.');
-          }
-        }
-      } else {
-        const currentAddress = String(
-          backendPayload?.addresses?.[selectedNetwork]
-          || backendPayload?.chains?.find((item: any) => item?.chain === selectedNetwork)?.address
-          || '',
-        );
-
-        if (/^0x[0-9a-fA-F]{40}$/.test(currentAddress)) {
-          setDepositAddresses((previous) => {
-            const merged = { ...previous, [selectedNetwork]: currentAddress };
-            try {
-              localStorage.setItem(cacheKey, JSON.stringify(merged));
-            } catch {
-              // Storage can be unavailable in restricted Telegram webviews.
-            }
-            return merged;
-          });
-        } else if (!hasCachedSelectedAddress) {
-          setDepositMessage('AURA did not return a valid secure deposit address. Please try again.');
-        }
-      }
-
-      setDepositLoading(false);
     };
 
-    void loadDepositAddress();
+    void loadLocalWalletAddress();
     return () => { cancelled = true; };
   }, [receiveModalOpen, receiveTab, selectedNetwork, authLoading, user?.id]);
 
   const externalAddress = depositAddresses[selectedNetwork] || '';
+  const ledgerDepositAddress = ledgerDepositAddresses[selectedNetwork] || '';
+  // Polygon migrated its token at this address to native USDT0; show the exact asset label to reduce network/token mistakes.
+  const externalAssetSymbol = selectedNetwork === 'polygon' ? 'USDT0' : 'USDT';
   const auraReceiveValue = userProfile.telegramHandle && userProfile.telegramHandle !== '@collector'
     ? `aura.tg://${userProfile.telegramHandle}`
     : userProfile.vaultId || '';
 
   React.useEffect(() => {
-    const value = receiveTab === 'external' ? externalAddress : auraReceiveValue;
+    if (!receiveModalOpen || receiveTab !== 'ledger' || !ledgerFundingAcknowledged) return;
+    let cancelled = false;
+    const loadLedgerDepositAddress = async () => {
+      setLedgerDepositMessage(null);
+      setLedgerDepositLoading(true);
+      if (authLoading) return;
+      if (!user?.id) {
+        setLedgerDepositAddresses({});
+        setLedgerDepositLoading(false);
+        setLedgerDepositMessage('Sign in to AURA before preparing an AURA balance funding address.');
+        return;
+      }
+      try {
+        const result = await supabase.functions.invoke('provision-deposit-address', {
+          body: { chain: selectedNetwork },
+        });
+        let payload: any = result.data || null;
+        const status = Number((result.error as any)?.context?.status || 0);
+        if (!payload && (result.error as any)?.context instanceof Response) {
+          try { payload = await (result.error as any).context.clone().json(); } catch { payload = null; }
+        }
+        if (cancelled) return;
+        if (result.error || !payload?.success) {
+          setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
+          if (payload?.error === 'CHAIN_DEPOSITS_PAUSED') {
+            setLedgerDepositMessage(String(payload.message || 'AURA balance funding is paused on this network. Do not use an old address.'));
+          } else if (status === 401 || payload?.error === 'UNAUTHORIZED') {
+            setLedgerDepositMessage('Your AURA session is not ready. Close and reopen this panel, then sign in again.');
+          } else {
+            setLedgerDepositMessage(String(payload?.message || 'AURA could not prepare a funding address. Please try again later.'));
+          }
+          return;
+        }
+        const currentAddress = String(
+          payload?.addresses?.[selectedNetwork]
+          || payload?.chains?.find((item: any) => item?.chain === selectedNetwork)?.address
+          || '',
+        );
+        if (!/^0x[0-9a-fA-F]{40}$/.test(currentAddress)) {
+          setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
+          setLedgerDepositMessage('AURA did not return a valid funding address. Do not send funds; try again later.');
+          return;
+        }
+        setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: currentAddress }));
+      } catch {
+        if (!cancelled) {
+          setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
+          setLedgerDepositMessage('Could not connect to AURA funding services. No address is shown; please try again.');
+        }
+      } finally {
+        if (!cancelled) setLedgerDepositLoading(false);
+      }
+    };
+    void loadLedgerDepositAddress();
+    return () => { cancelled = true; };
+  }, [receiveModalOpen, receiveTab, ledgerFundingAcknowledged, selectedNetwork, authLoading, user?.id]);
+
+  React.useEffect(() => {
+    const value = receiveTab === 'external'
+      ? externalAddress
+      : receiveTab === 'ledger'
+        ? (ledgerFundingAcknowledged ? ledgerDepositAddress : '')
+        : auraReceiveValue;
     if (!value) {
       setQrCodeUrl('');
       return;
@@ -497,7 +500,7 @@ export const ReceiveModal: React.FC = () => {
       });
 
     return () => { cancelled = true; };
-  }, [receiveTab, externalAddress, auraReceiveValue]);
+  }, [receiveTab, externalAddress, ledgerDepositAddress, ledgerFundingAcknowledged, auraReceiveValue]);
 
   if (!receiveModalOpen) return null;
 
@@ -527,7 +530,7 @@ export const ReceiveModal: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 p-1 bg-white/5 rounded-2xl border border-white/5 mb-4">
+        <div className="grid grid-cols-3 gap-1 p-1 bg-white/5 rounded-2xl border border-white/5 mb-4">
           <button
             type="button"
             onClick={() => setReceiveTab('aura')}
@@ -537,10 +540,23 @@ export const ReceiveModal: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setReceiveTab('external')}
-            className={`py-2.5 text-[11px] font-semibold rounded-xl transition-all ${receiveTab === 'external' ? 'bg-cyan-400 text-slate-950 shadow-sm' : 'text-stone-400 hover:text-stone-200'}`}
+            onClick={() => {
+              setReceiveTab('ledger');
+              setLedgerFundingAcknowledged(false);
+              setLedgerDepositAddresses({});
+              setLedgerDepositMessage(null);
+              setLedgerDepositLoading(false);
+            }}
+            className={`py-2.5 text-[10px] font-semibold rounded-xl transition-all ${receiveTab === 'ledger' ? 'bg-amber-400 text-slate-950 shadow-sm' : 'text-stone-400 hover:text-stone-200'}`}
           >
-            External Wallet
+            Fund AURA
+          </button>
+          <button
+            type="button"
+            onClick={() => setReceiveTab('external')}
+            className={`py-2.5 text-[10px] font-semibold rounded-xl transition-all ${receiveTab === 'external' ? 'bg-cyan-400 text-slate-950 shadow-sm' : 'text-stone-400 hover:text-stone-200'}`}
+          >
+            Personal Wallet
           </button>
         </div>
 
@@ -581,12 +597,72 @@ export const ReceiveModal: React.FC = () => {
               </div>
             </div>
           </div>
+        ) : receiveTab === 'ledger' ? (
+          <div className="rounded-3xl bg-amber-950/20 border border-amber-400/20 p-4 space-y-4">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">Fund your AURA / P2P balance</span>
+              <p className="mt-1 text-[11px] leading-relaxed text-stone-300">This is a separate, AURA-managed deposit address. Confirmed deposits are reconciled by AURA's existing on-chain deposit service and may then appear in your internal USDT ledger. It is not your personal wallet address.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(['polygon', 'ethereum', 'arbitrum', 'bsc'] as const).map((chain) => (
+                <button
+                  type="button"
+                  key={chain}
+                  onClick={() => {
+                    setSelectedNetwork(chain);
+                    setLedgerFundingAcknowledged(false);
+                    setLedgerDepositAddresses({});
+                    setLedgerDepositMessage(null);
+                    setLedgerDepositLoading(false);
+                  }}
+                  className={`py-2.5 rounded-xl text-[10px] font-mono uppercase border transition-all ${selectedNetwork === chain ? 'border-amber-400/80 bg-amber-400/10 text-amber-200 font-bold' : 'border-white/5 bg-white/[0.02] text-stone-400'}`}
+                >
+                  {chain === 'bsc' ? 'BNB SMART CHAIN' : chain.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-3 space-y-2">
+              <p className="text-[10px] leading-relaxed text-amber-100">Funds sent here enter the AURA-managed deposit flow, not your local wallet. The network must match exactly, and ledger credit happens only after on-chain confirmation and backend reconciliation. Do not send funds unless you accept this custody model.</p>
+              {!ledgerFundingAcknowledged ? (
+                <button
+                  type="button"
+                  onClick={() => setLedgerFundingAcknowledged(true)}
+                  className="w-full rounded-xl bg-amber-400 py-3 text-[10px] font-bold text-stone-950"
+                >
+                  I understand — prepare funding address
+                </button>
+              ) : ledgerDepositLoading ? (
+                <p className="text-center text-[10px] text-stone-300">Checking funding readiness and preparing address…</p>
+              ) : ledgerDepositAddress ? (
+                <>
+                  <div className="flex justify-center rounded-xl bg-white p-3">
+                    {qrCodeUrl ? <img src={qrCodeUrl} alt={`${selectedNetwork} AURA balance funding QR code`} className="h-44 w-44 rounded-lg" /> : <div className="h-44 w-44 animate-pulse rounded-lg bg-slate-100/10" />}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-mono uppercase text-amber-300">{selectedNetwork} · {externalAssetSymbol}</span>
+                      <p className="mt-1 text-[9px] text-stone-500">Only send {externalAssetSymbol} on this network.</p>
+                      <p className="mt-2 break-all font-mono text-[10px] text-amber-100">{ledgerDepositAddress}</p>
+                    </div>
+                    <button type="button" onClick={() => handleCopy(ledgerDepositAddress)} className="rounded-lg bg-white/5 p-2 text-stone-300" aria-label={`Copy AURA balance ${selectedNetwork} deposit address`}>
+                      {copied === ledgerDepositAddress ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </>
+              ) : ledgerDepositMessage ? (
+                <p role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/[0.04] p-3 text-[10px] leading-relaxed text-rose-100">{ledgerDepositMessage}</p>
+              ) : (
+                <p className="text-center text-[10px] text-stone-400">Preparing…</p>
+              )}
+            </div>
+            <p className="text-[10px] leading-relaxed text-stone-500">This funds the AURA internal ledger used for P2P trading, not your personal wallet. Never send from or to a wallet on a different network. If the network is paused, AURA will not show a funding address.</p>
+          </div>
         ) : (
           <div className="rounded-3xl bg-cyan-950/20 border border-cyan-500/20 p-4 space-y-4">
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">Receive USDT on-chain</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">Receive {externalAssetSymbol} on-chain</span>
               <p className="mt-1 text-[11px] text-stone-400 leading-relaxed">
-                Choose the network used by the sender. The address is copied exactly; AURA credits deposits only after its on-chain confirmation process.
+                Choose the exact network the sender will use. Your personal wallet address is controlled by your recovery phrase; AURA does not hold the signing key.
               </p>
             </div>
 
@@ -616,18 +692,18 @@ export const ReceiveModal: React.FC = () => {
 
             <div className="flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/5 px-3 py-2">
               <span className="text-[10px] uppercase font-mono text-stone-400">Asset</span>
-              <span className="text-xs font-semibold text-stone-100">USDT</span>
+              <span className="text-xs font-semibold text-stone-100">{externalAssetSymbol}</span>
             </div>
 
             {depositLoading ? (
               <div className="rounded-2xl bg-black/20 border border-white/10 p-4 text-xs text-stone-400 text-center">
-                Preparing your secure deposit address…
+                Loading your local wallet address…
               </div>
             ) : externalAddress ? (
               <>
                 <div className="flex justify-center rounded-2xl bg-white p-4">
                   {qrCodeUrl ? (
-                    <img src={qrCodeUrl} alt={`${selectedNetwork} USDT deposit QR code`} className="w-48 h-48 rounded-xl" />
+                    <img src={qrCodeUrl} alt={`${selectedNetwork} ${externalAssetSymbol} deposit QR code`} className="w-48 h-48 rounded-xl" />
                   ) : (
                     <div className="w-48 h-48 rounded-xl bg-slate-100/10 animate-pulse" />
                   )}
@@ -636,10 +712,10 @@ export const ReceiveModal: React.FC = () => {
                 <div className="rounded-2xl bg-black/20 border border-white/10 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <span className="text-[10px] uppercase font-mono text-cyan-300">{selectedNetwork} · USDT</span>
-                      <p className="mt-1 text-[9px] text-stone-500">Only send USDT on this network.</p>
+                      <span className="text-[10px] uppercase font-mono text-cyan-300">{selectedNetwork} · {externalAssetSymbol}</span>
+                      <p className="mt-1 text-[9px] text-stone-500">Only send {externalAssetSymbol} on this network.</p>
                     </div>
-                    <button onClick={() => handleCopy(externalAddress)} className="p-2 rounded-lg bg-white/5 text-stone-300" aria-label={`Copy ${selectedNetwork} USDT address`}>
+                    <button onClick={() => handleCopy(externalAddress)} className="p-2 rounded-lg bg-white/5 text-stone-300" aria-label={`Copy ${selectedNetwork} ${externalAssetSymbol} address`}>
                       {copied === externalAddress ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
@@ -648,17 +724,23 @@ export const ReceiveModal: React.FC = () => {
               </>
             ) : (
               <div className="rounded-2xl bg-black/20 border border-amber-500/20 p-4 text-[11px] text-stone-400 leading-relaxed">
-                {depositMessage || 'External USDT receiving is currently unavailable.'}
+                {depositMessage || `External ${externalAssetSymbol} receiving is currently unavailable.`}
               </div>
             )}
 
             <div className="text-[10px] text-stone-500 leading-relaxed">
-              Never send another token or use a different network to this address. Sending the wrong asset or network can permanently lose funds.
+              This is your personal non-custodial address. The Wallet screen reads live balances and can send USDT with local signing; inbound transfers do not automatically credit your older AURA internal ledger or appear in a full deposit-history list. Back up your recovery phrase offline before receiving. Never send another token or use a different network; wrong transfers can permanently lose funds.
             </div>
           </div>
         )}
 
-        <button onClick={() => setReceiveModalOpen(false)} className="mt-4 w-full py-3 rounded-xl bg-white/5 text-stone-300 text-xs font-semibold">
+        <button onClick={() => {
+            setReceiveModalOpen(false);
+            setLedgerFundingAcknowledged(false);
+            setLedgerDepositAddresses({});
+            setLedgerDepositMessage(null);
+            setLedgerDepositLoading(false);
+          }} className="mt-4 w-full py-3 rounded-xl bg-white/5 text-stone-300 text-xs font-semibold">
           Done
         </button>
       </div>
@@ -703,7 +785,7 @@ export const BuyModal: React.FC = () => {
         </div>
 
         <p className="mt-4 text-[10px] leading-relaxed text-stone-500">
-          AURA does not create or simulate USDT deposits. External blockchain funding requires a real wallet/provider integration.
+          Your personal on-chain wallet and AURA P2P balance are separate. P2P trades use the AURA internal-ledger balance; sending USDT to your personal address does not fund that balance. Automatic on-chain-to-ledger funding is not enabled here, so do not expect a personal-wallet deposit to appear in P2P.
         </p>
       </div>
     </div>

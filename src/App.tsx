@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { TonConnectUIProvider } from '@tonconnect/ui-react';
 import { AppProvider, useApp } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { supabase } from './lib/supabase';
@@ -403,10 +404,12 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
-    </AuthProvider>
+    <TonConnectUIProvider manifestUrl="https://aura-8bom.onrender.com/tonconnect-manifest.json">
+      <AuthProvider>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </AuthProvider>
+    </TonConnectUIProvider>
   );
 }

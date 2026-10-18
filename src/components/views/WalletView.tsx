@@ -1,24 +1,16 @@
 import React, { useState } from 'react';
-import { ConnectButton, ThirdwebProvider } from 'thirdweb/react';
-import { createWallet } from 'thirdweb/wallets';
-import { AURA_THIRDWEB_TEST_CHAIN, getThirdwebClient } from '../../../lib/thirdweb';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import { ArtworkCanvas } from '../ArtworkCanvas';
 import { AURA_ASSETS, AURA_WITHDRAWAL_NETWORKS } from '../../config/crypto';
 import { UsdtAssetDetailsModal } from '../usdt/UsdtAssetDetailsModal';
 import { TransactionHistoryModal } from '../wallet/TransactionHistoryModal';
+import { NonCustodialWalletPanel } from '../wallet/NonCustodialWalletPanel';
 
 const formatExactUsdtBalance = (value: number): string => {
   if (!Number.isFinite(value)) return '0';
   return value.toFixed(8).replace(/\.?0+$/, '');
 };
-
-// Explicitly isolated testnet wallet preview; never used for AURA USDT settlement.
-const AURA_THIRDWEB_TEST_WALLETS = [
-  createWallet('io.metamask'),
-  createWallet('app.phantom'),
-];
 
 import {
   Send,
@@ -65,9 +57,6 @@ export const WalletView: React.FC = () => {
   const ownedArtworks = artworks.filter((a) => a.isOwned);
   const digitalArtValuation = ownedArtworks.reduce((acc, a) => acc + a.currentValue, 0);
   const totalNetWorth = walletBalance + digitalArtValuation;
-  const thirdwebClient = getThirdwebClient();
-  const thirdwebConfigured = Boolean(thirdwebClient);
-
   const [usdtDetailsOpen, setUsdtDetailsOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawAsset, setWithdrawAsset] = useState<'USDT'>('USDT');
@@ -113,7 +102,7 @@ export const WalletView: React.FC = () => {
             </span>
             <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
-              Wallet Balance
+              AURA Ledger Balance
             </span>
           </div>
 
@@ -134,7 +123,7 @@ export const WalletView: React.FC = () => {
               className="p-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/20 hover:border-emerald-500/40 cursor-pointer transition-all"
             >
               <div className="flex items-center justify-between text-[11px] text-emerald-300 mb-0.5">
-                <span>USDT Balance</span>
+                <span>AURA Ledger USDT</span>
                 <span className="text-[10px] text-emerald-400 font-mono">₮ 1:1 USD</span>
               </div>
               <span className="font-serif text-lg font-bold text-stone-100 tabular-nums">
@@ -319,7 +308,7 @@ export const WalletView: React.FC = () => {
             </div>
           </div>
           <p className="text-[11px] text-stone-400 leading-relaxed">
-            Use this Vault ID or your AURA handle to receive internal USDT from another AURA account. External blockchain deposits require a connected wallet/provider and are not simulated by AURA.
+            Use this Vault ID or your AURA handle only for internal AURA transfers. External on-chain USDT goes to your personal wallet address in Receive and stays separate from this internal ledger balance.
           </p>
           <button onClick={() => setReceiveModalOpen(true)} className="w-full py-3 rounded-xl bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 font-semibold text-xs">
             Show Receive Details
@@ -359,6 +348,14 @@ export const WalletView: React.FC = () => {
             <div className="mt-1 text-[10px] font-mono text-purple-300">Solana</div>
             <div className="mt-2 text-[10px] text-stone-500">Connect or open Phantom</div>
           </button>
+          <button
+            onClick={() => connectExternalWallet('Tonkeeper', 'ton')}
+            className="col-span-2 rounded-2xl border border-sky-400/20 bg-sky-400/[0.05] p-3 text-left hover:bg-sky-400/10 transition-colors"
+          >
+            <div className="text-xs font-semibold text-stone-100">TON Connect</div>
+            <div className="mt-1 text-[10px] font-mono text-sky-300">TON Mainnet</div>
+            <div className="mt-2 text-[10px] text-stone-500">Connect a supported TON wallet and verify ownership</div>
+          </button>
         </div>
 
         <div className="space-y-2">
@@ -385,7 +382,7 @@ export const WalletView: React.FC = () => {
                 </div>
 
                 <div className="text-right font-mono">
-                  <span className="text-emerald-400 font-medium">{w.balance > 0 ? `${w.balance} USDT` : 'Balance unavailable'}</span>
+                  <span className="text-emerald-400 font-medium">{w.balanceStatus === 'available' ? `${w.balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${w.tokenSymbol || 'USDT'}` : w.balanceStatus === 'loading' ? 'Checking balance…' : w.balanceStatus === 'unsupported' ? 'Token balance not integrated' : 'Balance unavailable'}</span>
                   <span className="text-[10px] text-stone-500 block uppercase">{w.network}</span>
                 </div>
               </div>
@@ -394,63 +391,7 @@ export const WalletView: React.FC = () => {
         </div>
       </div>
 
-      {/* THIRDWEB TESTNET PREVIEW — deliberately separate from production USDT custody. */}
-      <div className="px-1">
-        <div className="rounded-3xl border border-violet-400/20 bg-violet-400/[0.04] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-stone-200">thirdweb smart wallet preview</div>
-              <div className="mt-1 text-sm font-semibold text-stone-100">Base Sepolia testnet only</div>
-            </div>
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-mono ${thirdwebConfigured ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
-              {thirdwebConfigured ? 'CLIENT READY' : 'CLIENT ID MISSING'}
-            </span>
-          </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-stone-400">
-            Connect MetaMask or Phantom as the owner of an ERC-4337 smart account on Base Sepolia. This testnet-only smart account is separate from AURA sign-in and ledger balances; it does not deposit, send, withdraw, or move mainnet USDT.
-          </p>
-          {thirdwebClient ? (
-            <div className="mt-4">
-              <ThirdwebProvider>
-                <ConnectButton
-                  client={thirdwebClient}
-                  chain={AURA_THIRDWEB_TEST_CHAIN}
-                  accountAbstraction={{
-                    chain: AURA_THIRDWEB_TEST_CHAIN,
-                    sponsorGas: true,
-                  }}
-                  wallets={AURA_THIRDWEB_TEST_WALLETS}
-                  showAllWallets={false}
-                  autoConnect={false}
-                  theme="dark"
-                  connectModal={{ size: 'compact' }}
-                  connectButton={{
-                    label: 'Connect Test Smart Wallet',
-                    style: {
-                      width: '100%',
-                      borderRadius: '12px',
-                      backgroundColor: '#f5c45e',
-                      color: '#18181b',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      minHeight: '42px',
-                    },
-                  }}
-                  appMetadata={{
-                    name: 'AURA Testnet Preview',
-                    url: 'https://aura-8bom.onrender.com',
-                    description: 'Base Sepolia only; does not access AURA production balances or send mainnet funds.',
-                  }}
-                />
-              </ThirdwebProvider>
-            </div>
-          ) : (
-            <p className="mt-3 text-[10px] text-stone-500">
-              Configure the public VITE_THIRDWEB_CLIENT_ID in Render to enable this optional preview. Do not put a thirdweb Secret Key in a VITE_ variable.
-            </p>
-          )}
-        </div>
-      </div>
+      <NonCustodialWalletPanel />
 
       {/* CONVERT QUICK ACCESS STRIP */}
       {ownedArtworks.length > 0 && (
