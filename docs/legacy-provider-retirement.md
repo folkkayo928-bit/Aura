@@ -14,7 +14,7 @@ The old server-managed ledger/treasury pipeline still contains Thirdweb API call
 - supabase/functions/withdrawal-broadcaster
 - supabase/functions/treasury-health
 
-The old deposit sweep also still contains Alchemy fallback code and uses server-side key derivation material. This legacy code may be needed to reconcile historic internal-ledger balances and previous server-derived deposit addresses. It must not be used for the new user's local wallet.
+The legacy deposit indexer and deposit sweep now use dRPC by default plus configured AURA_EVM_RPC_* overrides; their runtime no longer reads an Alchemy API key. The sweep still uses server-side key derivation material for old custodial deposit addresses and must remain separate from the new user's local wallet. The unused legacy database secret getter/Vault entry has not been deleted pending a separate secret-reference audit.
 
 The current production database audit found no nonterminal withdrawal rows marked as Thirdweb-originated at the time of review. That is not a permanent guarantee: recheck the live queue and provider transaction IDs immediately before disabling reconciliation code.
 
