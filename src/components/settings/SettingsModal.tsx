@@ -376,13 +376,17 @@ export const SettingsModal: React.FC = () => {
                       <span className="text-xs font-semibold block text-stone-200">Phantom</span>
                       <span className="text-[9px] text-purple-300 font-mono">Solana</span>
                     </button>
+                    <button onClick={() => { connectExternalWallet('Tonkeeper', 'ton'); setConnectWalletPickerOpen(false); }} className="p-2.5 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10 text-center transition-colors">
+                      <span className="text-xs font-semibold block text-stone-200">TON Connect</span>
+                      <span className="text-[9px] text-cyan-300 font-mono">TON Mainnet</span>
+                    </button>
                   </div>
                 </div>
               )}
 
               <div className="space-y-2">
                 {connectedWallets.length === 0 ? (
-                  <div className="p-6 text-center rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-500">No external Web3 wallets linked yet. Choose the correct EVM network for MetaMask, or connect Phantom on Solana.</div>
+                  <div className="p-6 text-center rounded-2xl bg-white/[0.02] border border-white/5 text-xs text-stone-500">No external Web3 wallets linked yet. Choose an EVM network for MetaMask, Phantom on Solana, or TON Connect for a TON mainnet wallet.</div>
                 ) : (
                   connectedWallets.map((wallet) => (
                     <div key={wallet.id} className="p-3.5 rounded-2xl bg-[#151520] border border-white/5 flex items-center justify-between">
