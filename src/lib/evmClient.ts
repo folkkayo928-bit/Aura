@@ -484,7 +484,7 @@ export async function sendEvmUsdt(
   try {
     const broadcastHash = await client.sendRawTransaction({ serializedTransaction });
     return {
-      hash: broadcastHash,
+      hash,
       network,
       amount: formatUnits(amount, config.tokenDecimals),
       destination,
