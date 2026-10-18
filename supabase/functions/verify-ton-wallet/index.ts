@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Address, Cell, contractAddress, loadStateInit } from "npm:@ton/core@0.63.1";
-import { WalletContractV3R2, WalletContractV4 } from "npm:@ton/ton@16.0.0";
+import { WalletContractV1R1, WalletContractV1R2, WalletContractV1R3, WalletContractV2R1, WalletContractV2R2, WalletContractV3R1, WalletContractV3R2, WalletContractV4 as WalletContractV4R2, WalletContractV5R1 } from "npm:@ton/ton@16.0.0";
 import { ed25519 } from "npm:@noble/curves@1.9.7/ed25519";
 import { Buffer } from "node:buffer";
 
@@ -64,14 +64,25 @@ function decodeBase64(value: string) {
 function publicKeyFromSupportedStateInit(stateInit: ReturnType<typeof loadStateInit>, workchain: number) {
   if (!stateInit.code || !stateInit.data) throw new Error("STATE_INIT_INCOMPLETE");
   const dummyKey = Buffer.alloc(32);
-  const supportedHashes = new Set([
-    bytesToHex(WalletContractV3R2.create({ workchain, publicKey: dummyKey }).init.code.hash()),
-    bytesToHex(WalletContractV4.create({ workchain, publicKey: dummyKey }).init.code.hash()),
-  ]);
-  if (!supportedHashes.has(bytesToHex(stateInit.code.hash()))) throw new Error("UNSUPPORTED_TON_WALLET_VERSION");
+  const v5WalletId = { networkGlobalId: -239 };
+  const knownWallets = [
+    { hash: bytesToHex(WalletContractV1R1.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v1" },
+    { hash: bytesToHex(WalletContractV1R2.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v1" },
+    { hash: bytesToHex(WalletContractV1R3.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v1" },
+    { hash: bytesToHex(WalletContractV2R1.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v2" },
+    { hash: bytesToHex(WalletContractV2R2.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v2" },
+    { hash: bytesToHex(WalletContractV3R1.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v3" },
+    { hash: bytesToHex(WalletContractV3R2.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v3" },
+    { hash: bytesToHex(WalletContractV4R2.create({ workchain, publicKey: dummyKey }).init.code.hash()), layout: "v4" },
+    { hash: bytesToHex(WalletContractV5R1.create({ workchain, publicKey: dummyKey, walletId: v5WalletId }).init.code.hash()), layout: "v5" },
+  ];
+  const layout = knownWallets.find((wallet) => wallet.hash === bytesToHex(stateInit.code!.hash()))?.layout;
+  if (!layout) throw new Error("UNSUPPORTED_TON_WALLET_VERSION");
   const data = stateInit.data.beginParse();
+  if (layout === "v5") data.loadBit(); // signature-auth flag
   data.loadUint(32); // seqno
-  data.loadUint(32); // wallet id / subwallet id
+  if (layout !== "v1" && layout !== "v2") data.loadUint(32); // wallet id / subwallet id
+  else if (layout === "v2") data.loadUint(32); // wallet id in V2
   return data.loadBuffer(32);
 }
 async function verifyTonProof(input: {
@@ -192,7 +203,7 @@ Deno.serve(async (req) => {
     const known = [
       "TON_PROOF_EXPIRED", "TON_PROOF_DOMAIN_MISMATCH", "TON_PROOF_DOMAIN_LENGTH_INVALID",
       "TON_PROOF_PAYLOAD_INVALID", "TON_STATE_INIT_INVALID", "TON_STATE_INIT_INCOMPLETE",
-      "TON_STATE_INIT_ADDRESS_MISMATCH", "TON_UNSUPPORTED_WALLET_VERSION",
+      "TON_STATE_INIT_ADDRESS_MISMATCH", "UNSUPPORTED_TON_WALLET_VERSION",
       "TON_PUBLIC_KEY_INVALID", "TON_PUBLIC_KEY_MISMATCH", "TON_PROOF_SIGNATURE_INVALID",
       "TON_MAINNET_WORKCHAIN_REQUIRED",
     ];
