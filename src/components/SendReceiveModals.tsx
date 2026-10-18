@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { CryptoNetwork } from '../types';
+import { getLocalEvmWalletMetadata } from '../lib/nonCustodialWallet';
 import {
   X,
   Send,
@@ -348,125 +349,47 @@ export const ReceiveModal: React.FC = () => {
     if (!receiveModalOpen || receiveTab !== 'external') return;
     let cancelled = false;
 
-    const loadDepositAddress = async () => {
+    const loadLocalWalletAddress = async () => {
       setDepositMessage(null);
       setDepositLoading(true);
 
-      if (authLoading) {
-        // Keep the modal in a real loading state while Telegram/Supabase
-        // restores the session instead of showing a false error.
-        return;
-      }
-
-      if (!user) {
+      if (authLoading) return;
+      if (!user?.id) {
         setDepositAddresses({});
         setDepositLoading(false);
-        setDepositMessage('Sign in to enable secure external USDT receiving.');
+        setDepositMessage('Sign in to AURA, then create or import your non-custodial wallet in the Wallet screen.');
         return;
       }
 
-      const cacheKey = `aura:evm-deposit-addresses:${user.id}`;
-      let hasCachedSelectedAddress = false;
-
       try {
-        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-        const cachedAddress = cached?.[selectedNetwork];
-        if (typeof cachedAddress === 'string' && /^0x[0-9a-fA-F]{40}$/.test(cachedAddress)) {
-          setDepositAddresses((previous) => ({ ...previous, ...cached }));
-          hasCachedSelectedAddress = true;
-          setDepositLoading(false);
-        }
-      } catch {
-        // Ignore damaged storage and use the authoritative backend value.
-      }
-
-      let data: any = null;
-      let error: any = null;
-      try {
-        const result = await supabase.functions.invoke('provision-deposit-address', {
-          body: { chain: selectedNetwork },
-        });
-        data = result.data;
-        error = result.error;
-      } catch {
-        // Network-level failures can reject instead of returning a Supabase error.
-        // Keep an already cached address available and never leave the loading
-        // state stuck on an unhandled fetch rejection.
+        const wallet = getLocalEvmWalletMetadata(user.id);
         if (cancelled) return;
-        if (!hasCachedSelectedAddress) {
-          setDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
-          setDepositMessage('Could not connect to AURA’s secure receiving service. Please try again.');
+        if (!wallet?.address) {
+          setDepositAddresses({});
+          setDepositMessage('No personal EVM wallet is saved on this device. Create or import one in Wallet before receiving. Do not reuse an old AURA-managed deposit address.');
+          return;
         }
-        setDepositLoading(false);
-        return;
+
+        // A single EVM key derives the same address across these four EVM networks.
+        // Never surface previously cached server-managed deposit addresses here.
+        setDepositAddresses({
+          ethereum: wallet.address,
+          polygon: wallet.address,
+          arbitrum: wallet.address,
+          bsc: wallet.address,
+        });
+      } catch (cause) {
+        if (cancelled) return;
+        setDepositAddresses({});
+        setDepositMessage(cause instanceof Error
+          ? cause.message
+          : 'The local wallet record could not be read. Restore it using your recovery phrase before receiving.');
+      } finally {
+        if (!cancelled) setDepositLoading(false);
       }
-
-      if (cancelled) return;
-
-      let backendPayload: any = data || null;
-      const status = Number((error as any)?.context?.status || 0);
-      if (!backendPayload && (error as any)?.context instanceof Response) {
-        try {
-          backendPayload = await (error as any).context.clone().json();
-        } catch {
-          backendPayload = null;
-        }
-      }
-
-      if (error || !backendPayload?.success) {
-        if (backendPayload?.error === 'CHAIN_DEPOSITS_PAUSED') {
-          setDepositAddresses((previous) => {
-            const next = { ...previous };
-            delete next[selectedNetwork];
-            return next;
-          });
-          try {
-            const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
-            if (cached && typeof cached === 'object' && !Array.isArray(cached)) {
-              delete cached[selectedNetwork];
-              if (Object.keys(cached).length > 0) localStorage.setItem(cacheKey, JSON.stringify(cached));
-              else localStorage.removeItem(cacheKey);
-            }
-          } catch {
-            // Storage may be unavailable in restricted Telegram webviews.
-          }
-          setDepositMessage(String(backendPayload.message || 'External USDT receiving is paused on this network. Do not send funds to a previously saved address.'));
-        } else if (!hasCachedSelectedAddress) {
-          setDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
-          if (status === 401 || backendPayload?.error === 'UNAUTHORIZED') {
-            setDepositMessage('Your AURA session is not ready. Please close and reopen the Receive panel.');
-          } else if (backendPayload?.message) {
-            setDepositMessage(String(backendPayload.message));
-          } else {
-            setDepositMessage('External USDT receiving is temporarily unavailable. Please try again.');
-          }
-        }
-      } else {
-        const currentAddress = String(
-          backendPayload?.addresses?.[selectedNetwork]
-          || backendPayload?.chains?.find((item: any) => item?.chain === selectedNetwork)?.address
-          || '',
-        );
-
-        if (/^0x[0-9a-fA-F]{40}$/.test(currentAddress)) {
-          setDepositAddresses((previous) => {
-            const merged = { ...previous, [selectedNetwork]: currentAddress };
-            try {
-              localStorage.setItem(cacheKey, JSON.stringify(merged));
-            } catch {
-              // Storage can be unavailable in restricted Telegram webviews.
-            }
-            return merged;
-          });
-        } else if (!hasCachedSelectedAddress) {
-          setDepositMessage('AURA did not return a valid secure deposit address. Please try again.');
-        }
-      }
-
-      setDepositLoading(false);
     };
 
-    void loadDepositAddress();
+    void loadLocalWalletAddress();
     return () => { cancelled = true; };
   }, [receiveModalOpen, receiveTab, selectedNetwork, authLoading, user?.id]);
 
@@ -586,7 +509,7 @@ export const ReceiveModal: React.FC = () => {
             <div>
               <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">Receive USDT on-chain</span>
               <p className="mt-1 text-[11px] text-stone-400 leading-relaxed">
-                Choose the network used by the sender. The address is copied exactly; AURA credits deposits only after its on-chain confirmation process.
+                Choose the exact network the sender will use. Your personal wallet address is controlled by your recovery phrase; AURA does not hold the signing key.
               </p>
             </div>
 
@@ -621,7 +544,7 @@ export const ReceiveModal: React.FC = () => {
 
             {depositLoading ? (
               <div className="rounded-2xl bg-black/20 border border-white/10 p-4 text-xs text-stone-400 text-center">
-                Preparing your secure deposit address…
+                Loading your local wallet address…
               </div>
             ) : externalAddress ? (
               <>
@@ -653,7 +576,7 @@ export const ReceiveModal: React.FC = () => {
             )}
 
             <div className="text-[10px] text-stone-500 leading-relaxed">
-              Never send another token or use a different network to this address. Sending the wrong asset or network can permanently lose funds.
+              Important: on-chain balances and in-app send/transaction tracking are not connected to this wallet yet. Only send if you have safely backed up the recovery phrase and can access it in a compatible wallet. Never send another token or use a different network; wrong transfers can permanently lose funds.
             </div>
           </div>
         )}
