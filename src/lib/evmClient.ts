@@ -1,6 +1,8 @@
 import {
   createPublicClient,
   createWalletClient,
+  encodeFunctionData,
+  keccak256,
   fallback,
   formatUnits,
   getAddress,
@@ -371,6 +373,7 @@ export async function readEvmTransactionStatus(
   try {
     const config = NETWORKS[network];
     const client = makePublicClient(network);
+    if (await client.getChainId() !== config.id) return 'unavailable';
     const receipt = await client.getTransactionReceipt({ hash: hashValue as Hash });
     if (receipt.status !== 'success') return 'failed';
 
@@ -408,7 +411,7 @@ export async function sendEvmUsdt(
   network: EvmNetwork,
   destinationValue: string,
   amountValue: string,
-): Promise<{ hash: string; network: EvmNetwork; amount: string; destination: Address; tokenSymbol: 'USDT' | 'USDT0' }> {
+): Promise<{ hash: string; network: EvmNetwork; amount: string; destination: Address; tokenSymbol: 'USDT' | 'USDT0'; broadcastStatus: 'submitted' | 'uncertain' }> {
   const config = NETWORKS[network];
   if (!config) throw new Error('This EVM network is not supported.');
   const destination = validateRecipient(destinationValue);
@@ -443,7 +446,7 @@ export async function sendEvmUsdt(
     throw new Error('Not enough ' + config.nativeSymbol + ' for network gas. No USDT transaction was sent.');
   }
 
-  const { request } = await client.simulateContract({
+  await client.simulateContract({
     account,
     address: config.token,
     abi: ERC20_ABI,
@@ -456,14 +459,46 @@ export async function sendEvmUsdt(
     chain: config.chain,
     transport: fallback(config.rpcUrls.map((url) => http(url, { timeout: 20000, retryCount: 0 }))),
   });
-
-  let hash: Hash;
+  const data = encodeFunctionData({
+    abi: ERC20_ABI,
+    functionName: 'transfer',
+    args: [destination, amount],
+  });
+  const nonce = await client.getTransactionCount({ address: account.address, blockTag: 'pending' });
+  const prepared = await walletClient.prepareTransactionRequest({
+    account,
+    chain: config.chain,
+    chainId: config.id,
+    to: config.token,
+    data,
+    value: 0n,
+    gas: estimatedGas + estimatedGas / 5n,
+    gasPrice,
+    nonce,
+  });
+  // Sign locally first so the transaction hash is known even if an RPC times out
+  // after accepting the raw transaction. This avoids leaving the user without a
+  // hash to check and still never retries the money movement automatically.
+  const serializedTransaction = await walletClient.signTransaction(prepared);
+  const hash = keccak256(serializedTransaction);
   try {
-    hash = await walletClient.writeContract(request);
+    const broadcastHash = await client.sendRawTransaction({ serializedTransaction });
+    return {
+      hash: broadcastHash,
+      network,
+      amount: formatUnits(amount, config.tokenDecimals),
+      destination,
+      tokenSymbol: config.tokenSymbol,
+      broadcastStatus: broadcastHash.toLowerCase() === hash.toLowerCase() ? 'submitted' : 'uncertain',
+    };
   } catch {
-    // The provider may have accepted the signed transaction even if its response
-    // was lost. Never silently retry a money movement with an unknown outcome.
-    throw new Error('TRANSFER_SUBMISSION_UNCERTAIN: the RPC response did not confirm whether the network accepted this transfer. Check the transaction explorer and destination wallet before retrying.');
+    return {
+      hash,
+      network,
+      amount: formatUnits(amount, config.tokenDecimals),
+      destination,
+      tokenSymbol: config.tokenSymbol,
+      broadcastStatus: 'uncertain',
+    };
   }
-  return { hash, network, amount: formatUnits(amount, config.tokenDecimals), destination, tokenSymbol: config.tokenSymbol };
 }
