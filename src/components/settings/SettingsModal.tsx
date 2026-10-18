@@ -19,6 +19,8 @@ import {
   Image as ImageIcon,
   AlertTriangle,
   CreditCard,
+  Fingerprint,
+  Loader2,
 } from 'lucide-react';
 
 export const SettingsModal: React.FC = () => {
@@ -51,6 +53,12 @@ export const SettingsModal: React.FC = () => {
   const [mfaLoading, setMfaLoading] = useState(false);
   const [mfaError, setMfaError] = useState('');
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [passkeys, setPasskeys] = useState<Array<{ id: string; friendly_name?: string; created_at?: string }>>([]);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyError, setPasskeyError] = useState('');
+  const [passkeyMessage, setPasskeyMessage] = useState('');
+  const [pendingDeletePasskeyId, setPendingDeletePasskeyId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleSettingsTab = (event: Event) => {
@@ -83,6 +91,100 @@ export const SettingsModal: React.FC = () => {
     return () => {
       cancelled = true;
     };
+  }, [settingsModalOpen, activeTab, user]);
+
+  const refreshPasskeys = async () => {
+    if (!user) return;
+    setPasskeyLoading(true);
+    setPasskeyError('');
+    try {
+      const { data, error } = await supabase.auth.passkey.list();
+      if (error) {
+        const lower = error.message.toLowerCase();
+        setPasskeyError(lower.includes('passkey_disabled')
+          ? 'Passkeys are not enabled in the hosted Supabase Auth project yet. Use Google, Apple, Telegram or email until the project WebAuthn settings are enabled.'
+          : error.message);
+        setPasskeys([]);
+      } else {
+        setPasskeys((data || []) as Array<{ id: string; friendly_name?: string; created_at?: string }>);
+      }
+    } catch (cause) {
+      setPasskeyError(cause instanceof Error ? cause.message : 'Could not load passkeys.');
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
+  const registerPasskey = async () => {
+    if (!user) return;
+    setPasskeyBusy(true);
+    setPasskeyError('');
+    setPasskeyMessage('');
+    try {
+      const { data, error } = await supabase.auth.registerPasskey();
+      if (error) {
+        const lower = error.message.toLowerCase();
+        setPasskeyError(lower.includes('passkey_disabled')
+          ? 'Passkeys are not enabled in the hosted Supabase Auth project yet. No credential was registered.'
+          : lower.includes('notallowederror') || lower.includes('cancelled')
+            ? 'Passkey creation was canceled or not allowed by this device.'
+            : error.message);
+        return;
+      }
+      setPasskeyMessage('Passkey registered on this device: ' + String(data?.friendly_name || 'Passkey') + '.');
+      await refreshPasskeys();
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause || '');
+      setPasskeyError(message.toLowerCase().includes('passkey_disabled')
+        ? 'Passkeys are not enabled in the hosted Supabase Auth project yet. No credential was registered.'
+        : message || 'Could not register a passkey.');
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
+
+  const deletePasskey = async (passkeyId: string) => {
+    setPasskeyBusy(true);
+    setPasskeyError('');
+    setPasskeyMessage('');
+    try {
+      const { error } = await supabase.auth.passkey.delete({ passkeyId });
+      if (error) {
+        setPasskeyError(error.message);
+      } else {
+        setPasskeyMessage('Passkey removed from this AURA account.');
+        setPendingDeletePasskeyId(null);
+        await refreshPasskeys();
+      }
+    } catch (cause) {
+      setPasskeyError(cause instanceof Error ? cause.message : 'Could not remove the passkey.');
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!settingsModalOpen || activeTab !== 'security' || !user) return;
+    let cancelled = false;
+    setPasskeyLoading(true);
+    setPasskeyError('');
+    void supabase.auth.passkey.list().then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) {
+        const lower = error.message.toLowerCase();
+        setPasskeyError(lower.includes('passkey_disabled')
+          ? 'Passkeys are not enabled in the hosted Supabase Auth project yet. Use the existing login methods until WebAuthn settings are enabled.'
+          : error.message);
+        setPasskeys([]);
+      } else {
+        setPasskeys((data || []) as Array<{ id: string; friendly_name?: string; created_at?: string }>);
+      }
+    }).catch((cause) => {
+      if (!cancelled) setPasskeyError(cause instanceof Error ? cause.message : 'Could not load passkeys.');
+    }).finally(() => {
+      if (!cancelled) setPasskeyLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [settingsModalOpen, activeTab, user]);
 
   const handleImageUpload = async (file: File, setter: (value: string) => void) => {
@@ -375,14 +477,45 @@ export const SettingsModal: React.FC = () => {
                   </div>
                 )}
 
-                <div className="w-full rounded-xl border border-white/5 bg-white/[0.02] p-3 opacity-80">
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-3">
                   <div className="flex items-center gap-2 text-left">
-                    <ShieldCheck className="h-4 w-4 text-cyan-300" />
-                    <div>
-                      <span className="block text-xs font-medium text-stone-200">Passkey sign-in</span>
-                      <span className="mt-0.5 block text-[10px] text-stone-500">Not enabled yet. AURA will show this as available only after Supabase Auth passkeys are configured and a real registration/sign-in test passes.</span>
+                    <Fingerprint className="h-4 w-4 text-cyan-300" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-xs font-medium text-stone-200">Passkeys</span>
+                      <span className="mt-0.5 block text-[10px] leading-relaxed text-stone-500">Use your device unlock, biometrics or security key to sign in. This protects your AURA account; it does not replace your wallet recovery phrase.</span>
                     </div>
                   </div>
+                  <button type="button" onClick={() => void registerPasskey()} disabled={passkeyBusy || passkeyLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 py-2.5 text-[11px] font-bold text-stone-950 disabled:opacity-50">
+                    {passkeyBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Fingerprint className="h-3.5 w-3.5" />}
+                    Add this device's passkey
+                  </button>
+                  {passkeyLoading ? (
+                    <p className="text-[10px] text-stone-500">Checking registered passkeys…</p>
+                  ) : passkeys.length > 0 ? (
+                    <div className="space-y-2">
+                      {passkeys.map((key) => (
+                        <div key={key.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-black/20 p-2.5">
+                          <div className="min-w-0">
+                            <span className="block break-words text-[10px] text-stone-200">{key.friendly_name || 'AURA passkey'}</span>
+                            <span className="mt-0.5 block text-[9px] text-stone-500">{key.created_at ? 'Added ' + new Date(key.created_at).toLocaleDateString() : 'Registered passkey'}</span>
+                          </div>
+                          {pendingDeletePasskeyId === key.id ? (
+                            <div className="flex shrink-0 gap-1.5">
+                              <button type="button" disabled={passkeyBusy} onClick={() => void deletePasskey(key.id)} className="rounded-lg bg-rose-500/15 px-2 py-1.5 text-[9px] text-rose-200 disabled:opacity-50">Remove</button>
+                              <button type="button" disabled={passkeyBusy} onClick={() => setPendingDeletePasskeyId(null)} className="rounded-lg border border-white/10 px-2 py-1.5 text-[9px] text-stone-300">Keep</button>
+                            </div>
+                          ) : (
+                            <button type="button" disabled={passkeyBusy} onClick={() => setPendingDeletePasskeyId(key.id)} className="shrink-0 rounded-lg border border-white/10 px-2 py-1.5 text-[9px] text-stone-300 disabled:opacity-50">Remove</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-stone-500">No passkeys registered on this account yet.</p>
+                  )}
+                  {pendingDeletePasskeyId && <p className="text-[9px] leading-relaxed text-amber-100">Removing a passkey can remove access from its device. Keep Google, Apple, email or Telegram recovery available first.</p>}
+                  {passkeyMessage && <p className="rounded-lg border border-emerald-400/15 bg-emerald-400/[0.04] p-2 text-[10px] text-emerald-200">{passkeyMessage}</p>}
+                  {passkeyError && <p className="rounded-lg border border-amber-400/15 bg-amber-400/[0.04] p-2 text-[10px] leading-relaxed text-amber-100">{passkeyError}</p>}
                 </div>
               </div>
 
