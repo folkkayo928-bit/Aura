@@ -47,6 +47,12 @@ const TRANSACTION_EXPLORERS: Record<EvmNetwork, string> = {
   arbitrum: 'https://arbiscan.io/tx/',
   bsc: 'https://bscscan.com/tx/',
 };
+const TOKEN_EXPLORERS: Record<EvmNetwork, string> = {
+  ethereum: 'https://etherscan.io/token/',
+  polygon: 'https://polygonscan.com/token/',
+  arbitrum: 'https://arbiscan.io/token/',
+  bsc: 'https://bscscan.com/token/',
+};
 
 const LOCAL_TRANSACTION_HISTORY_LIMIT = 50;
 type LocalEvmTransaction = {
@@ -792,6 +798,10 @@ export const NonCustodialWalletPanel: React.FC = () => {
                       <div className="flex items-start justify-between gap-3">
                         <span className="text-stone-500">Network</span>
                         <span className="text-right text-stone-200">{transferReview.label}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-stone-500">Token contract</span>
+                        <a href={TOKEN_EXPLORERS[transferReview.network] + transferReview.tokenAddress} target="_blank" rel="noreferrer" className="max-w-[68%] break-all text-right font-mono text-emerald-200 underline underline-offset-2">{transferReview.tokenAddress}</a>
                       </div>
                       <div className="flex items-start justify-between gap-3">
                         <span className="text-stone-500">From</span>
