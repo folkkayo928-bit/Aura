@@ -18,6 +18,7 @@ This is the source of truth for the wallet direction. Keep the product small: Su
 - The receive panel reads the public address from the current account's local wallet record. It no longer requests a new server-controlled deposit address.
 - Thirdweb's optional Base Sepolia preview and its direct frontend dependency have been removed.
 - The deposit indexer now prefers its dRPC endpoint list and public fallbacks instead of reaching for Alchemy first.
+- External-wallet linking uses server-verified ownership challenges for MetaMask (EVM) and Phantom (Solana). EVM linked-wallet USDT/USDT0 balances are read-only; Phantom's Solana USDT balance uses public mainnet RPC with genesis-hash validation and fallback. TON Connect ownership proof is implemented for standard wallet versions V1R1–V5R1, but its frontend release and live proof test remain pending.
 
 This branch contains public-RPC balances and locally signed EVM sends for Ethereum, Polygon, Arbitrum One and BNB Smart Chain, with validation, simulation, precomputed transaction hashes, receipt verification and device-local outgoing history. It also adds opt-in incoming USDT/USDT0 indexing in a separate table. Incoming tracking starts from a bounded recent scan/cursor and is not a full historical archive; it never credits the AURA/P2P ledger. These are implementation milestones, not proof of production operation: no controlled mainnet send/receive has been verified and public RPC availability has not been load/soak-tested.
 
