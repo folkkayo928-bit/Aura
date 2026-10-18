@@ -218,12 +218,75 @@ export async function readEvmBalances(addressValue: string): Promise<EvmBalanceS
  * Calling this function broadcasts a real mainnet transaction and must follow explicit
  * user review/confirmation in the UI.
  */
+export type EvmTransferReview = {
+  network: EvmNetwork;
+  label: string;
+  from: Address;
+  destination: Address;
+  amount: string;
+  usdtBalance: string;
+  nativeSymbol: string;
+  nativeBalance: string;
+  estimatedNativeFee: string;
+};
+
+export async function estimateEvmUsdtTransfer(
+  mnemonicValue: string,
+  network: EvmNetwork,
+  destinationValue: string,
+  amountValue: string,
+): Promise<EvmTransferReview> {
+  const config = NETWORKS[network];
+  const destination = validateRecipient(destinationValue);
+  const amount = validAmountText(amountValue, config.tokenDecimals);
+  const account = mnemonicToAccount(normalizeRecoveryPhrase(mnemonicValue), { path: "m/44'/60'/0'/0/0" });
+  const client = makePublicClient(network);
+
+  const chainId = await client.getChainId();
+  if (chainId !== config.id) throw new Error('Network check failed. No transaction was sent.');
+
+  const [actualDecimals, tokenBalance, nativeBalance, gasPrice] = await Promise.all([
+    client.readContract({ address: config.token, abi: ERC20_ABI, functionName: 'decimals' }),
+    client.readContract({ address: config.token, abi: ERC20_ABI, functionName: 'balanceOf', args: [account.address] }),
+    client.getBalance({ address: account.address }),
+    client.getGasPrice(),
+  ]);
+
+  if (Number(actualDecimals) !== config.tokenDecimals) throw new Error('The USDT token decimals do not match the expected network configuration.');
+  if (tokenBalance < amount) throw new Error('The local wallet does not have enough USDT for this transfer.');
+
+  const estimatedGas = await client.estimateContractGas({
+    account: account.address,
+    address: config.token,
+    abi: ERC20_ABI,
+    functionName: 'transfer',
+    args: [destination, amount],
+  });
+  const estimatedCost = estimatedGas * gasPrice;
+  const requiredNative = estimatedCost + estimatedCost / 5n;
+  if (nativeBalance < requiredNative) {
+    throw new Error('Not enough ' + config.nativeSymbol + ' for network gas. No USDT transaction was sent.');
+  }
+
+  return {
+    network,
+    label: config.label,
+    from: account.address,
+    destination,
+    amount: formatUnits(amount, config.tokenDecimals),
+    usdtBalance: formatUnits(tokenBalance, config.tokenDecimals),
+    nativeSymbol: config.nativeSymbol,
+    nativeBalance: formatUnits(nativeBalance, 18),
+    estimatedNativeFee: formatUnits(estimatedCost, 18),
+  };
+}
+
 export async function sendEvmUsdt(
   mnemonicValue: string,
   network: EvmNetwork,
   destinationValue: string,
   amountValue: string,
-): Promise<{ hash: \`0x\${string}\`; network: EvmNetwork; amount: string; destination: Address }> {
+): Promise<{ hash: string; network: EvmNetwork; amount: string; destination: Address }> {
   const config = NETWORKS[network];
   if (!config) throw new Error('This EVM network is not supported.');
   const destination = validateRecipient(destinationValue);
