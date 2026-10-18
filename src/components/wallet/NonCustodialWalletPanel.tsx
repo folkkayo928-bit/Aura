@@ -35,6 +35,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
   const [challengeAnswers, setChallengeAnswers] = useState<string[]>(['', '', '']);
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [replaceConfirmed, setReplaceConfirmed] = useState(false);
+  const [needsReplacement, setNeedsReplacement] = useState(false);
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [busy, setBusy] = useState(false);
@@ -49,6 +50,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
     setShowRecoveryPhrase(false);
     setNotice('');
     setError('');
+    setNeedsReplacement(false);
 
     if (authLoading) {
       setMode('checking');
@@ -68,6 +70,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
     } catch (cause) {
       if (cancelled) return;
       setError(cause instanceof Error ? cause.message : 'Could not read the local wallet record.');
+      setNeedsReplacement(true);
       setMode('summary');
     }
 
@@ -131,6 +134,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
     setChallengeAnswers(['', '', '']);
     setBackupConfirmed(false);
     setReplaceConfirmed(false);
+    setNeedsReplacement(false);
     setMode('unlock');
     setNotice('Wallet created on this device. Keep your recovery phrase somewhere safe and private.');
   };
@@ -157,7 +161,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
     setBusy(true);
     setError('');
     try {
-      const replacing = Boolean(metadata || error);
+      const replacing = Boolean(metadata || needsReplacement);
       if (replacing && !replaceConfirmed) {
         throw new Error('Confirm the local-wallet replacement warning before replacing this device’s encrypted copy.');
       }
@@ -300,7 +304,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
             />
           </label>
           <PinFields pin={pin} confirmPin={confirmPin} setPin={setPin} setConfirmPin={setConfirmPin} />
-          {(metadata || error) && (
+          {(metadata || needsReplacement) && (
             <label className="flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.05] p-3 text-[10px] leading-relaxed text-amber-100">
               <input type="checkbox" checked={replaceConfirmed} onChange={(event) => setReplaceConfirmed(event.target.checked)} className="mt-0.5 accent-amber-300" />
               Replace the encrypted wallet copy on this device. I have saved the old recovery phrase elsewhere or understand that this device will no longer unlock that old wallet.
