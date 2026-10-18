@@ -420,7 +420,7 @@ export async function sendEvmUsdt(
   const config = NETWORKS[network];
   if (!config) throw new Error('This EVM network is not supported.');
   const destination = validateRecipient(destinationValue);
-  const amount = validAmountText(amountValue, config.tokenDecimals);
+  const amount = validAmountText(amountValue, config.tokenDecimals, config.tokenSymbol);
   const mnemonic = normalizeRecoveryPhrase(mnemonicValue);
   const account = mnemonicToAccount(mnemonic, { path: "m/44'/60'/0'/0/0" });
   const client = makePublicClient(network);
