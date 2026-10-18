@@ -1714,7 +1714,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const wallet = tonWallet;
     const tonProofItem = wallet?.connectItems?.tonProof;
-    if (!user?.id || !wallet || !tonProofItem || !('proof' in tonProofItem)) return;
+    if (!wallet || !tonProofItem) return;
+    if (!('proof' in tonProofItem)) {
+      if (tonProofPayloadRef.current) {
+        tonProofPayloadRef.current = null;
+        addNotification('TON Proof Not Supported', 'This TON wallet did not provide a verifiable TON proof. AURA did not save it as a connected wallet.', 'community');
+        void tonConnectUI.disconnect();
+      }
+      return;
+    }
+    if (!user?.id) return;
     const proof = tonProofItem.proof;
     const expectedPayload = tonProofPayloadRef.current;
     if (!expectedPayload || proof.payload !== expectedPayload || tonVerificationInFlightRef.current) return;
