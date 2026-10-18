@@ -203,8 +203,9 @@ Deno.serve(async (req) => {
       // because its blocks arrive much faster than the once-per-minute cron.
       // Small chunks keep this compatible with restrictive RPC providers.
       const logs: any[] = [];
-      // Filtered logs for all four configured USDT contracts were tested at 100-block ranges.
-      const maxLogRange = 100n;
+      // Keep eth_getLogs chunks within the 10-block limit enforced by common free-tier RPC plans.
+      // This avoids repeated range errors and lets the provider fallback logic focus on genuine outages.
+      const maxLogRange = 10n;
       for (let chunkFrom = from; chunkFrom <= scanToBlock;) {
         const chunkTo = chunkFrom + maxLogRange - 1n < scanToBlock
           ? chunkFrom + maxLogRange - 1n
