@@ -391,7 +391,12 @@ export async function readEvmTransactionStatus(
     });
     if (!matches) return 'unverified';
 
-    const latestBlock = await client.getBlockNumber();
+    const [latestBlock, canonicalBlock] = await Promise.all([
+      client.getBlockNumber(),
+      client.getBlock({ blockNumber: receipt.blockNumber }),
+    ]);
+    // Do not mark an outgoing transfer confirmed if its receipt block was reorganized.
+    if (canonicalBlock.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) return 'pending';
     const confirmationCount = latestBlock >= receipt.blockNumber
       ? Number(latestBlock - receipt.blockNumber + 1n)
       : 0;
