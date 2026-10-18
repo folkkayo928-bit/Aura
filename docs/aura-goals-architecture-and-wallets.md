@@ -86,3 +86,12 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [x] Add TON Connect UI entry point, one-time server-issued proof payloads, server-side TON proof verification for standard wallet contract versions V1R1 through V5R1, atomic single-use challenge consumption, and additive database constraints. The backend migration/function are deployed; the frontend remains on the PR branch and still needs a controlled live wallet proof test. Unsupported/custom TON wallet contracts fail closed.
 - [ ] Verify TON Connect end-to-end in the released web and Telegram Mini App, including Tonkeeper and another supported wallet; confirm unsupported wallet versions show a safe error and no unverified address is saved.
 - [ ] Run security and end-to-end tests on web and Telegram Mini App before calling the wallet production-ready.
+
+## Latest wallet audit — 2026-10-18
+
+- Audited Telegram build configuration: Telegram API mutation is opt-in via `RUN_TELEGRAM_SETUP=true`; missing bot token/public URL causes setup to skip instead of failing the frontend build. Production webhook secret configuration still needs an environment-presence check; do not paste or log secret values.
+- Audited the Settings Modal: passkey management is correctly labelled as AURA-account security, separate from wallet phrase recovery. Hosted Supabase WebAuthn configuration remains unverified.
+- Applied the additive external-wallet network-constraint migration after confirming the production `external_wallets` table had zero rows and no duplicate network-scoped keys. Deployed `verify-external-wallet` version 9 to match its network-scoped upsert target.
+- Applied the TON Connect challenge migration and deployed `verify-ton-wallet` version 1. The endpoint issues expiring one-time payloads and verifies domain, timestamp, state-init-derived address, supported standard wallet code hash, public key, and Ed25519 proof before saving a wallet. The endpoint supports standard TON wallet V1R1–V5R1; unsupported/custom wallet code hashes fail closed.
+- Added the TON Connect button and proof-handling path to the PR branch. The live frontend has not been updated, and no controlled Tonkeeper/TON wallet proof has yet been verified end-to-end.
+- CI passed for the branch through `ecce71053d35bcd95f06437f245c2a6f641e88a4`; a newer UI guard change is awaiting its own CI result at the time of this note.
