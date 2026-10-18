@@ -19,7 +19,7 @@ This is the source of truth for the wallet direction. Keep the product small: Su
 - Thirdweb's optional Base Sepolia preview and its direct frontend dependency have been removed.
 - The deposit indexer now prefers its dRPC endpoint list and public fallbacks instead of reaching for Alchemy first.
 
-This is a wallet-key foundation, not a claim that all crypto functions are production-ready. The current in-app balance, send/broadcast, fee quote, and on-chain transaction-history paths are not yet fully connected to the new local wallet. The receive UI warns users about that limitation. Do not remove that warning until balances and transaction flows are implemented and independently verified.
+This branch now contains the code paths for public-RPC balance reads, locally signed EVM token sends, recipient/token/chain validation, gas estimates, simulation, transaction receipt checks, and device-local outgoing transfer history for Ethereum, Polygon, Arbitrum One and BNB Smart Chain. These are implementation milestones, not proof of production operation: no controlled mainnet send/receive has been verified for this release; public RPC availability has not been load/soak-tested; incoming transfers are not shown in a complete in-app history; and on-chain funds do not automatically credit the separate AURA/P2P ledger. Keep those limitations visible until independently tested.
 
 ## RPC configuration
 
@@ -53,7 +53,7 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - Telegram Mini App sign-in exists separately; do not replace or merge it with wallet identity.
 - TOTP enrollment and sign-in challenge components exist. Sensitive actions must enforce MFA server-side where configured; hiding a button in the client is not authorization.
 - A wallet PIN currently encrypts/unlocks the local wallet only. It does not replace Supabase authentication or TOTP.
-- Passkeys are a follow-on item. The current Supabase JS dependency and hosted Auth configuration need to be upgraded/configured before passkeys can be exposed to users. Supabase documents current JS passkey support as experimental and requiring a newer SDK; validate the current configuration before implementing.
+- Passkey UI and SDK calls exist in this branch, but the hosted Supabase Auth setting and production WebAuthn relying-party ID/origin are not verified. Keep this out of the wallet launch gate until live registration and sign-in pass on web and Telegram WebView.
 - No recovery phrase or private key may appear in logs, crash reports, URLs, clipboard automatically, database tables, or server requests.
 
 ## Release checklist
@@ -63,10 +63,14 @@ These are explicitly legacy-only. Do not wire new non-custodial functionality th
 - [x] Thirdweb browser preview removed.
 - [x] Deposit indexer moved to dRPC-first fallbacks.
 - [ ] Complete dRPC API configuration and test every target network.
-- [ ] Read on-chain balances and USDT balances for the local wallet, using verified token contracts and correct decimals.
-- [ ] Implement client-side signing and broadcasting for non-custodial sends; validate chain, recipient, amount and gas before signing.
-- [ ] Implement reliable transaction status and history; do not report success before observing the transaction hash and confirmed receipt.
+- [x] Implement public-RPC reads for native and network-token balances, with chain ID and token-decimal checks. Still verify every network against reliable production RPC endpoints.
+- [x] Implement client-side signing/broadcast code for personal-wallet sends with recipient, chain, token-decimal, token-balance, native gas, simulation, and explicit-confirmation checks. Still require controlled mainnet transfer tests before launch.
+- [x] Implement receipt status checks for outgoing transfers, comparing the expected token contract, sender, recipient, amount and confirmation count, plus device-local outgoing history. Full incoming/deposit history is not implemented yet.
 - [ ] Retire legacy server-managed receiving, sweeping and Thirdweb payout code only after old funds and queued operations are reconciled.
 - [x] Implement passkey sign-in, registration, listing and removal using the current Supabase JS SDK.
 - [ ] Enable passkeys on the hosted Supabase Auth service with the stable production RP ID/origin, then test registration and sign-in in the live browser/Telegram WebView.
+- [ ] Add and test reliable incoming-transfer history and a separately designed, server-verified on-chain-to-ledger credit path if P2P funding from personal wallets is required. Never trust a frontend assertion or credit the ledger from an address alone.
+- [ ] Run controlled low-value mainnet sends/receives on each enabled network, verify balances and receipts across independent RPC/explorers, and test mobile/Telegram WebView recovery before release.
+- [ ] Complete end-to-end P2P tests for funded buy/sell orders, escrow-lock/refund, payment-proof, dispute, and settlement. Preserve the existing open dispute.
+- [ ] Implement TON Connect with server-side TON proof verification and additive database constraint migration; keep it disabled until verified.
 - [ ] Run security and end-to-end tests on web and Telegram Mini App before calling the wallet production-ready.
