@@ -36,22 +36,39 @@ async function notifyTelegramWithdrawal(client: ReturnType<typeof db>, userId: s
   }
 }
 const EVM = {
-  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", fallbackRpc: "https://eth.drpc.org", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
-  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", fallbackRpc: "https://polygon.drpc.org", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
-  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", fallbackRpc: "https://arbitrum.drpc.org", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
-  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpc: "https://bsc.drpc.org", token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
+  ethereum: { confirmations: 12, rpc: "AURA_EVM_RPC_ETHEREUM", fallbackRpcs: ["https://eth.drpc.org", "https://ethereum-rpc.publicnode.com"], token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", tokenDecimals: 6 },
+  polygon: { confirmations: 30, rpc: "AURA_EVM_RPC_POLYGON", fallbackRpcs: ["https://polygon.drpc.org", "https://polygon-bor-rpc.publicnode.com"], token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", tokenDecimals: 6 },
+  arbitrum: { confirmations: 20, rpc: "AURA_EVM_RPC_ARBITRUM", fallbackRpcs: ["https://arbitrum.drpc.org", "https://arb1.arbitrum.io/rpc", "https://arbitrum-one.public.blastapi.io", "https://arbitrum-one-rpc.publicnode.com"], token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", tokenDecimals: 6 },
+  bsc: { confirmations: 15, rpc: "AURA_EVM_RPC_BSC", fallbackRpcs: ["https://bsc.drpc.org", "https://bsc-rpc.publicnode.com", "https://bsc-mainnet.public.blastapi.io", "https://public.1rpc.io/bnb"], token: "0x55d398326f99059fF775485246999027B3197955", tokenDecimals: 18 },
 } as const;
 
-async function rpc(url: string, method: string, params: unknown[]) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  });
-  if (!response.ok) throw new Error("RPC_HTTP_" + response.status);
-  const payload = await response.json();
-  if (payload.error) throw new Error(payload.error.message || "RPC_ERROR");
-  return payload.result;
+async function rpc(url: string, method: string, params: unknown[], fallbacks: string[] = []) {
+  const endpoints = [...new Set([url, ...fallbacks].filter((endpoint) => endpoint.length > 0))];
+  let lastError: unknown = new Error("RPC_UNAVAILABLE");
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) throw new Error("RPC_HTTP_" + response.status);
+      const payload = await response.json();
+      if (payload.error) throw new Error("RPC_ERROR:" + String(payload.error.message || "unknown").slice(0, 240));
+      return payload.result;
+    } catch (error) {
+      lastError = error;
+      console.warn("Withdrawal confirmation RPC failed; trying the next endpoint", {
+        method,
+        endpoint: new URL(endpoint).host,
+        error: String(error).slice(0, 300),
+      });
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 function hexToBigInt(value: string | null | undefined) {
   return value ? BigInt(value) : 0n;
@@ -116,7 +133,8 @@ Deno.serve(async (req) => {
         continue;
       }
       const configuredRpc = Deno.env.get(config.rpc)?.trim();
-      const rpcUrl = configuredRpc || config.fallbackRpc;
+      const rpcUrl = configuredRpc || config.fallbackRpcs[0] || "";
+      const rpcFallbacks = config.fallbackRpcs.filter((endpoint) => endpoint !== rpcUrl);
       if (!rpcUrl) {
         pending++;
         console.error("Missing RPC configuration for withdrawal chain", chain);
@@ -124,7 +142,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const receipt = await rpc(rpcUrl, "eth_getTransactionReceipt", [withdrawal.tx_hash]);
+        const receipt = await rpc(rpcUrl, "eth_getTransactionReceipt", [withdrawal.tx_hash], rpcFallbacks);
         if (!receipt) {
           pending++;
           continue;
@@ -157,7 +175,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const latest = hexToBigInt(await rpc(rpcUrl, "eth_blockNumber", []));
+        const latest = hexToBigInt(await rpc(rpcUrl, "eth_blockNumber", [], rpcFallbacks));
         const mined = hexToBigInt(receipt.blockNumber);
         const confirmations = latest >= mined ? Number(latest - mined + 1n) : 0;
         const required = Number(config.confirmations);
