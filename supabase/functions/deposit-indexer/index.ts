@@ -37,7 +37,6 @@ const EVM_READ_RPC_FALLBACKS: Record<Chain, string[]> = {
     "https://bsc.drpc.org",
     "https://bsc-rpc.publicnode.com",
     "https://bsc-mainnet.public.blastapi.io",
-    "https://public.1rpc.io/bnb",
   ],
 };
 const preferredReadRpc: Partial<Record<Chain, string>> = {};
