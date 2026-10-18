@@ -266,7 +266,7 @@ export const NonCustodialWalletPanel: React.FC = () => {
         ...result,
         from: transferReview.from,
         tokenSymbol: transferReview.tokenSymbol,
-        status: 'pending',
+        status: result.broadcastStatus === 'submitted' ? 'pending' : 'unverified',
         createdAt: new Date().toISOString(),
       };
       setSendResult(transactionRecord);
@@ -276,7 +276,9 @@ export const NonCustodialWalletPanel: React.FC = () => {
       setSendAmount('');
       setSendDestination('');
       lockWallet();
-      setNotice('Transaction submitted. The wallet is locked again. Check the on-chain receipt before treating the transfer as complete.');
+      setNotice(result.broadcastStatus === 'submitted'
+        ? 'The RPC returned the transaction hash. The wallet is locked again. Verify the on-chain receipt before treating the transfer as complete.'
+        : 'The transaction hash was computed locally, but the RPC did not confirm broadcast. The wallet is locked. Check this exact hash on the explorer before deciding whether to retry.');
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Could not submit the transfer.';
       if (message.includes('TRANSFER_SUBMISSION_UNCERTAIN')) {
