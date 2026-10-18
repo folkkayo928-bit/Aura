@@ -9,10 +9,10 @@ const ERC20_ABI = [
 ] as const;
 
 const CHAINS = {
-  ethereum: { id: 1, label: "Ethereum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, treasuryEnv: "AURA_EVM_TREASURY_ETHEREUM", rpcEnv: "AURA_EVM_RPC_ETHEREUM", native: "ETH", fallback: "https://ethereum-rpc.publicnode.com" },
-  polygon: { id: 137, label: "Polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6, treasuryEnv: "AURA_EVM_TREASURY_POLYGON", rpcEnv: "AURA_EVM_RPC_POLYGON", native: "POL", fallback: "https://polygon-bor-rpc.publicnode.com" },
-  arbitrum: { id: 42161, label: "Arbitrum", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6, treasuryEnv: "AURA_EVM_TREASURY_ARBITRUM", rpcEnv: "AURA_EVM_RPC_ARBITRUM", native: "ETH", fallback: "https://arb1.arbitrum.io/rpc" },
-  bsc: { id: 56, label: "BNB Smart Chain", token: "0x55d398326f99059fF775485246999027B3197955", decimals: 18, treasuryEnv: "AURA_EVM_TREASURY_BSC", rpcEnv: "AURA_EVM_RPC_BSC", native: "BNB", fallback: "https://bsc-rpc.publicnode.com" },
+  ethereum: { id: 1, label: "Ethereum", token: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, treasuryEnv: "AURA_EVM_TREASURY_ETHEREUM", rpcEnv: "AURA_EVM_RPC_ETHEREUM", native: "ETH", fallback: "https://eth.drpc.org" },
+  polygon: { id: 137, label: "Polygon", token: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6, treasuryEnv: "AURA_EVM_TREASURY_POLYGON", rpcEnv: "AURA_EVM_RPC_POLYGON", native: "POL", fallback: "https://polygon.drpc.org" },
+  arbitrum: { id: 42161, label: "Arbitrum", token: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6, treasuryEnv: "AURA_EVM_TREASURY_ARBITRUM", rpcEnv: "AURA_EVM_RPC_ARBITRUM", native: "ETH", fallback: "https://arbitrum.drpc.org" },
+  bsc: { id: 56, label: "BNB Smart Chain", token: "0x55d398326f99059fF775485246999027B3197955", decimals: 18, treasuryEnv: "AURA_EVM_TREASURY_BSC", rpcEnv: "AURA_EVM_RPC_BSC", native: "BNB", fallback: "https://bsc.drpc.org" },
 } as const;
 
 const CORS_HEADERS = {
