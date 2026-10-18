@@ -414,7 +414,24 @@ export const ReceiveModal: React.FC = () => {
       }
 
       if (error || !backendPayload?.success) {
-        if (!hasCachedSelectedAddress) {
+        if (backendPayload?.error === 'CHAIN_DEPOSITS_PAUSED') {
+          setDepositAddresses((previous) => {
+            const next = { ...previous };
+            delete next[selectedNetwork];
+            return next;
+          });
+          try {
+            const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+            if (cached && typeof cached === 'object' && !Array.isArray(cached)) {
+              delete cached[selectedNetwork];
+              if (Object.keys(cached).length > 0) localStorage.setItem(cacheKey, JSON.stringify(cached));
+              else localStorage.removeItem(cacheKey);
+            }
+          } catch {
+            // Storage may be unavailable in restricted Telegram webviews.
+          }
+          setDepositMessage(String(backendPayload.message || 'External USDT receiving is paused on this network. Do not send funds to a previously saved address.'));
+        } else if (!hasCachedSelectedAddress) {
           setDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
           if (status === 401 || backendPayload?.error === 'UNAUTHORIZED') {
             setDepositMessage('Your AURA session is not ready. Please close and reopen the Receive panel.');
