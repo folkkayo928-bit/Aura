@@ -572,7 +572,7 @@ export const ReceiveModal: React.FC = () => {
               </>
             ) : (
               <div className="rounded-2xl bg-black/20 border border-amber-500/20 p-4 text-[11px] text-stone-400 leading-relaxed">
-                {depositMessage || 'External {externalAssetSymbol} receiving is currently unavailable.'}
+                {depositMessage || `External ${externalAssetSymbol} receiving is currently unavailable.`}
               </div>
             )}
 
