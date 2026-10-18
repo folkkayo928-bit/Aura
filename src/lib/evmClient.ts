@@ -14,7 +14,7 @@ import {
   type Hash,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
-import { normalizeRecoveryPhrase } from './nonCustodialWallet';
+import { normalizeRecoveryPhrase } from './nonCustodialWallet.ts';
 
 export type EvmNetwork = 'ethereum' | 'polygon' | 'arbitrum' | 'bsc';
 
