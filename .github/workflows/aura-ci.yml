@@ -25,7 +25,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Typecheck transaction Edge Functions
-        run: deno check --no-config supabase/functions/treasury-health/index.ts supabase/functions/withdrawal-broadcaster/index.ts supabase/functions/withdrawal-request/index.ts supabase/functions/withdrawal-indexer/index.ts supabase/functions/deposit-indexer/index.ts supabase/functions/deposit-sweep/index.ts supabase/functions/provision-deposit-address/index.ts supabase/functions/telegram-drop-notifications/index.ts supabase/functions/telegram-miniapp-auth/index.ts supabase/functions/telegram-p2p-notifications/index.ts supabase/functions/verify-external-wallet/index.ts supabase/functions/withdrawal-confirm/index.ts
+        run: deno check --no-config supabase/functions/treasury-health/index.ts supabase/functions/withdrawal-broadcaster/index.ts supabase/functions/withdrawal-request/index.ts supabase/functions/withdrawal-indexer/index.ts supabase/functions/deposit-indexer/index.ts supabase/functions/deposit-sweep/index.ts supabase/functions/provision-deposit-address/index.ts supabase/functions/telegram-drop-notifications/index.ts supabase/functions/telegram-miniapp-auth/index.ts supabase/functions/telegram-p2p-notifications/index.ts supabase/functions/personal-wallet-indexer/index.ts supabase/functions/verify-external-wallet/index.ts supabase/functions/withdrawal-confirm/index.ts
       - name: Build
         env:
           VITE_SUPABASE_URL: https://rtqcistkoomzmzxzasxc.supabase.co
