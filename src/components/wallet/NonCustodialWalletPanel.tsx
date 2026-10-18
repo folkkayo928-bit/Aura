@@ -34,6 +34,20 @@ function randomPositions(wordCount: number, count: number): number[] {
   return [...selected].sort((a, b) => a - b);
 }
 
+function displayBalance(value: string, maxDecimals = 8): string {
+  if (value === '—') return value;
+  const [whole, fraction = ''] = value.split('.');
+  const visible = fraction.slice(0, maxDecimals).replace(/0+$/, '');
+  return visible ? whole + '.' + visible : whole;
+}
+
+const TRANSACTION_EXPLORERS: Record<EvmNetwork, string> = {
+  ethereum: 'https://etherscan.io/tx/',
+  polygon: 'https://polygonscan.com/tx/',
+  arbitrum: 'https://arbiscan.io/tx/',
+  bsc: 'https://bscscan.com/tx/',
+};
+
 export const NonCustodialWalletPanel: React.FC = () => {
   const { user, loading: authLoading, openAuth } = useAuth();
   const [mode, setMode] = useState<Mode>('checking');
@@ -537,9 +551,203 @@ export const NonCustodialWalletPanel: React.FC = () => {
         </div>
       )}
 
+      {metadata && mode !== 'create' && mode !== 'import' && mode !== 'summary' && (
+        <div className="mt-4 space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold text-stone-100">Live on-chain balances</h3>
+                <p className="mt-1 text-[9px] leading-relaxed text-stone-500">Read from the selected network's RPC. The internal AURA ledger is separate from this wallet.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void refreshBalances(metadata.address)}
+                disabled={balanceLoading}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-2 text-[10px] text-stone-200 disabled:opacity-50"
+              >
+                {balanceLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Refresh
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {EVM_NETWORKS.map((network) => {
+                const balance = balances.find((item) => item.network === network.key);
+                return (
+                  <div key={network.key} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-semibold text-stone-200">{network.label}</span>
+                      <span className="mt-0.5 block text-[9px] text-stone-500">Gas: {balance?.available ? displayBalance(balance.native, 6) + ' ' + balance.nativeSymbol : balanceLoading ? 'Checking…' : 'Unavailable'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="block font-mono text-xs text-emerald-200">
+                        {balance?.available ? displayBalance(balance.usdt) + ' USDT' : balanceLoading ? 'Checking…' : 'Unavailable'}
+                      </span>
+                      <span className="mt-0.5 block text-[8px] text-stone-600">
+                        {balance?.available ? 'Block ' + balance.blockNumber : 'Not assumed to be zero'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {balanceError && <div className="mt-3 rounded-lg border border-amber-400/15 bg-amber-400/[0.04] p-2.5 text-[9px] leading-relaxed text-amber-100">{balanceError}</div>}
+          </div>
+
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-950/10 p-3">
+            <div className="flex items-center gap-2">
+              <ArrowUpRight className="h-4 w-4 text-emerald-300" />
+              <h3 className="text-xs font-semibold text-stone-100">Send USDT from your wallet</h3>
+            </div>
+            <p className="mt-1 text-[9px] leading-relaxed text-stone-500">Transactions are signed on this device. Aura does not receive your recovery phrase. You must hold the network's native gas token.</p>
+
+            {!hasUnlockedWallet ? (
+              <div className="mt-3 rounded-xl border border-white/5 bg-black/20 p-3 text-[10px] leading-relaxed text-stone-400">
+                Unlock the wallet with your PIN before reviewing a transfer.
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-mono uppercase tracking-wider text-stone-500">Network</span>
+                  <select
+                    value={sendNetwork}
+                    onChange={(event) => {
+                      setSendNetwork(event.target.value as EvmNetwork);
+                      setTransferReview(null);
+                      setSendConfirmed(false);
+                      setSendResult(null);
+                    }}
+                    className="w-full rounded-xl border border-white/10 bg-[#111118] p-3 text-xs text-stone-100 outline-none focus:border-emerald-300/50"
+                  >
+                    {EVM_NETWORKS.map((network) => (
+                      <option key={network.key} value={network.key}>{network.label} · USDT</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-mono uppercase tracking-wider text-stone-500">Recipient address</span>
+                  <input
+                    value={sendDestination}
+                    onChange={(event) => {
+                      setSendDestination(event.target.value);
+                      setTransferReview(null);
+                      setSendConfirmed(false);
+                      setSendResult(null);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="0x…"
+                    className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-xs font-mono text-stone-100 outline-none focus:border-emerald-300/50"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-mono uppercase tracking-wider text-stone-500">USDT amount</span>
+                  <input
+                    value={sendAmount}
+                    onChange={(event) => {
+                      setSendAmount(event.target.value);
+                      setTransferReview(null);
+                      setSendConfirmed(false);
+                      setSendResult(null);
+                    }}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="0.00"
+                    className="w-full rounded-xl border border-white/10 bg-black/20 p-3 text-sm font-mono text-stone-100 outline-none focus:border-emerald-300/50"
+                  />
+                </label>
+
+                {!transferReview ? (
+                  <button
+                    type="button"
+                    onClick={() => void reviewTransfer()}
+                    disabled={reviewBusy || sendBusy || !sendDestination.trim() || !sendAmount.trim()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 py-3 text-xs font-semibold text-stone-100 disabled:opacity-40"
+                  >
+                    {reviewBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                    {reviewBusy ? 'Checking balance and gas…' : 'Review transfer'}
+                  </button>
+                ) : (
+                  <div className="space-y-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[10px] text-stone-400">You will send</span>
+                      <span className="font-mono text-sm font-semibold text-amber-100">{transferReview.amount} USDT</span>
+                    </div>
+                    <div className="space-y-1.5 border-t border-white/5 pt-2 text-[10px]">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-stone-500">Network</span>
+                        <span className="text-right text-stone-200">{transferReview.label}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-stone-500">From</span>
+                        <span className="max-w-[68%] break-all text-right font-mono text-stone-300">{transferReview.from}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-stone-500">To</span>
+                        <span className="max-w-[68%] break-all text-right font-mono text-stone-200">{transferReview.destination}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-stone-500">Estimated network fee</span>
+                        <span className="text-right text-stone-200">{displayBalance(transferReview.estimatedNativeFee, 8)} {transferReview.nativeSymbol}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-stone-500">Available gas asset</span>
+                        <span className="text-right text-stone-200">{displayBalance(transferReview.nativeBalance, 8)} {transferReview.nativeSymbol}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[9px] leading-relaxed text-amber-100">This estimate can change before broadcast. Blockchain transfers cannot be reversed. AURA does not charge an app fee in this wallet flow.</p>
+                    <label className="flex items-start gap-2 text-[10px] leading-relaxed text-stone-200">
+                      <input type="checkbox" checked={sendConfirmed} onChange={(event) => setSendConfirmed(event.target.checked)} className="mt-0.5 accent-emerald-300" />
+                      I checked the network, amount, and full recipient address. I understand this sends real USDT on mainnet.
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void submitTransfer()}
+                      disabled={!sendConfirmed || sendBusy}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 py-3 text-xs font-bold text-stone-950 disabled:opacity-40"
+                    >
+                      {sendBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+                      {sendBusy ? 'Signing and submitting…' : 'Confirm and send USDT'}
+                    </button>
+                    <button type="button" onClick={() => { setTransferReview(null); setSendConfirmed(false); }} disabled={sendBusy} className="w-full py-1.5 text-[10px] text-stone-400 underline underline-offset-4">Edit transfer details</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {sendResult && (
+              <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold text-stone-100">Latest transaction</span>
+                  <span className={sendResult.status === 'confirmed' ? 'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-emerald-200' : sendResult.status === 'failed' ? 'rounded-full border border-rose-400/20 bg-rose-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-rose-200' : 'rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[8px] uppercase tracking-wider text-amber-100'}>
+                    {sendResult.status}
+                  </span>
+                </div>
+                <p className="mt-2 break-all font-mono text-[9px] text-stone-300">{sendResult.hash}</p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <a href={TRANSACTION_EXPLORERS[sendResult.network] + sendResult.hash} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[10px] text-emerald-200 underline underline-offset-4">
+                    View on explorer <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                  <button type="button" onClick={() => void checkLatestTransaction()} disabled={statusBusy} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-2 text-[10px] text-stone-200 disabled:opacity-50">
+                    {statusBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    Check confirmation
+                  </button>
+                </div>
+                <p className="mt-2 text-[9px] leading-relaxed text-stone-500">Do not send the same amount again if the transaction is pending or the RPC result is unclear.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mt-3 space-y-1 text-[9px] leading-relaxed text-stone-500">
         <p>Google sign-in and AURA TOTP protect your AURA account. Your wallet phrase and device PIN are separate; AURA cannot reset them.</p>
-        <p>This local wallet foundation currently stores/recovers the key and public address. On-chain balance display and in-app transactions must not be treated as ready until the RPC and transaction flows are connected and verified.</p>
+        <p>Balances are read from public RPC endpoints and may be temporarily unavailable. Transfers are signed locally, checked for token precision and estimated gas, and require your explicit confirmation. AURA cannot recover a lost seed phrase.</p><p>This personal wallet is separate from the older AURA internal ledger. No transfer is credited to that ledger simply because it appears on this address.</p>
       </div>
 
       {notice && <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.05] p-3 text-[10px] text-emerald-200">{notice}</div>}
