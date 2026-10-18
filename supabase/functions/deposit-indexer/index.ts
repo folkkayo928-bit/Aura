@@ -24,16 +24,24 @@ async function alchemyKey(client: ReturnType<typeof db>) {
 type Chain = keyof typeof EVM;
 const EVM_READ_RPC_FALLBACKS: Record<Chain, string[]> = {
   ethereum: [
-    "https://eth.drpc.org"
+    "https://eth.drpc.org",
+    "https://ethereum-rpc.publicnode.com",
   ],
   polygon: [
-    "https://polygon.drpc.org"
+    "https://polygon.drpc.org",
+    "https://polygon-bor-rpc.publicnode.com",
   ],
   arbitrum: [
-    "https://arbitrum.drpc.org"
+    "https://arbitrum.drpc.org",
+    "https://arb1.arbitrum.io/rpc",
+    "https://arbitrum-one.public.blastapi.io",
+    "https://arbitrum-one-rpc.publicnode.com",
   ],
   bsc: [
-    "https://bsc.drpc.org"
+    "https://bsc.drpc.org",
+    "https://bsc-rpc.publicnode.com",
+    "https://bsc-mainnet.public.blastapi.io",
+    "https://public.1rpc.io/bnb",
   ],
 };
 const preferredReadRpc: Partial<Record<Chain, string>> = {};
