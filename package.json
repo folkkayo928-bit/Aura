@@ -10,7 +10,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit -p tsconfig.web.json --noUnusedLocals",
     "start": "node server.js",
-    "test:wallet": "node --experimental-strip-types --test src/lib/nonCustodialWallet.test.ts src/lib/solanaClient.test.ts"
+    "test:wallet": "node --experimental-strip-types --test src/lib/nonCustodialWallet.test.ts src/lib/solanaClient.test.ts src/lib/evmClient.test.ts"
   },
   "dependencies": {
     "@scure/bip39": "^1.6.0",
