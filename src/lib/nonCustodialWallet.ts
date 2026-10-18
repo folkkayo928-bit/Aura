@@ -142,11 +142,12 @@ export async function storeEncryptedLocalEvmWallet(
   userId: string,
   recoveryPhrase: string,
   pin: string,
+  options: { replaceExisting?: boolean } = {},
 ): Promise<LocalEvmWalletMetadata> {
   const key = storageKey(userId);
   validatePin(pin);
 
-  if (window.localStorage.getItem(key)) {
+  if (window.localStorage.getItem(key) && options.replaceExisting !== true) {
     throw new Error('A local wallet record already exists. It will not be overwritten automatically.');
   }
 
