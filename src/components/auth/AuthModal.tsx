@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, KeyRound, Loader2, Mail, Send, ShieldCheck, UserRound, X } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Fingerprint, KeyRound, Loader2, Mail, Send, ShieldCheck, UserRound, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const AuthModal: React.FC = () => {
-  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signInWithTelegram, signInWithProvider, signUp, resetPassword, updatePassword } = useAuth();
+  const { authModalOpen, authMode, closeAuth, openAuth, signIn, signInWithTelegram, signInWithProvider, signInWithPasskey, signUp, resetPassword, updatePassword } = useAuth();
   const [mode, setMode] = useState(authMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -28,6 +28,21 @@ export const AuthModal: React.FC = () => {
     try {
       const result = await signInWithTelegram();
       if (result.error) setError(result.error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const continueWithPasskey = async () => {
+    setError('');
+    setMessage('');
+    setSubmitting(true);
+    try {
+      const result = await signInWithPasskey();
+      if (result.error) setError(result.error);
+      else closeAuth();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Passkey sign-in could not be completed.');
     } finally {
       setSubmitting(false);
     }
@@ -132,6 +147,17 @@ export const AuthModal: React.FC = () => {
                   <span className="font-bold text-base"></span> Continue with Apple
                 </button>
               </div>
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  onClick={continueWithPasskey}
+                  disabled={submitting}
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] py-3.5 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-400/10 disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
+                  Sign in with passkey
+                </button>
+              )}
               <button
                 type="button"
                 onClick={continueWithTelegram}
