@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { CryptoNetwork } from '../types';
 import { getLocalEvmWalletMetadata } from '../lib/nonCustodialWallet';
 import {
@@ -351,7 +352,11 @@ export const ReceiveModal: React.FC = () => {
   const [depositAddresses, setDepositAddresses] = useState<Record<string, string>>({});
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositMessage, setDepositMessage] = useState<string | null>(null);
-  const [receiveTab, setReceiveTab] = useState<'aura' | 'external'>('aura');
+  const [ledgerDepositAddresses, setLedgerDepositAddresses] = useState<Record<string, string>>({});
+  const [ledgerDepositLoading, setLedgerDepositLoading] = useState(false);
+  const [ledgerDepositMessage, setLedgerDepositMessage] = useState<string | null>(null);
+  const [ledgerFundingAcknowledged, setLedgerFundingAcknowledged] = useState(false);
+  const [receiveTab, setReceiveTab] = useState<'aura' | 'ledger' | 'external'>('aura');
   const [selectedNetwork, setSelectedNetwork] = useState<'polygon' | 'ethereum' | 'arbitrum' | 'bsc'>('polygon');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
@@ -404,6 +409,7 @@ export const ReceiveModal: React.FC = () => {
   }, [receiveModalOpen, receiveTab, selectedNetwork, authLoading, user?.id]);
 
   const externalAddress = depositAddresses[selectedNetwork] || '';
+  const ledgerDepositAddress = ledgerDepositAddresses[selectedNetwork] || '';
   // Polygon migrated its token at this address to native USDT0; show the exact asset label to reduce network/token mistakes.
   const externalAssetSymbol = selectedNetwork === 'polygon' ? 'USDT0' : 'USDT';
   const auraReceiveValue = userProfile.telegramHandle && userProfile.telegramHandle !== '@collector'
@@ -411,7 +417,69 @@ export const ReceiveModal: React.FC = () => {
     : userProfile.vaultId || '';
 
   React.useEffect(() => {
-    const value = receiveTab === 'external' ? externalAddress : auraReceiveValue;
+    if (!receiveModalOpen || receiveTab !== 'ledger' || !ledgerFundingAcknowledged) return;
+    let cancelled = false;
+    const loadLedgerDepositAddress = async () => {
+      setLedgerDepositMessage(null);
+      setLedgerDepositLoading(true);
+      if (authLoading) return;
+      if (!user?.id) {
+        setLedgerDepositAddresses({});
+        setLedgerDepositLoading(false);
+        setLedgerDepositMessage('Sign in to AURA before preparing an AURA balance funding address.');
+        return;
+      }
+      try {
+        const result = await supabase.functions.invoke('provision-deposit-address', {
+          body: { chain: selectedNetwork },
+        });
+        let payload: any = result.data || null;
+        const status = Number((result.error as any)?.context?.status || 0);
+        if (!payload && (result.error as any)?.context instanceof Response) {
+          try { payload = await (result.error as any).context.clone().json(); } catch { payload = null; }
+        }
+        if (cancelled) return;
+        if (result.error || !payload?.success) {
+          setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
+          if (payload?.error === 'CHAIN_DEPOSITS_PAUSED') {
+            setLedgerDepositMessage(String(payload.message || 'AURA balance funding is paused on this network. Do not use an old address.'));
+          } else if (status === 401 || payload?.error === 'UNAUTHORIZED') {
+            setLedgerDepositMessage('Your AURA session is not ready. Close and reopen this panel, then sign in again.');
+          } else {
+            setLedgerDepositMessage(String(payload?.message || 'AURA could not prepare a funding address. Please try again later.'));
+          }
+          return;
+        }
+        const currentAddress = String(
+          payload?.addresses?.[selectedNetwork]
+          || payload?.chains?.find((item: any) => item?.chain === selectedNetwork)?.address
+          || '',
+        );
+        if (!/^0x[0-9a-fA-F]{40}$/.test(currentAddress)) {
+          setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
+          setLedgerDepositMessage('AURA did not return a valid funding address. Do not send funds; try again later.');
+          return;
+        }
+        setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: currentAddress }));
+      } catch {
+        if (!cancelled) {
+          setLedgerDepositAddresses((previous) => ({ ...previous, [selectedNetwork]: '' }));
+          setLedgerDepositMessage('Could not connect to AURA funding services. No address is shown; please try again.');
+        }
+      } finally {
+        if (!cancelled) setLedgerDepositLoading(false);
+      }
+    };
+    void loadLedgerDepositAddress();
+    return () => { cancelled = true; };
+  }, [receiveModalOpen, receiveTab, ledgerFundingAcknowledged, selectedNetwork, authLoading, user?.id]);
+
+  React.useEffect(() => {
+    const value = receiveTab === 'external'
+      ? externalAddress
+      : receiveTab === 'ledger'
+        ? (ledgerFundingAcknowledged ? ledgerDepositAddress : '')
+        : auraReceiveValue;
     if (!value) {
       setQrCodeUrl('');
       return;
@@ -432,7 +500,7 @@ export const ReceiveModal: React.FC = () => {
       });
 
     return () => { cancelled = true; };
-  }, [receiveTab, externalAddress, auraReceiveValue]);
+  }, [receiveTab, externalAddress, ledgerDepositAddress, ledgerFundingAcknowledged, auraReceiveValue]);
 
   if (!receiveModalOpen) return null;
 
@@ -462,7 +530,7 @@ export const ReceiveModal: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 p-1 bg-white/5 rounded-2xl border border-white/5 mb-4">
+        <div className="grid grid-cols-3 gap-1 p-1 bg-white/5 rounded-2xl border border-white/5 mb-4">
           <button
             type="button"
             onClick={() => setReceiveTab('aura')}
@@ -472,10 +540,23 @@ export const ReceiveModal: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setReceiveTab('external')}
-            className={`py-2.5 text-[11px] font-semibold rounded-xl transition-all ${receiveTab === 'external' ? 'bg-cyan-400 text-slate-950 shadow-sm' : 'text-stone-400 hover:text-stone-200'}`}
+            onClick={() => {
+              setReceiveTab('ledger');
+              setLedgerFundingAcknowledged(false);
+              setLedgerDepositAddresses({});
+              setLedgerDepositMessage(null);
+              setLedgerDepositLoading(false);
+            }}
+            className={`py-2.5 text-[10px] font-semibold rounded-xl transition-all ${receiveTab === 'ledger' ? 'bg-amber-400 text-slate-950 shadow-sm' : 'text-stone-400 hover:text-stone-200'}`}
           >
-            External Wallet
+            Fund AURA
+          </button>
+          <button
+            type="button"
+            onClick={() => setReceiveTab('external')}
+            className={`py-2.5 text-[10px] font-semibold rounded-xl transition-all ${receiveTab === 'external' ? 'bg-cyan-400 text-slate-950 shadow-sm' : 'text-stone-400 hover:text-stone-200'}`}
+          >
+            Personal Wallet
           </button>
         </div>
 
@@ -515,6 +596,66 @@ export const ReceiveModal: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        ) : receiveTab === 'ledger' ? (
+          <div className="rounded-3xl bg-amber-950/20 border border-amber-400/20 p-4 space-y-4">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">Fund your AURA / P2P balance</span>
+              <p className="mt-1 text-[11px] leading-relaxed text-stone-300">This is a separate, AURA-managed deposit address. Confirmed deposits are reconciled by AURA's existing on-chain deposit service and may then appear in your internal USDT ledger. It is not your personal wallet address.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(['polygon', 'ethereum', 'arbitrum', 'bsc'] as const).map((chain) => (
+                <button
+                  type="button"
+                  key={chain}
+                  onClick={() => {
+                    setSelectedNetwork(chain);
+                    setLedgerFundingAcknowledged(false);
+                    setLedgerDepositAddresses({});
+                    setLedgerDepositMessage(null);
+                    setLedgerDepositLoading(false);
+                  }}
+                  className={`py-2.5 rounded-xl text-[10px] font-mono uppercase border transition-all ${selectedNetwork === chain ? 'border-amber-400/80 bg-amber-400/10 text-amber-200 font-bold' : 'border-white/5 bg-white/[0.02] text-stone-400'}`}
+                >
+                  {chain === 'bsc' ? 'BNB SMART CHAIN' : chain.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-3 space-y-2">
+              <p className="text-[10px] leading-relaxed text-amber-100">Funds sent here enter the AURA-managed deposit flow, not your local wallet. The network must match exactly, and ledger credit happens only after on-chain confirmation and backend reconciliation. Do not send funds unless you accept this custody model.</p>
+              {!ledgerFundingAcknowledged ? (
+                <button
+                  type="button"
+                  onClick={() => setLedgerFundingAcknowledged(true)}
+                  className="w-full rounded-xl bg-amber-400 py-3 text-[10px] font-bold text-stone-950"
+                >
+                  I understand — prepare funding address
+                </button>
+              ) : ledgerDepositLoading ? (
+                <p className="text-center text-[10px] text-stone-300">Checking funding readiness and preparing address…</p>
+              ) : ledgerDepositAddress ? (
+                <>
+                  <div className="flex justify-center rounded-xl bg-white p-3">
+                    {qrCodeUrl ? <img src={qrCodeUrl} alt={`${selectedNetwork} AURA balance funding QR code`} className="h-44 w-44 rounded-lg" /> : <div className="h-44 w-44 animate-pulse rounded-lg bg-slate-100/10" />}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-mono uppercase text-amber-300">{selectedNetwork} · {externalAssetSymbol}</span>
+                      <p className="mt-1 text-[9px] text-stone-500">Only send {externalAssetSymbol} on this network.</p>
+                      <p className="mt-2 break-all font-mono text-[10px] text-amber-100">{ledgerDepositAddress}</p>
+                    </div>
+                    <button type="button" onClick={() => handleCopy(ledgerDepositAddress)} className="rounded-lg bg-white/5 p-2 text-stone-300" aria-label={`Copy AURA balance ${selectedNetwork} deposit address`}>
+                      {copied === ledgerDepositAddress ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </>
+              ) : ledgerDepositMessage ? (
+                <p role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/[0.04] p-3 text-[10px] leading-relaxed text-rose-100">{ledgerDepositMessage}</p>
+              ) : (
+                <p className="text-center text-[10px] text-stone-400">Preparing…</p>
+              )}
+            </div>
+            <p className="text-[10px] leading-relaxed text-stone-500">This funds the AURA internal ledger used for P2P trading, not your personal wallet. Never send from or to a wallet on a different network. If the network is paused, AURA will not show a funding address.</p>
           </div>
         ) : (
           <div className="rounded-3xl bg-cyan-950/20 border border-cyan-500/20 p-4 space-y-4">
@@ -593,7 +734,13 @@ export const ReceiveModal: React.FC = () => {
           </div>
         )}
 
-        <button onClick={() => setReceiveModalOpen(false)} className="mt-4 w-full py-3 rounded-xl bg-white/5 text-stone-300 text-xs font-semibold">
+        <button onClick={() => {
+            setReceiveModalOpen(false);
+            setLedgerFundingAcknowledged(false);
+            setLedgerDepositAddresses({});
+            setLedgerDepositMessage(null);
+            setLedgerDepositLoading(false);
+          }} className="mt-4 w-full py-3 rounded-xl bg-white/5 text-stone-300 text-xs font-semibold">
           Done
         </button>
       </div>
