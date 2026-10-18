@@ -408,7 +408,7 @@ export const SettingsModal: React.FC = () => {
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/20 space-y-2">
                 <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5"><ShieldCheck className="w-4 h-4" />AURA Account Security</span>
-                <p className="text-xs text-stone-300 leading-relaxed">AURA does not show or store a recovery phrase in the browser. External wallet providers keep their own recovery credentials.</p>
+                <p className="text-xs text-stone-300 leading-relaxed">Your personal wallet recovery phrase is encrypted locally on this device and is never uploaded to AURA. Your account password, Google sign-in, passkey and TOTP protect AURA sign-in; they cannot recover a lost wallet phrase.</p>
                 <button onClick={() => setSeedPhraseModalOpen(true)} className="w-full mt-2 py-3 rounded-xl bg-cyan-400 text-stone-950 font-bold text-xs hover:bg-cyan-300 transition-colors">Wallet Security Guide</button>
               </div>
 
