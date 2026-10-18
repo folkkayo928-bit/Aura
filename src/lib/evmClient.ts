@@ -486,8 +486,15 @@ export async function sendEvmUsdt(
   // hash to check and still never retries the money movement automatically.
   const serializedTransaction = await walletClient.signTransaction(prepared);
   const hash = keccak256(serializedTransaction);
+  // Broadcast once through the primary dRPC endpoint. Read/estimate calls may
+  // use fallbacks, but an ambiguous send must return its known hash for checking
+  // rather than automatically submitting the raw transaction to another RPC.
+  const broadcastClient = createPublicClient({
+    chain: config.chain,
+    transport: http(config.rpcUrls[0], { timeout: 20000, retryCount: 0 }),
+  });
   try {
-    const broadcastHash = await client.sendRawTransaction({ serializedTransaction });
+    const broadcastHash = await broadcastClient.sendRawTransaction({ serializedTransaction });
     return {
       hash,
       network,
